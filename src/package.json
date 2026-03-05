@@ -1,0 +1,14 @@
+{
+  "name": "codexdesk-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron implementation of CodexDesk",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main/main.js && node --check main/app_controller.js && node --check main/codex_runner.js && node --check renderer/renderer.js"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0"
+  }
+}

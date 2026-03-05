@@ -1,0 +1,13 @@
+# Runtime state
+.codexdesk/
+
+# Dependencies
+src/node_modules/
+
+# Build artifacts
+src/dist/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/

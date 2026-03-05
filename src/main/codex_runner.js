@@ -1,5 +1,6 @@
 const { EventEmitter } = require('node:events');
 const { spawn, spawnSync } = require('node:child_process');
+const os = require('node:os');
 const readline = require('node:readline');
 
 const ANSI_PATTERN = /\x1B\[[0-?]*[ -/]*[@-~]/g;
@@ -51,6 +52,7 @@ class CodexRunner extends EventEmitter {
     const startMs = Date.now();
     const rawLines = [];
     const assistantChunks = [];
+    let sessionResetSuggested = false;
 
     try {
       const baseCmd = splitShellArgs(this.commandText);
@@ -61,6 +63,7 @@ class CodexRunner extends EventEmitter {
           rawOutput: '命令为空，请先设置 Codex 命令。',
           durationSeconds: 0,
           sessionId: this.sessionId,
+          sessionResetSuggested: false,
         });
         return;
       }
@@ -74,24 +77,20 @@ class CodexRunner extends EventEmitter {
       let exitCode = await this._runSubprocess(cmd, rawLines, assistantChunks);
       let cleanOutput = rawLines.join('\n').trim();
 
-      if (
-        exitCode !== 0
-        && this.useNativeMemory
-        && this.sessionId
-        && this._looksLikeResumeError(cleanOutput)
-      ) {
-        this.emit('event', 'warn', '会话恢复失败，已自动回退为新会话重试');
-        const fallbackMsg = '[fallback] resume failed, retry with fresh exec';
-        rawLines.push(fallbackMsg);
-        this.emit('raw_line', fallbackMsg);
-
-        this.detectedSessionId = '';
-        this.gotStreamDelta = false;
-        assistantChunks.length = 0;
-
-        const retryCmd = this._buildCommand(baseCmd, true);
-        exitCode = await this._runSubprocess(retryCmd, rawLines, assistantChunks);
-        cleanOutput = rawLines.join('\n').trim();
+      if (exitCode !== 0 && this.useNativeMemory && this.sessionId) {
+        const resumeError = this._looksLikeResumeError(cleanOutput);
+        const overloaded = this._looksLikeServerOverload(cleanOutput);
+        if (resumeError || overloaded) {
+          sessionResetSuggested = true;
+          this.detectedSessionId = '';
+          this.emit(
+            'event',
+            'warn',
+            resumeError
+              ? '会话恢复失败，请手动点击“重试上一条”'
+              : '检测到服务端 503/内存过载，请手动点击“重试上一条”',
+          );
+        }
       }
 
       let assistantText = assistantChunks.join('').trim();
@@ -106,6 +105,7 @@ class CodexRunner extends EventEmitter {
         rawOutput: cleanOutput,
         durationSeconds,
         sessionId: this.detectedSessionId,
+        sessionResetSuggested,
       });
     } catch (error) {
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
@@ -118,6 +118,7 @@ class CodexRunner extends EventEmitter {
         rawOutput: message,
         durationSeconds,
         sessionId: this.detectedSessionId,
+        sessionResetSuggested,
       });
     }
   }
@@ -174,7 +175,7 @@ class CodexRunner extends EventEmitter {
 
     if (this.useNativeMemory && this.sessionId && !forceNewSession) {
       this.emit('event', 'hint', `使用原生会话续聊: ${this.sessionId}`);
-      return [codexBin, 'exec', 'resume', ...execOpts, this.sessionId, this.prompt];
+      return [codexBin, 'exec', ...execOpts, 'resume', this.sessionId, this.prompt];
     }
 
     if (this.useNativeMemory) {
@@ -190,6 +191,7 @@ class CodexRunner extends EventEmitter {
     if (baseCmd.length >= 2 && baseCmd[0] === 'codex' && baseCmd[1] === 'exec') {
       const args = baseCmd.slice(2);
       const opts = [];
+      let hasAddDir = false;
       const optionsWithValueKeep = new Set([
         '--config', '-c', '--model', '-m', '--profile', '-p', '--sandbox', '-s',
         '--cd', '-C', '--add-dir', '--output-schema', '--enable', '--disable',
@@ -216,6 +218,10 @@ class CodexRunner extends EventEmitter {
           continue;
         }
 
+        if (token === '--add-dir' || String(token).startsWith('--add-dir=')) {
+          hasAddDir = true;
+        }
+
         if (optionsWithValueKeep.has(token) && i + 1 < args.length) {
           opts.push(token, args[i + 1]);
           i += 1;
@@ -223,6 +229,13 @@ class CodexRunner extends EventEmitter {
         }
 
         opts.push(token);
+      }
+
+      if (!hasAddDir) {
+        const homeDir = String(os.homedir() || '').trim();
+        if (homeDir) {
+          opts.push('--add-dir', homeDir);
+        }
       }
 
       opts.push('--json');
@@ -677,6 +690,18 @@ class CodexRunner extends EventEmitter {
     ];
     return (lower.includes('resume') || lower.includes('session'))
       && keywords.some((item) => lower.includes(item));
+  }
+
+  _looksLikeServerOverload(output) {
+    const lower = String(output || '').toLowerCase();
+    const markers = [
+      '503 service unavailable',
+      'unexpected status 503',
+      'status 503',
+      'system memory overloaded',
+      'server overloaded',
+    ];
+    return markers.some((item) => lower.includes(item));
   }
 }
 

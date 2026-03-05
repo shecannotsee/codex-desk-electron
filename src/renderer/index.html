@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodexDesk Electron</title>
+  <title>Codex Desk</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="app-root">
+  <div id="app-root" class="app-root">
     <aside class="sidebar">
-      <div class="sidebar-title">会话列表</div>
+      <div id="sidebar-title" class="sidebar-title">会话列表</div>
       <div class="sidebar-actions">
         <button id="btn-new-conv" class="btn-primary">新建对话</button>
         <button id="btn-rename-conv" class="btn-secondary">重命名</button>
@@ -20,43 +20,76 @@
       <div id="conversation-list" class="conversation-list"></div>
     </aside>
 
-    <main class="workspace">
+    <main id="workspace" class="workspace">
       <section class="focus-row">
-        <div id="chat-title" class="chat-title">当前对话（活跃）: -</div>
-        <div class="meta-chip">当前会话ID: <span id="session-id">-</span></div>
-        <div class="meta-chip">状态: <span id="phase">空闲</span></div>
-        <div class="meta-chip">耗时: <span id="elapsed">00:00</span></div>
+        <div id="chat-title" class="chat-title">当前对话: -</div>
+        <div class="meta-chip"><span id="label-session-id">当前会话ID</span>: <span id="session-id">-</span></div>
+        <div id="phase-chip" class="meta-chip phase-chip"><span id="label-phase">状态</span>: <span id="phase">空闲</span></div>
+        <div id="queue-chip" class="meta-chip queue-chip"><span id="label-queue">排队</span>: <span id="queue-count">0</span></div>
+        <div class="meta-chip"><span id="label-elapsed">耗时</span>: <span id="elapsed">00:00</span></div>
+        <div id="busy-indicator" class="busy-indicator hidden">● 正在生成回复...</div>
       </section>
 
-      <section class="setting-row">
-        <label for="command-input">Codex命令:</label>
-        <input id="command-input" type="text" />
+      <section id="row-command" class="setting-row">
+        <label id="label-command" for="command-input">Codex命令:</label>
+        <input id="command-input" type="text" readonly />
       </section>
 
-      <section class="setting-row">
-        <label for="workdir-input">工作目录:</label>
-        <input id="workdir-input" type="text" />
+      <section id="row-workdir" class="setting-row">
+        <label id="label-workdir" for="workdir-input">工作目录:</label>
+        <input id="workdir-input" type="text" readonly />
       </section>
 
-      <section class="setting-row">
+      <section id="row-permission" class="setting-row">
+        <label id="label-permission" for="permission-input">会话权限:</label>
+        <input id="permission-input" type="text" readonly />
+      </section>
+
+      <section id="row-language-font" class="setting-row">
+        <div id="language-controls" class="language-controls">
+          <label id="label-language" for="language-select">语言:</label>
+          <select id="language-select" class="compact-select">
+            <option value="zh-CN">中文</option>
+            <option value="en-US">English</option>
+          </select>
+        </div>
+        <label id="label-font-size" for="font-size-range">对话字号:</label>
+        <input id="font-size-range" class="font-size-range" type="range" min="12" max="24" step="1" value="15" />
+        <input
+          id="font-size-value"
+          class="font-size-value"
+          type="number"
+          min="12"
+          max="24"
+          step="1"
+          value="15"
+          inputmode="numeric"
+          aria-label="chat font size"
+        />
+      </section>
+
+      <section id="row-model-meta" class="setting-row">
         <div id="model-meta" class="model-meta">Codex版本: - | 模型: -</div>
-        <button id="btn-refresh-version" class="btn-secondary">获取Codex版本</button>
-        <button id="btn-refresh-model" class="btn-secondary">获取模型</button>
+        <button id="btn-refresh-version" class="btn-secondary menu-moved">获取Codex版本</button>
+        <button id="btn-refresh-model" class="btn-secondary menu-moved">获取模型</button>
       </section>
 
       <section class="setting-row actions-row">
-        <button id="btn-clear-chat">清空当前对话内容</button>
-        <button id="btn-clear-runtime">清空右侧运行日志</button>
+        <button id="btn-clear-chat" class="menu-moved">清空当前对话内容</button>
+        <button id="btn-clear-runtime" class="menu-moved">清空右侧运行日志</button>
+        <button id="btn-toggle-settings" class="menu-moved">隐藏配置信息</button>
+        <button id="btn-toggle-runtime" class="menu-moved">隐藏右侧面板</button>
+        <button id="btn-toggle-sidebar" class="menu-moved">隐藏左侧会话</button>
       </section>
 
-      <section class="content-row">
+      <section id="content-row" class="content-row">
         <div id="chat-view" class="chat-view"></div>
 
-        <div class="runtime-panel">
+        <div id="runtime-panel" class="runtime-panel">
           <div class="tabs">
-            <button class="tab-btn active" data-tab="structured">结构化事件</button>
-            <button class="tab-btn" data-tab="workflow">运行步骤</button>
-            <button class="tab-btn" data-tab="raw">事件原文(JSON)</button>
+            <button id="tab-btn-structured" class="tab-btn active" data-tab="structured">结构化事件</button>
+            <button id="tab-btn-workflow" class="tab-btn" data-tab="workflow">运行步骤</button>
+            <button id="tab-btn-raw" class="tab-btn" data-tab="raw">事件原文(JSON)</button>
           </div>
 
           <div class="tab-content">
@@ -68,11 +101,12 @@
       </section>
 
       <section class="input-row">
-        <textarea id="input-box" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
+        <textarea id="input-box" wrap="soft" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
       </section>
 
       <section class="send-row">
         <button id="btn-send">发送</button>
+        <button id="btn-retry-last">重试上一条</button>
         <button id="btn-stop">停止</button>
       </section>
     </main>
@@ -80,7 +114,7 @@
 
   <div id="rename-modal" class="modal-backdrop hidden">
     <div class="modal-card">
-      <div class="modal-title">重命名会话</div>
+      <div id="rename-modal-title" class="modal-title">重命名会话</div>
       <input id="rename-input" class="modal-input" type="text" placeholder="请输入会话名称" />
       <div class="modal-actions">
         <button id="rename-cancel">取消</button>
@@ -89,6 +123,9 @@
     </div>
   </div>
 
-  <script src="./renderer.js"></script>
+  <script src="./app/state_i18n.js"></script>
+  <script src="./app/conversation_runtime.js"></script>
+  <script src="./app/renderers.js"></script>
+  <script src="./app/bootstrap.js"></script>
 </body>
 </html>

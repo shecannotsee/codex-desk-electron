@@ -1,54 +1,54 @@
 # codex-desk-electron (English)
 
-`codex-desk-electron` is an Electron desktop client for Codex CLI.
+`codex-desk-electron` is an Electron desktop client for Codex CLI, with multi-conversation management and GUI runtime observability.
+
+## Documentation
+
+- Quick Start: [docs/quick-start.md](./docs/quick-start.md)
+- User Guide (scenario-based): [docs/user-guide.md](./docs/user-guide.md)
+- CLI vs GUI (core): [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
+- Architecture: [docs/architecture.md](./docs/architecture.md)
+- Dev Guide: [docs/dev-guide.md](./docs/dev-guide.md)
+- FAQ: [docs/faq.md](./docs/faq.md)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+- GPT Readable Map: [gpt-readable/README.md](./gpt-readable/README.md)
+
+## Validation Status
+
+- Verified: `Ubuntu 22.04`
+- Not yet verified: `Windows`, `macOS`
 
 ## Project Layout
 
-- `src/main/`: main process, session state, runtime control
+- `src/main/`: main process, state orchestration, runtime control
 - `src/renderer/`: renderer UI and interaction logic
-- `src/shared/`: shared modules (if any)
-- `src/package.json`: Electron scripts and dependencies
-- `start_electron.sh`: one-command startup script
+- `gpt-readable/`: GPT-first module map and workflow notes
+- `src/shared/`: shared modules
+- `docs/`: project documentation
+- `start_electron.sh`: one-command launcher
 
-## Usage
+## Quick Start
 
-1. Ensure `codex` CLI is installed and available in your `PATH`.
-2. Enter the project root and launch:
+### Option A: launch from project root
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start_electron.sh
 ```
 
-3. On first run, dependencies under `src/node_modules` are installed automatically.
-4. After launch, manage conversations and send prompts in the app UI.
-
-## Deployment
-
-### Local Development Run
+### Option B: manual dev launch
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
+npm run check
 npm start
 ```
 
-### Code Check
+## Documentation Maintenance Rule
 
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run check
-```
-
-### Initialize as a New Repository (for later GitHub linking)
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-git init
-git add .
-git commit -m "chore: initialize codex-desk-electron"
-```
-
-## License
-
-MIT. See [LICENSE](./LICENSE).
+- Must update before each release:
+  - `docs/cli-vs-gui.md`
+  - `CHANGELOG.md`
+- PR should include doc update status:
+  - `.github/pull_request_template.md`

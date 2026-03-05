@@ -8,15 +8,32 @@ const APP_ROOT = path.resolve(__dirname, '..', '..');
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
 const LEGACY_STATE_PATH = path.join(os.homedir(), '.codexdesk', 'state.electron.json');
 const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
-const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check --color never';
+const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
+
+function normalizeCommandText(raw) {
+  const text = String(raw || '').trim();
+  if (!text) {
+    return DEFAULT_COMMAND_TEXT;
+  }
+  // Backward-compatible cleanup: remove legacy `--color never` from codex exec defaults.
+  return text.replace(/\s--color(?:=|\s+)never\b/g, '').replace(/\s+/g, ' ').trim();
+}
 
 function normalizeWorkdir(candidate) {
-  const root = path.resolve(APP_ROOT);
-  const resolved = path.resolve(String(candidate || '').trim() || root);
-  if (resolved === root || resolved.startsWith(`${root}${path.sep}`)) {
+  const fallback = path.resolve(APP_ROOT);
+  const homeRoot = path.resolve(os.homedir());
+  const tmpRoot = path.resolve('/tmp');
+  const resolved = path.resolve(String(candidate || '').trim() || fallback);
+
+  if (
+    resolved === homeRoot
+    || resolved.startsWith(`${homeRoot}${path.sep}`)
+    || resolved === tmpRoot
+    || resolved.startsWith(`${tmpRoot}${path.sep}`)
+  ) {
     return resolved;
   }
-  return root;
+  return fallback;
 }
 
 function parseMessages(rawMessages) {
@@ -88,7 +105,7 @@ class StateStore {
       return this._defaultState();
     }
 
-    const commandText = String(data.commandText || DEFAULT_COMMAND_TEXT);
+    const commandText = normalizeCommandText(data.commandText || DEFAULT_COMMAND_TEXT);
     const workdir = normalizeWorkdir(data.workdir);
     const useNativeMemory = true;
 
@@ -150,7 +167,7 @@ class StateStore {
     }
 
     const payload = {
-      commandText: String(state.commandText || ''),
+      commandText: normalizeCommandText(state.commandText || ''),
       workdir: normalizeWorkdir(state.workdir),
       useNativeMemory: Boolean(state.useNativeMemory),
       activeConversationId,

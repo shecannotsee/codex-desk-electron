@@ -15,12 +15,21 @@ contextBridge.exposeInMainWorld('codexdesk', {
   refreshModelInfo: (conversationId) => ipcRenderer.invoke('meta:refresh-model', { conversationId }),
 
   sendMessage: (conversationId, text) => ipcRenderer.invoke('chat:send', { conversationId, text }),
+  retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
+  setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
 
   onEvent: (callback) => {
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on('app:event', handler);
     return () => {
       ipcRenderer.removeListener('app:event', handler);
+    };
+  },
+  onMenuAction: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('app:menu-action', handler);
+    return () => {
+      ipcRenderer.removeListener('app:menu-action', handler);
     };
   },
 });

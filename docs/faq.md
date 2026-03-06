@@ -72,3 +72,23 @@
 并兼容读取旧路径：
 
 - `~/.codexdesk/state.electron.json`
+
+## 10. Ubuntu 上怎么安装成桌面应用，而不是每次跑脚本？
+
+建议使用 `.deb`：
+
+1. 在 `src` 下执行 `npm run dist:deb`
+2. 用 `sudo apt install ./dist/Codex\\ Desk-*.deb` 安装
+3. 安装后从应用菜单打开，或终端执行 `codex-desk`
+
+详细步骤见：`docs/deploy-ubuntu.md`。
+
+## 11. Ubuntu 上怎么完整卸载？
+
+请看独立卸载文档：`docs/uninstall.md`。
+
+其中包含：
+
+1. 按包名卸载（`remove`/`purge`）
+2. 自动清理依赖（`autoremove`）
+3. 可选清理会话与状态数据

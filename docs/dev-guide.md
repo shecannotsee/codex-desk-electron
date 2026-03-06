@@ -53,22 +53,27 @@ node --check src/renderer/app/bootstrap.js
 
 ## 5. 打包说明
 
-当前仓库尚未配置正式打包脚本（如 `electron-builder` / `electron-forge`）。
+当前仓库已提供 Ubuntu DEB 打包配置：
 
-如果要发布安装包，建议新增：
+- 配置文件：`src/electron-builder.yml`
+- 打包命令：`cd src && npm run dist:deb`
+- 产物目录：`src/dist/`
 
-1. 打包工具配置
-2. 多平台签名/证书流程
-3. 产物命名规范与发布流水线
+说明：
+
+1. `.deb` 会打包 Electron + 应用代码 + Node 依赖。
+2. 系统共享库通过 `deb depends` 交给 APT 安装。
+3. `codex` CLI 属于外部依赖，不会内置到安装包。
 
 ## 6. 发布流程（建议）
 
 每次发版前至少执行：
 
 1. `cd src && npm run check`
-2. 更新 `docs/cli-vs-gui.md`
-3. 更新 `CHANGELOG.md`
-4. 人工回归关键流程：
+2. `cd src && npm run dist:deb`
+3. 更新 `docs/cli-vs-gui.md`
+4. 更新 `CHANGELOG.md`
+5. 人工回归关键流程：
    - 新建会话 -> 发送 -> 查看运行日志
    - 失败后重试
    - 关闭窗口保护

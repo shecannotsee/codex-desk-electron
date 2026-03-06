@@ -6,7 +6,9 @@
   "main": "main/main.js",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main/main.js && node --check main/app_controller.js && node --check main/codex_runner.js && node --check renderer/renderer.js"
+    "check": "node --check main/main.js && node --check main/app_controller.js && node --check main/codex_runner.js && node --check renderer/app/state_i18n.js && node --check renderer/app/conversation_runtime.js && node --check renderer/app/renderers.js && node --check renderer/app/bootstrap.js",
+    "pack:dir": "npx electron-builder@26.0.12 --dir --config electron-builder.yml",
+    "dist:deb": "npx electron-builder@26.0.12 --linux deb --config electron-builder.yml"
   },
   "devDependencies": {
     "electron": "^37.2.0"

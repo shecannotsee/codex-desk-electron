@@ -8,6 +8,7 @@ This directory contains the Electron source code and Node package files.
   - `renderer/app/`: renderer split scripts
 - `shared/`: shared modules
 - `package.json`: scripts and dependencies
+- `electron-builder.yml`: Ubuntu DEB packaging config
 
 For project-level documentation, see:
 

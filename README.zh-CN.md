@@ -9,6 +9,8 @@
 - CLI 与 GUI 对照（核心）: [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
 - 技术架构: [docs/architecture.md](./docs/architecture.md)
 - 开发/调试/打包: [docs/dev-guide.md](./docs/dev-guide.md)
+- Ubuntu DEB 部署: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
+- 卸载指南: [docs/uninstall.md](./docs/uninstall.md)
 - 常见问题: [docs/faq.md](./docs/faq.md)
 - 版本变更: [CHANGELOG.md](./CHANGELOG.md)
 - GPT 快速上手代码地图: [gpt-readable/README.md](./gpt-readable/README.md)
@@ -43,6 +45,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
 npm run check
 npm start
+```
+
+## Ubuntu DEB 打包
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run dist:deb
 ```
 
 ## 文档维护约定

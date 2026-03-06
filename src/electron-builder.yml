@@ -1,0 +1,50 @@
+appId: com.codexdesk.electron
+productName: Codex Desk
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - "main/**/*"
+  - "renderer/**/*"
+  - "package.json"
+
+extraMetadata:
+  main: "main/main.js"
+
+asar: true
+
+linux:
+  target:
+    - target: deb
+      arch:
+        - x64
+  category: Development
+  executableName: codex-desk
+  desktop:
+    Name: Codex Desk
+    Comment: Codex CLI desktop GUI with runtime observability
+    StartupWMClass: Codex Desk
+    Terminal: false
+
+deb:
+  priority: optional
+  maintainer: Codex Desk Maintainers
+  synopsis: Codex CLI desktop GUI
+  description: Codex Desk is an Electron desktop client for Codex CLI with multi-conversation workflow and runtime observability.
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libdrm2
+    - libgbm1
+    - libasound2
+    - libsecret-1-0
+  afterInstall: scripts/deb/postinst
+  afterRemove: scripts/deb/postrm

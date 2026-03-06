@@ -10,6 +10,13 @@ All notable changes to this project are documented in this file.
   - `src/main/app_controller.js` -> `src/main/app_controller/index.js` + `methods_*`
   - `src/renderer/renderer.js` -> `src/renderer/app/*.js`（按状态/渲染/事件绑定分层）
 
+### Added
+
+- 新增 Ubuntu 22.04 的 DEB 打包配置（`src/electron-builder.yml`）。
+- 新增 DEB 安装后脚本（`src/scripts/deb/postinst`、`src/scripts/deb/postrm`）。
+- 新增部署文档（`docs/deploy-ubuntu.md`）。
+- 新增卸载文档（`docs/uninstall.md`）。
+
 ### Docs
 
 - 建立分层文档体系：`README` + `docs/*` + `CHANGELOG`。

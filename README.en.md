@@ -9,6 +9,8 @@
 - CLI vs GUI (core): [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
 - Architecture: [docs/architecture.md](./docs/architecture.md)
 - Dev Guide: [docs/dev-guide.md](./docs/dev-guide.md)
+- Ubuntu DEB Deploy: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
+- Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
 - GPT Readable Map: [gpt-readable/README.md](./gpt-readable/README.md)
@@ -43,6 +45,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
 npm run check
 npm start
+```
+
+## Ubuntu DEB Build
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run dist:deb
 ```
 
 ## Documentation Maintenance Rule

@@ -105,8 +105,3 @@ Main -> Renderer 事件：
 1. `llm-readable/system-map.md`
 2. `llm-readable/core-flows.md`
 3. `llm-readable/change-hotspots.md`
-
-## 9. 架构图占位
-
-- 架构图（占位）：[docs/assets/architecture-overview.svg](./assets/architecture-overview.svg)
-- IPC 序列图（占位）：[docs/assets/sequence-send-message.svg](./assets/sequence-send-message.svg)

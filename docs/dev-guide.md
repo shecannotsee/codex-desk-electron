@@ -94,7 +94,7 @@ npm run capture:docs
 1. `.deb` 会打包 Electron、应用代码和 Node 依赖。
 2. 系统共享库依赖由 APT 安装。
 3. `codex` CLI 是外部依赖，不内置进安装包。
-4. 打包前会自动同步 `resource/logo.png` 到图标资源。
+4. 打包前会自动同步 `resource/logo.png` 到图标资源，并保留源图 alpha 形状（不额外裁切）。
 
 ## 7. 发布流程（建议）
 

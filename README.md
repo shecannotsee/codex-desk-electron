@@ -41,6 +41,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run dist:deb
 ```
 
+## Docs Screenshot Capture
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run capture:docs
+```
+
 ## License
 
 MIT, see [LICENSE](./LICENSE).

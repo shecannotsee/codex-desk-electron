@@ -9,6 +9,12 @@
 
 ## 1. 打包前准备
 
+确认 logo 文件存在（运行与部署统一使用该文件）：
+
+```bash
+ls -la /home/shecannotsee/Desktop/projects/codex-desk-electron/resource/logo.png
+```
+
 在打包机安装基础依赖：
 
 ```bash
@@ -23,6 +29,12 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
 npm run check
 ```
+
+说明：
+
+- `npm run start` / `npm run dist:deb` 会自动执行 `sync:logo`
+- 自动把 `resource/logo.png` 裁白边并做圆形遮罩后输出为 `src/build/icon.png`
+- 旧的白边原图已归档为 `resource/logo_with_white_border.png`
 
 ## 2. 生成 DEB 安装包
 

@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const path = require('node:path');
 
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
@@ -11,6 +12,24 @@ let controller = null;
 let menuLanguage = 'zh-CN';
 let allowWindowClose = false;
 let closeGuardPending = false;
+
+function resolveAppIconPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'build', 'icon.png'),
+    path.join(__dirname, '..', '..', 'resource', 'logo.png'),
+    path.join(process.resourcesPath || '', 'resource', 'logo.png'),
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
 
 const MENU_TEXT = {
   'zh-CN': {
@@ -324,12 +343,14 @@ async function handleWindowCloseGuard(event) {
 }
 
 function createWindow() {
+  const icon = resolveAppIconPath();
   mainWindow = new BrowserWindow({
     title: 'Codex Desk',
     width: 1460,
     height: 920,
     minWidth: 1100,
     minHeight: 720,
+    icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

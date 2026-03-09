@@ -6,6 +6,7 @@ src/node_modules/
 
 # Build artifacts
 src/dist/
+src/build/icon.png
 
 # OS/editor noise
 .DS_Store

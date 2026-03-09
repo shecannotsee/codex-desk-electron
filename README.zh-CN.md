@@ -27,7 +27,7 @@
 - `gpt-readable/`：面向 GPT 的功能划分与调用路径说明
 - `src/shared/`：共享模块
 - `docs/`：项目文档
-- `start_electron.sh`：一键启动脚本
+- `start.sh`：一键启动脚本
 
 ## 快速启动
 
@@ -35,8 +35,10 @@
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-./start_electron.sh
+./start.sh
 ```
+
+`start.sh` 会在启动前自动安装依赖（如缺失），并对 `resource/logo.png` 自动裁白边 + 圆形化后再应用。
 
 ### 方式二：手动开发启动
 
@@ -46,6 +48,8 @@ npm install
 npm run check
 npm start
 ```
+
+说明：`npm start` 同样会先执行 logo 同步。
 
 ## Ubuntu DEB 打包
 

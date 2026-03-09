@@ -29,8 +29,10 @@ Electron desktop client for Codex CLI, with multi-conversation management and ru
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-./start_electron.sh
+./start.sh
 ```
+
+`start.sh` will auto-install deps (if needed), then auto-trim logo white margins and apply a round mask before launch.
 
 ## Ubuntu DEB Build
 

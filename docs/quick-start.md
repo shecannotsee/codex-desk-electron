@@ -28,8 +28,10 @@ codex --version
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-./start_electron.sh
+./start.sh
 ```
+
+说明：该脚本会自动安装依赖（如缺失），并将 `resource/logo.png` 裁白边+圆形化后同步到运行/打包图标。
 
 ### 方式二：手动启动
 
@@ -39,6 +41,8 @@ npm install
 npm run check
 npm start
 ```
+
+说明：手动方式的 `npm start` 也会先同步 logo。
 
 ## 3. 创建第一个会话（1 分钟）
 

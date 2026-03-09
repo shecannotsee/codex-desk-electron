@@ -27,7 +27,7 @@
 - `gpt-readable/`: GPT-first module map and workflow notes
 - `src/shared/`: shared modules
 - `docs/`: project documentation
-- `start_electron.sh`: one-command launcher
+- `start.sh`: one-command launcher
 
 ## Quick Start
 
@@ -35,8 +35,10 @@
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-./start_electron.sh
+./start.sh
 ```
+
+`start.sh` auto-installs dependencies (if missing), then trims logo white margins and applies a round mask before launch.
 
 ### Option B: manual dev launch
 
@@ -46,6 +48,8 @@ npm install
 npm run check
 npm start
 ```
+
+Note: `npm start` also runs logo sync first.
 
 ## Ubuntu DEB Build
 

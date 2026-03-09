@@ -9,12 +9,17 @@ directories:
 files:
   - "main/**/*"
   - "renderer/**/*"
+  - "scripts/**/*"
   - "package.json"
 
 extraMetadata:
   main: "main/main.js"
 
 asar: true
+
+extraResources:
+  - from: ../resource/logo.png
+    to: resource/logo.png
 
 linux:
   target:
@@ -23,6 +28,7 @@ linux:
         - x64
   category: Development
   executableName: codex-desk
+  icon: build/icon.png
   desktop:
     Name: Codex Desk
     Comment: Codex CLI desktop GUI with runtime observability

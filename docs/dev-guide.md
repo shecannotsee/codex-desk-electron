@@ -14,6 +14,15 @@
 
 ## 2. 安装与启动
 
+推荐直接使用根目录脚本（已整合依赖检查 + logo 同步）：
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron
+./start.sh
+```
+
+或手动方式：
+
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
@@ -64,6 +73,7 @@ node --check src/renderer/app/bootstrap.js
 1. `.deb` 会打包 Electron + 应用代码 + Node 依赖。
 2. 系统共享库通过 `deb depends` 交给 APT 安装。
 3. `codex` CLI 属于外部依赖，不会内置到安装包。
+4. 打包前会自动同步 `resource/logo.png`，保证运行/安装图标一致。
 
 ## 6. 发布流程（建议）
 

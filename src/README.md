@@ -10,7 +10,6 @@ This directory contains the Electron source code and Node package files.
 - `package.json`: scripts and dependencies
 - `electron-builder.yml`: Ubuntu DEB packaging config
 - `scripts/sync-logo.js`: trim + round-mask `../resource/logo.png` to `build/icon.png`
-- `../resource/logo_with_white_border.png`: archived original logo with wide white border
 
 For project-level documentation, see:
 
@@ -20,4 +19,5 @@ For project-level documentation, see:
 - [../docs/quick-start.md](../docs/quick-start.md)
 - [../docs/user-guide.md](../docs/user-guide.md)
 - [../docs/cli-vs-gui.md](../docs/cli-vs-gui.md)
+- [../llm-readable/README.md](../llm-readable/README.md)
 - [../CHANGELOG.md](../CHANGELOG.md)

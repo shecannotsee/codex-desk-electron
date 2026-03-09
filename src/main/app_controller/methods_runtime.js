@@ -60,11 +60,36 @@ const runtimeMethods = {
     return map;
   },
 
+  _queuedItemsForUi(conversationId) {
+    const queue = this._getPendingQueue(conversationId);
+    return queue.map((item, index) => {
+      const rawText = String(item?.text || '');
+      const queuedAt = Number(item?.queuedAt || 0);
+      return {
+        id: `q-${conversationId}-${queuedAt || Date.now()}-${index + 1}`,
+        index: index + 1,
+        text: rawText,
+        preview: normalizePreview(rawText, 200),
+        queuedAt,
+        fromRetry: Boolean(item?.fromRetry),
+      };
+    });
+  },
+
+  _queuedMessagesSnapshot() {
+    const map = {};
+    for (const conv of this.conversations) {
+      map[conv.id] = this._queuedItemsForUi(conv.id);
+    }
+    return map;
+  },
+
   _emitQueueUpdated(conversationId) {
     this._emit({
       type: 'queue-updated',
       conversationId,
       count: this._pendingQueueSize(conversationId),
+      items: this._queuedItemsForUi(conversationId),
     });
   },
 
@@ -234,8 +259,38 @@ const runtimeMethods = {
     }
 
     this.assistantBufferByRunner.delete(runner);
+    this.userMessageByRunner.delete(runner);
     this.stepIndexByRunner.delete(runner);
     this.roundIndexByRunner.delete(runner);
+  },
+
+  _markRunnerUserMessageInterrupted(runner, reason = 'user-stop') {
+    if (!runner) {
+      return false;
+    }
+    const target = this.userMessageByRunner.get(runner);
+    if (!target || typeof target !== 'object') {
+      return false;
+    }
+    const conversationId = String(target.conversationId || '');
+    const message = target.message;
+    if (!message || message.role !== 'user') {
+      return false;
+    }
+    if (message.interrupted) {
+      return false;
+    }
+
+    message.interrupted = true;
+    message.interruptedReason = String(reason || 'user-stop');
+    message.interruptedAt = nowTs();
+
+    const conv = getConversation(this.conversations, conversationId);
+    if (conv) {
+      conv.updatedAt = nowTs();
+      this._syncConversationUpdated(conv);
+    }
+    return true;
   },
 
   snapshot() {
@@ -251,6 +306,7 @@ const runtimeMethods = {
       metaByConversation: this.metaByConversation,
       runningConversationIds: Array.from(this.runners.keys()),
       queuedCountByConversation: this._queuedCountSnapshot(),
+      queuedMessagesByConversation: this._queuedMessagesSnapshot(),
     };
   },
 
@@ -260,13 +316,20 @@ const runtimeMethods = {
 
   stopAllRunningConversations() {
     const ids = Array.from(this.runners.keys());
+    let markedAny = false;
     for (const id of ids) {
       const runner = this.runners.get(id);
       if (!runner) {
         continue;
       }
+      if (this._markRunnerUserMessageInterrupted(runner, 'app-closing')) {
+        markedAny = true;
+      }
       runner.stop();
       this._appendStructuredEvent(id, 'warn', '应用正在关闭，已请求停止当前对话任务');
+    }
+    if (markedAny) {
+      this._persist();
     }
     return ids.length;
   },

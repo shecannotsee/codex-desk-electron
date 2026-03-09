@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   sendMessage: (conversationId, text) => ipcRenderer.invoke('chat:send', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
+  invokeUiAction: (action) => ipcRenderer.invoke('ui:invoke-action', { action }),
 
   onEvent: (callback) => {
     const handler = (_event, payload) => callback(payload);

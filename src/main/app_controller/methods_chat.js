@@ -95,8 +95,12 @@ const chatMethods = {
     }
     const runner = this.runners.get(id);
     if (runner) {
+      const marked = this._markRunnerUserMessageInterrupted(runner, 'user-stop');
       runner.stop();
       this._appendStructuredEvent(id, 'warn', '已请求停止当前对话任务');
+      if (marked) {
+        this._persist();
+      }
     }
     return this.snapshot();
   },
@@ -155,6 +159,7 @@ const chatMethods = {
         appendUserMessage: Boolean(appendUserMessage),
         forceFreshSession: Boolean(forceFreshSession),
         fromRetry: Boolean(fromRetry),
+        queuedAt: Date.now(),
       });
       this._emitQueueUpdated(targetId);
       this._appendStructuredEvent(targetId, 'hint', `当前仍在处理中，已加入排队（第 ${queue.length} 条）: ${normalizePreview(userText)}`);
@@ -170,8 +175,10 @@ const chatMethods = {
       this._appendStructuredEvent(targetId, 'hint', '重试模式：已清空会话ID，将创建新会话');
     }
 
+    let appendedUserMessage = null;
     if (appendUserMessage) {
-      conv.messages.push({ role: 'user', text: userText });
+      conv.messages.push({ role: 'user', text: userText, createdAt: nowTs() });
+      appendedUserMessage = conv.messages[conv.messages.length - 1] || null;
     } else if (fromRetry) {
       this._appendStructuredEvent(targetId, 'info', `用户手动重试上一条消息: ${normalizePreview(userText)}`);
     }
@@ -204,6 +211,12 @@ const chatMethods = {
     this._emit({ type: 'runner-state', conversationId: targetId, running: true });
 
     this.assistantBufferByRunner.set(runner, '');
+    if (appendedUserMessage) {
+      this.userMessageByRunner.set(runner, {
+        conversationId: targetId,
+        message: appendedUserMessage,
+      });
+    }
     this.stepIndexByRunner.set(runner, 0);
     this.roundIndexByRunner.set(runner, roundIndex);
 
@@ -283,7 +296,7 @@ const chatMethods = {
 
       const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
       if (finalText && targetConv) {
-        targetConv.messages.push({ role: 'assistant', text: finalText });
+        targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
       } else if (!finalText && targetConv && result.exitCode === 0) {
         this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
       }

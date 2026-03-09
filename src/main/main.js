@@ -12,6 +12,9 @@ let controller = null;
 let menuLanguage = 'zh-CN';
 let allowWindowClose = false;
 let closeGuardPending = false;
+const ZOOM_FACTOR_MIN = 0.5;
+const ZOOM_FACTOR_MAX = 2.5;
+const ZOOM_FACTOR_STEP = 0.1;
 
 function resolveAppIconPath() {
   const candidates = [
@@ -178,6 +181,69 @@ function sendMenuAction(action) {
   mainWindow.webContents.send('app:menu-action', { action: String(action || '') });
 }
 
+function clampZoomFactor(input) {
+  const value = Number(input);
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.max(ZOOM_FACTOR_MIN, Math.min(ZOOM_FACTOR_MAX, value));
+}
+
+async function invokeUiAction(rawAction) {
+  const action = String(rawAction || '').trim();
+  if (!action) {
+    return { ok: false, error: '无效动作' };
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return { ok: false, error: '窗口不可用' };
+  }
+
+  const wc = mainWindow.webContents;
+  switch (action) {
+    case 'app:close-window':
+      mainWindow.close();
+      return { ok: true };
+    case 'app:quit':
+      app.quit();
+      return { ok: true };
+    case 'window:minimize':
+      mainWindow.minimize();
+      return { ok: true };
+    case 'window:toggle-fullscreen':
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      return { ok: true };
+    case 'window:exit-fullscreen':
+      if (mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
+      }
+      return { ok: true };
+    case 'view:reload':
+      wc.reload();
+      return { ok: true };
+    case 'view:toggle-devtools':
+      wc.toggleDevTools();
+      return { ok: true };
+    case 'view:zoom-reset':
+      wc.setZoomFactor(1);
+      return { ok: true, zoomFactor: 1 };
+    case 'view:zoom-in': {
+      const next = clampZoomFactor(wc.getZoomFactor() + ZOOM_FACTOR_STEP);
+      wc.setZoomFactor(next);
+      return { ok: true, zoomFactor: next };
+    }
+    case 'view:zoom-out': {
+      const next = clampZoomFactor(wc.getZoomFactor() - ZOOM_FACTOR_STEP);
+      wc.setZoomFactor(next);
+      return { ok: true, zoomFactor: next };
+    }
+    case 'help:about':
+      sendMenuAction('help:about');
+      return { ok: true };
+    default:
+      return { ok: false, error: `未支持的动作: ${action}` };
+  }
+}
+
 function applyMenuLanguage(language) {
   menuLanguage = normalizeLanguage(language);
   const text = MENU_TEXT[menuLanguage] || MENU_TEXT['zh-CN'];
@@ -279,13 +345,7 @@ function applyMenuLanguage(language) {
       submenu: [
         {
           label: text.about,
-          click: async () => {
-            await dialog.showMessageBox({
-              type: 'info',
-              title: text.about,
-              message: text.aboutMessage,
-            });
-          },
+          click: () => sendMenuAction('help:about'),
         },
       ],
     },
@@ -350,6 +410,7 @@ function createWindow() {
     height: 920,
     minWidth: 1100,
     minHeight: 720,
+    autoHideMenuBar: true,
     icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -362,6 +423,7 @@ function createWindow() {
   allowWindowClose = false;
   closeGuardPending = false;
   applyMenuLanguage(menuLanguage);
+  mainWindow.setMenuBarVisibility(false);
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -379,6 +441,10 @@ function registerIpc() {
     const language = normalizeLanguage(payload?.language);
     applyMenuLanguage(language);
     return { ok: true, language };
+  });
+
+  ipcMain.handle('ui:invoke-action', async (_, payload) => {
+    return invokeUiAction(payload?.action);
   });
 
   ipcMain.handle('app:get-snapshot', async () => controller.snapshot());

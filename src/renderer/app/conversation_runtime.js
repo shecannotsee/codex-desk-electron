@@ -257,6 +257,17 @@ function queuedCount(conversationId) {
   return Number(state.queuedCountByConversation[conversationId] || 0);
 }
 
+function queuedMessages(conversationId) {
+  if (!conversationId) {
+    return [];
+  }
+  const items = state.queuedMessagesByConversation?.[conversationId];
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items;
+}
+
 function getConversationState(conversationId) {
   const running = isConversationRunning(conversationId);
   const queue = queuedCount(conversationId);
@@ -277,4 +288,3 @@ function getConversationState(conversationId) {
   }
   return { key: 'idle', label: t('stateIdle') };
 }
-

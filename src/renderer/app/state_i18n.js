@@ -11,11 +11,14 @@ const state = {
   metaByConversation: {},
   runningConversationIds: new Set(),
   queuedCountByConversation: {},
+  queuedMessagesByConversation: {},
   collapsedByConversation: {},
   workflowCollapsedByConversation: {},
   activeTab: 'structured',
   ui: {
     language: 'zh-CN',
+    theme: 'light',
+    sidebarWidth: 320,
     chatFontSize: 15,
     runtimePanelHidden: false,
     settingsPanelHidden: false,
@@ -27,6 +30,9 @@ const UI_PREFS_KEY = 'codexdesk.ui-prefs.v1';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
 const CHAT_FONT_SIZE_DEFAULT = 15;
+const SIDEBAR_WIDTH_MIN = 220;
+const SIDEBAR_WIDTH_MAX = 520;
+const SIDEBAR_WIDTH_DEFAULT = 320;
 
 const I18N = {
   'zh-CN': {
@@ -56,12 +62,41 @@ const I18N = {
     toggleRuntimeShow: '显示右侧面板',
     toggleSidebarHide: '隐藏左侧会话',
     toggleSidebarShow: '显示左侧会话',
+    quickSettings: '设置',
+    settingsBack: '返回',
+    menuFile: '文件',
+    menuConversation: '对话',
+    menuRuntime: '运行',
+    menuInterface: '界面',
+    menuWindow: '窗口',
+    menuHelp: '帮助',
+    closeWindow: '关闭窗口',
+    quit: '退出',
+    resetZoom: '实际大小',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    minimize: '最小化',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏',
+    about: '关于 Codex Desk',
+    aboutDialogDesc: 'Codex Desk 是 Codex CLI 的桌面图形客户端。',
+    close: '关闭',
+    theme: '主题',
+    themeLight: '浅色',
+    themeDark: '深色',
+    languageZh: '中文',
+    languageEn: 'English',
+    contextMenuNew: '新建对话',
+    contextMenuRename: '重命名当前对话',
+    contextMenuClose: '关闭当前会话',
     tabStructured: '结构化事件',
     tabWorkflow: '运行步骤',
     tabRaw: '事件原文(JSON)',
     inputPlaceholderIdle: '输入消息，Ctrl+Enter 发送',
     inputPlaceholderRunning: '正在回复中，可继续输入并点击「排队发送」',
     inputPlaceholderNoConversation: '先新建一个会话，然后开始聊天',
+    chatRunningHint: 'Codex 正在执行中，请稍候...',
+    chatRunningHintWithQueue: 'Codex 正在执行中，当前还有 {count} 条排队消息...',
     send: '发送',
     queueSend: '排队发送',
     retryLast: '重试上一条',
@@ -80,6 +115,15 @@ const I18N = {
     runtimeTipStructured: '这里会显示结构化事件，现在先休息一下',
     runtimeTipWorkflow: '这里会显示运行步骤，等你新建会话后马上开工',
     runtimeTipRaw: '等待中：暂无会话',
+    queuedQuestionsTitle: '待执行排队提问',
+    queuedQuestionsHint: '以下提问会在当前回复完成后按顺序执行',
+    queuedQuestionItem: '排队提问 #{index}',
+    queuedRepliesTitle: '待执行排队消息',
+    queuedRepliesHint: '当前回复完成后会按顺序执行以下消息',
+    queuedReplyItem: '排队消息 #{index}',
+    queuedFromInput: '输入',
+    queuedFromRetry: '重试',
+    queuedAt: '入队时间',
     question: '问题',
     startTime: '开始时间',
     roleYou: '你',
@@ -133,12 +177,41 @@ const I18N = {
     toggleRuntimeShow: 'Show Runtime Panel',
     toggleSidebarHide: 'Hide Left Sidebar',
     toggleSidebarShow: 'Show Left Sidebar',
+    quickSettings: 'Settings',
+    settingsBack: 'Back',
+    menuFile: 'File',
+    menuConversation: 'Conversation',
+    menuRuntime: 'Runtime',
+    menuInterface: 'Interface',
+    menuWindow: 'Window',
+    menuHelp: 'Help',
+    closeWindow: 'Close Window',
+    quit: 'Quit',
+    resetZoom: 'Actual Size',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    minimize: 'Minimize',
+    fullscreen: 'Full Screen',
+    exitFullscreen: 'Exit Full Screen',
+    about: 'About Codex Desk',
+    aboutDialogDesc: 'Codex Desk is the desktop GUI client for Codex CLI.',
+    close: 'Close',
+    theme: 'Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    languageZh: 'Chinese',
+    languageEn: 'English',
+    contextMenuNew: 'New Conversation',
+    contextMenuRename: 'Rename Current Conversation',
+    contextMenuClose: 'Close Current Conversation',
     tabStructured: 'Structured Events',
     tabWorkflow: 'Workflow',
     tabRaw: 'Raw Events (JSON)',
     inputPlaceholderIdle: 'Type a message, press Ctrl+Enter to send',
     inputPlaceholderRunning: 'Response in progress. Keep typing and click "Queue Send".',
     inputPlaceholderNoConversation: 'Create a conversation first, then start chatting',
+    chatRunningHint: 'Codex is working, please wait...',
+    chatRunningHintWithQueue: 'Codex is working. {count} queued message(s) pending...',
     send: 'Send',
     queueSend: 'Queue Send',
     retryLast: 'Retry Last',
@@ -157,6 +230,15 @@ const I18N = {
     runtimeTipStructured: 'Structured events will appear here.',
     runtimeTipWorkflow: 'Workflow steps will appear here after you start.',
     runtimeTipRaw: 'Waiting: no active conversation',
+    queuedQuestionsTitle: 'Queued Questions',
+    queuedQuestionsHint: 'These questions will run in order after current response finishes.',
+    queuedQuestionItem: 'Queued Question #{index}',
+    queuedRepliesTitle: 'Queued Messages',
+    queuedRepliesHint: 'These messages will run in order after current response finishes.',
+    queuedReplyItem: 'Queued #{index}',
+    queuedFromInput: 'Input',
+    queuedFromRetry: 'Retry',
+    queuedAt: 'Queued At',
     question: 'Question',
     startTime: 'Start',
     roleYou: 'You',
@@ -187,9 +269,11 @@ const I18N = {
 
 const el = {
   appRoot: document.getElementById('app-root'),
+  sidebarResizer: document.getElementById('sidebar-resizer'),
   workspace: document.getElementById('workspace'),
   sidebarTitle: document.getElementById('sidebar-title'),
   conversationList: document.getElementById('conversation-list'),
+  focusRow: document.getElementById('focus-row'),
   btnNewConv: document.getElementById('btn-new-conv'),
   btnRenameConv: document.getElementById('btn-rename-conv'),
   btnCloseConv: document.getElementById('btn-close-conv'),
@@ -206,6 +290,21 @@ const el = {
   queueCount: document.getElementById('queue-count'),
   elapsed: document.getElementById('elapsed'),
   busyIndicator: document.getElementById('busy-indicator'),
+  btnQuickSettings: document.getElementById('btn-quick-settings'),
+  labelQuickSettings: document.getElementById('label-quick-settings'),
+  quickSettingsMenu: document.getElementById('quick-settings-menu'),
+  quickSettingsRoot: document.getElementById('quick-settings-root'),
+  quickSettingsDetail: document.getElementById('quick-settings-detail'),
+  qsBack: document.getElementById('qs-back'),
+  qsDetailTitle: document.getElementById('qs-detail-title'),
+  qsToggleSettings: document.getElementById('qs-toggle-settings'),
+  qsToggleRuntime: document.getElementById('qs-toggle-runtime'),
+  qsToggleSidebar: document.getElementById('qs-toggle-sidebar'),
+  qsLangZh: document.getElementById('qs-lang-zh'),
+  qsLangEn: document.getElementById('qs-lang-en'),
+  qsThemeLight: document.getElementById('qs-theme-light'),
+  qsThemeDark: document.getElementById('qs-theme-dark'),
+  i18nNodes: Array.from(document.querySelectorAll('[data-i18n-key]')),
 
   commandInput: document.getElementById('command-input'),
   workdirInput: document.getElementById('workdir-input'),
@@ -240,6 +339,7 @@ const el = {
   tabButtons: Array.from(document.querySelectorAll('.tab-btn')),
 
   inputBox: document.getElementById('input-box'),
+  sendRow: document.getElementById('send-row'),
   btnSend: document.getElementById('btn-send'),
   btnRetryLast: document.getElementById('btn-retry-last'),
   btnStop: document.getElementById('btn-stop'),
@@ -249,6 +349,17 @@ const el = {
   renameInput: document.getElementById('rename-input'),
   renameCancel: document.getElementById('rename-cancel'),
   renameConfirm: document.getElementById('rename-confirm'),
+  aboutModal: document.getElementById('about-modal'),
+  aboutClose: document.getElementById('about-close'),
+
+  contextMenu: document.getElementById('conversation-context-menu'),
+  ctxNewConv: document.getElementById('ctx-new-conv'),
+  ctxRenameConv: document.getElementById('ctx-rename-conv'),
+  ctxCloseConv: document.getElementById('ctx-close-conv'),
+  chatContextMenu: document.getElementById('chat-context-menu'),
+  ctxToggleSettings: document.getElementById('ctx-toggle-settings'),
+  ctxToggleRuntime: document.getElementById('ctx-toggle-runtime'),
+  ctxToggleSidebar: document.getElementById('ctx-toggle-sidebar'),
 };
 
 function currentLang() {
@@ -269,18 +380,42 @@ function clampChatFontSize(input, fallback = CHAT_FONT_SIZE_DEFAULT) {
   return Math.min(CHAT_FONT_SIZE_MAX, Math.max(CHAT_FONT_SIZE_MIN, Math.round(value)));
 }
 
+function clampSidebarWidth(input, fallback = SIDEBAR_WIDTH_DEFAULT) {
+  const value = Number(input);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(value)));
+}
+
+function normalizeTheme(input) {
+  return String(input || '').trim().toLowerCase() === 'dark' ? 'dark' : 'light';
+}
+
 function parseUiPrefs(rawText) {
   try {
     const data = JSON.parse(String(rawText || '{}'));
     const language = data.language === 'en-US' ? 'en-US' : 'zh-CN';
+    const theme = normalizeTheme(data.theme);
+    const sidebarWidth = clampSidebarWidth(data.sidebarWidth, SIDEBAR_WIDTH_DEFAULT);
     const chatFontSize = clampChatFontSize(data.chatFontSize, CHAT_FONT_SIZE_DEFAULT);
     const runtimePanelHidden = Boolean(data.runtimePanelHidden);
     const settingsPanelHidden = Boolean(data.settingsPanelHidden);
     const sidebarHidden = Boolean(data.sidebarHidden);
-    return { language, chatFontSize, runtimePanelHidden, settingsPanelHidden, sidebarHidden };
+    return {
+      language,
+      theme,
+      sidebarWidth,
+      chatFontSize,
+      runtimePanelHidden,
+      settingsPanelHidden,
+      sidebarHidden,
+    };
   } catch {
     return {
       language: 'zh-CN',
+      theme: 'light',
+      sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
       chatFontSize: CHAT_FONT_SIZE_DEFAULT,
       runtimePanelHidden: false,
       settingsPanelHidden: false,
@@ -311,6 +446,45 @@ function applyChatFontSize() {
   const scale = (chatFontSize / CHAT_FONT_SIZE_DEFAULT).toFixed(3);
   document.documentElement.style.setProperty('--chat-font-size', px);
   document.documentElement.style.setProperty('--chat-font-scale', scale);
+}
+
+function applySidebarWidth() {
+  const width = clampSidebarWidth(state.ui.sidebarWidth, SIDEBAR_WIDTH_DEFAULT);
+  document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+}
+
+function setSidebarWidth(input, options = {}) {
+  const persist = options.persist !== false;
+  const next = clampSidebarWidth(input, state.ui.sidebarWidth);
+  const changed = next !== state.ui.sidebarWidth;
+  state.ui.sidebarWidth = next;
+  if (changed) {
+    applySidebarWidth();
+    if (persist) {
+      saveUiPrefs();
+    }
+  }
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', normalizeTheme(state.ui.theme));
+}
+
+function setTheme(input, options = {}) {
+  const persist = options.persist !== false;
+  const rerender = options.rerender !== false;
+  const next = normalizeTheme(input);
+  const changed = next !== normalizeTheme(state.ui.theme);
+  state.ui.theme = next;
+  if (changed) {
+    applyTheme();
+    if (persist) {
+      saveUiPrefs();
+    }
+  }
+  if (rerender) {
+    renderAll();
+  }
 }
 
 function setChatFontSize(input, options = {}) {
@@ -359,6 +533,9 @@ function localizeKnownText(input) {
     ['任务完成', 'Task completed'],
     ['任务失败', 'Task failed'],
     ['网络异常，正在重连...', 'Network issue, reconnecting...'],
+    ['窗口不可用', 'Window unavailable'],
+    ['无效动作', 'Invalid action'],
+    ['未支持的动作:', 'Unsupported action:'],
   ];
   for (const [zh, en] of replacements) {
     text = text.replaceAll(zh, en);
@@ -624,4 +801,3 @@ function resolvePermissionSummary() {
     title: t('permissionTitleLimited', { paths: writableLabelUi }),
   };
 }
-

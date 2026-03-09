@@ -1,6 +1,6 @@
 # codex-desk-electron（中文）
 
-`codex-desk-electron` 是面向 Codex CLI 的 Electron 桌面客户端，提供多会话管理、运行可视化与 GUI 增强能力。
+`codex-desk-electron` 是 Codex CLI 的 Electron 桌面端，提供多会话管理、运行可视化和 GUI 增强能力。
 
 ## 文档导航
 
@@ -13,7 +13,7 @@
 - 卸载指南: [docs/uninstall.md](./docs/uninstall.md)
 - 常见问题: [docs/faq.md](./docs/faq.md)
 - 版本变更: [CHANGELOG.md](./CHANGELOG.md)
-- GPT 快速上手代码地图: [gpt-readable/README.md](./gpt-readable/README.md)
+- 大模型快速代码地图: [llm-readable/README.md](./llm-readable/README.md)
 
 ## 当前验证状态
 
@@ -22,23 +22,21 @@
 
 ## 目录结构
 
-- `src/main/`：主进程、状态管理、运行控制
+- `src/main/`：主进程、状态编排、运行控制
 - `src/renderer/`：渲染进程 UI 与交互逻辑
-- `gpt-readable/`：面向 GPT 的功能划分与调用路径说明
 - `src/shared/`：共享模块
+- `llm-readable/`：面向任意大模型的快速阅读索引
 - `docs/`：项目文档
 - `start.sh`：一键启动脚本
 
 ## 快速启动
 
-### 方式一：项目根目录一键启动
+### 方式一：根目录脚本启动
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
-
-`start.sh` 会在启动前自动安装依赖（如缺失），并对 `resource/logo.png` 自动裁白边 + 圆形化后再应用。
 
 ### 方式二：手动开发启动
 
@@ -48,8 +46,6 @@ npm install
 npm run check
 npm start
 ```
-
-说明：`npm start` 同样会先执行 logo 同步。
 
 ## Ubuntu DEB 打包
 
@@ -63,5 +59,5 @@ npm run dist:deb
 - 每次发版前必须更新：
   - `docs/cli-vs-gui.md`
   - `CHANGELOG.md`
-- PR 必须勾选是否更新文档：
+- PR 必须勾选文档更新状态：
   - `.github/pull_request_template.md`

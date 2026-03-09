@@ -2,31 +2,31 @@
 
 ## 1. 总体分层
 
-本项目采用 Electron 的经典三层结构：
-
 1. Main 进程（`src/main/`）
-   - 业务编排、状态管理、子进程调用、菜单、窗口生命周期
+   - 业务编排、状态管理、子进程调用、窗口生命周期、菜单动作分发
 2. Preload（`src/main/preload.js`）
    - 受控暴露 IPC API 给 Renderer
 3. Renderer（`src/renderer/`）
-   - 界面渲染、交互状态、事件展示
+   - 界面渲染、交互状态、运行可视化
 
 ## 2. 目录说明
 
-- `src/main/main.js`：应用入口、窗口创建、IPC 注册、菜单与关闭保护。
-- `src/main/app_controller/index.js`：`AppController` 主类与方法聚合入口。
-- `src/main/app_controller/methods_runtime.js`：运行态、队列、会话基础管理。
-- `src/main/app_controller/methods_meta.js`：版本/模型探测与命令解析。
-- `src/main/app_controller/methods_chat.js`：发送、重试、停止、清理等对话操作。
-- `src/main/codex_runner.js`：对子进程 `codex` 的封装，解析输出事件。
+- `src/main/main.js`：应用入口、IPC 注册、窗口关闭保护、隐藏系统菜单。
+- `src/main/app_controller/index.js`：`AppController` 组合入口。
+- `src/main/app_controller/methods_runtime.js`：运行态、队列、会话快照。
+- `src/main/app_controller/methods_meta.js`：Codex 版本/模型探测。
+- `src/main/app_controller/methods_chat.js`：发送、重试、停止、清理、关闭。
+- `src/main/codex_runner.js`：`codex` 子进程封装与事件解析。
 - `src/main/state_store.js`：持久化状态读写与迁移。
-- `src/main/runtime_store.js`：运行态（步骤/事件/raw）内存存储。
-- `src/renderer/app/state_i18n.js`：前端状态、I18N、偏好和基础工具。
-- `src/renderer/app/conversation_runtime.js`：会话状态选择器与折叠逻辑。
-- `src/renderer/app/renderers.js`：各视图渲染函数。
-- `src/renderer/app/bootstrap.js`：事件绑定、IPC 回推处理、初始化。
-- `src/renderer/index.html` + `src/renderer/styles.css`：页面结构与样式。
-- `gpt-readable/`：面向 GPT 的代码功能划分与链路说明。
+- `src/main/runtime_store.js`：运行态内存结构。
+- `src/main/preload.js`：Renderer <-> Main 桥接。
+- `src/renderer/index.html`：页面骨架（会话区/聊天区/运行区/设置菜单）。
+- `src/renderer/app/state_i18n.js`：全局状态、I18N、UI 偏好。
+- `src/renderer/app/conversation_runtime.js`：会话状态与折叠逻辑。
+- `src/renderer/app/renderers.js`：各区域渲染器。
+- `src/renderer/app/bootstrap.js`：事件绑定、动作路由、初始化。
+- `src/renderer/styles.css`：Telegram 风格 UI + 主题变量。
+- `llm-readable/`：面向大模型的代码地图与链路索引。
 
 ## 3. 关键数据结构
 
@@ -49,22 +49,24 @@
 ### UI 偏好
 
 - `language`
+- `theme`
 - `chatFontSize`
+- `sidebarWidth`
 - `runtimePanelHidden`
 - `settingsPanelHidden`
 - `sidebarHidden`
 
-## 4. 通信模型（IPC）
+## 4. IPC 通信模型
 
-Renderer 通过 preload 暴露接口调用主进程：
+Renderer -> Main（示例）：
 
 - 会话：创建、切换、重命名、关闭
 - 对话：发送、重试、停止
 - 运行日志：清空
 - 元信息：刷新版本/模型
-- UI：菜单语言同步
+- UI：菜单语言同步、窗口级动作调用
 
-主进程通过事件回推：
+Main -> Renderer 事件：
 
 - `runtime-event-append`
 - `runtime-workflow-append`
@@ -72,29 +74,39 @@ Renderer 通过 preload 暴露接口调用主进程：
 - `runner-state`
 - `meta-updated`
 - `queue-updated`
-- `conversation-updated/removed`
+- `conversation-updated` / `conversation-removed`
 
-## 5. 运行链路
+## 5. 主运行链路（输入到结果）
 
-1. 发送消息 -> `AppController.sendMessage`
-2. 构建并启动 `CodexRunner`
-3. 解析 stdout/stderr 与 JSON 事件
+1. Renderer 发送消息 -> `chat:send`
+2. Main `AppController.sendMessage`
+3. `CodexRunner` 解析 stdout/stderr/JSON
 4. 增量写入运行态并回推前端
 5. 完成后写入 assistant 消息并持久化
 
-## 6. 状态持久化
+## 6. 关键交互链路
 
-- 默认路径：`<repo>/.codexdesk/state.electron.json`
-- 兼容迁移：支持从 `~/.codexdesk/state.electron.json` 读取旧状态
-- 会话消息存储有上限截断（保留最近 200 条）
+1. 运行中再次发送：进入会话队列，串行执行。
+2. 运行步骤：默认折叠，按条展开。
+3. 左侧会话：右键菜单处理新建/重命名/关闭。
+4. 设置面板：Telegram 风格多级菜单分发动作。
+5. 关闭窗口：若有任务运行，弹出三选确认。
 
-## 7. GPT 可读性拆分
+## 7. 状态持久化
 
-- 主进程将 `AppController` 拆为 `index + methods_*`，按职责阅读。
-- 渲染进程将单文件拆为 `state/conversation/render/bootstrap` 四段脚本。
-- 详细功能落点见：`gpt-readable/code-map.md`。
+- 会话状态：`<repo>/.codexdesk/state.electron.json`
+- 兼容读取旧路径：`~/.codexdesk/state.electron.json`
+- UI 偏好：`localStorage['codexdesk.ui-prefs.v1']`
 
-## 8. 架构图占位
+## 8. 大模型快速阅读
+
+优先阅读：
+
+1. `llm-readable/system-map.md`
+2. `llm-readable/core-flows.md`
+3. `llm-readable/change-hotspots.md`
+
+## 9. 架构图占位
 
 - 架构图（占位）：[docs/assets/architecture-overview.svg](./assets/architecture-overview.svg)
 - IPC 序列图（占位）：[docs/assets/sequence-send-message.svg](./assets/sequence-send-message.svg)

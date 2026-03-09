@@ -34,7 +34,6 @@ npm run check
 
 - `npm run start` / `npm run dist:deb` 会自动执行 `sync:logo`
 - 自动把 `resource/logo.png` 裁白边并做圆形遮罩后输出为 `src/build/icon.png`
-- 旧的白边原图已归档为 `resource/logo_with_white_border.png`
 
 ## 2. 生成 DEB 安装包
 

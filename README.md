@@ -1,6 +1,6 @@
 # codex-desk-electron
 
-Electron desktop client for Codex CLI, with multi-conversation management and runtime visualization.
+Electron desktop client for Codex CLI, focused on multi-conversation workflow and runtime observability.
 
 ## Language
 
@@ -18,21 +18,21 @@ Electron desktop client for Codex CLI, with multi-conversation management and ru
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
-- GPT Readable Map: [gpt-readable/README.md](./gpt-readable/README.md)
+- LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
 
-## Platform Validation Status
+## Current Validation Scope
 
 - Verified: `Ubuntu 22.04`
 - Not yet verified: `Windows`, `macOS`
 
-## Quick Start
+## Quick Run
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-`start.sh` will auto-install deps (if needed), then auto-trim logo white margins and apply a round mask before launch.
+`start.sh` auto-installs missing dependencies, syncs logo resources, then launches app.
 
 ## Ubuntu DEB Build
 

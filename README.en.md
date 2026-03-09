@@ -1,6 +1,6 @@
 # codex-desk-electron (English)
 
-`codex-desk-electron` is an Electron desktop client for Codex CLI, with multi-conversation management and GUI runtime observability.
+`codex-desk-electron` is an Electron desktop client for Codex CLI, with multi-conversation management and runtime observability.
 
 ## Documentation
 
@@ -13,7 +13,7 @@
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
-- GPT Readable Map: [gpt-readable/README.md](./gpt-readable/README.md)
+- LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
 
 ## Validation Status
 
@@ -22,11 +22,11 @@
 
 ## Project Layout
 
-- `src/main/`: main process, state orchestration, runtime control
-- `src/renderer/`: renderer UI and interaction logic
-- `gpt-readable/`: GPT-first module map and workflow notes
+- `src/main/`: main process, orchestration, runtime control
+- `src/renderer/`: renderer UI and interactions
 - `src/shared/`: shared modules
-- `docs/`: project documentation
+- `llm-readable/`: model-first code map and flow index
+- `docs/`: project docs
 - `start.sh`: one-command launcher
 
 ## Quick Start
@@ -38,8 +38,6 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-`start.sh` auto-installs dependencies (if missing), then trims logo white margins and applies a round mask before launch.
-
 ### Option B: manual dev launch
 
 ```bash
@@ -48,8 +46,6 @@ npm install
 npm run check
 npm start
 ```
-
-Note: `npm start` also runs logo sync first.
 
 ## Ubuntu DEB Build
 

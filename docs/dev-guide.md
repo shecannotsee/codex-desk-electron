@@ -32,7 +32,7 @@ npm start
 
 ## 3. 调试建议
 
-1. 用“设置 -> 视图 -> 开发者工具”打开 DevTools。
+1. 用 `Ctrl+Shift+I` 打开 DevTools。
 2. 优先检查右侧“结构化事件 / 运行步骤 / 事件原文(JSON)”。
 3. 核查 `src/main/codex_runner.js` 的输出解析是否匹配当前 CLI。
 4. 先看 `llm-readable/system-map.md` 和 `llm-readable/core-flows.md` 再下钻源码。
@@ -58,7 +58,32 @@ node --check src/renderer/app/renderers.js
 node --check src/renderer/app/bootstrap.js
 ```
 
-## 5. 打包说明（Ubuntu DEB）
+## 5. 文档截图自动化
+
+用于批量更新 `docs/assets/*.png`：
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run capture:docs
+```
+
+自动生成文件：
+
+- `docs/assets/screenshot-main.png`
+- `docs/assets/screenshot-settings-menu.png`
+- `docs/assets/screenshot-settings-nested.png`
+- `docs/assets/screenshot-runtime-tabs.png`
+- `docs/assets/screenshot-conversation-context-menu.png`
+- `docs/assets/workflow-step-1-input.png`
+- `docs/assets/workflow-step-2-runtime.png`
+- `docs/assets/workflow-step-3-result.png`
+
+说明：
+
+1. 截图由 Electron 内置 `capturePage` 实现，不依赖外部截图工具。
+2. 当前 Codex 沙箱环境无法直接启动 GUI；请在本机 Ubuntu 22.04 执行该命令。
+
+## 6. 打包说明（Ubuntu DEB）
 
 - 配置文件：`src/electron-builder.yml`
 - 命令：`cd src && npm run dist:deb`
@@ -71,7 +96,7 @@ node --check src/renderer/app/bootstrap.js
 3. `codex` CLI 是外部依赖，不内置进安装包。
 4. 打包前会自动同步 `resource/logo.png` 到图标资源。
 
-## 6. 发布流程（建议）
+## 7. 发布流程（建议）
 
 每次发版前至少执行：
 
@@ -86,7 +111,7 @@ node --check src/renderer/app/bootstrap.js
    - 设置多级菜单 + 主题切换
    - 关闭窗口保护
 
-## 7. PR 要求
+## 8. PR 要求
 
 PR 模板包含文档检查项：
 

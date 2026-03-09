@@ -67,10 +67,10 @@ npm start
 3. 终端里 `codex --version` 是否可用。
 4. 工作目录是否存在且可访问。
 
-## 6. 演示资源占位
+## 6. 演示资源
 
-- 快速上手 GIF（占位）：[docs/assets/quick-start.gif](./assets/quick-start.gif)
-- 主界面截图（占位）：[docs/assets/screenshot-main.png](./assets/screenshot-main.png)
-- 设置多级菜单截图（占位）：[docs/assets/screenshot-settings-menu.png](./assets/screenshot-settings-menu.png)
+- 自动截图命令：`cd src && npm run capture:docs`
+- 主界面截图：[docs/assets/screenshot-main.png](./assets/screenshot-main.png)
+- 设置多级菜单截图：[docs/assets/screenshot-settings-menu.png](./assets/screenshot-settings-menu.png)
 
-> 说明：以上文件请后续补充到 `docs/assets/`。
+> 说明：当前仅 Ubuntu 22.04 实机验证截图流程。

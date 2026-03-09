@@ -63,3 +63,13 @@
 2. apply CSS variable / data-theme / document lang
 3. save to localStorage `codexdesk.ui-prefs.v1`
 4. menu language sync via IPC `ui:set-menu-language`
+
+## I. Docs Screenshot Auto Capture
+
+1. run `cd src && npm run capture:docs`
+2. app starts with `CODEX_DESK_DOC_CAPTURE=1 --docs-capture`
+3. renderer `bootstrap.runDocsCaptureSequence` checks `docs:capture-enabled`
+4. renderer prepares deterministic UI state + mock data
+5. renderer invokes `docs:capture-page` for each target image
+6. main writes png files into `docs/assets/`
+7. renderer calls `docs:capture-finish`, app exits automatically

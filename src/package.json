@@ -8,6 +8,7 @@
     "sync:logo": "node scripts/sync-logo.js",
     "start:app": "electron .",
     "start": "npm run sync:logo && npm run start:app",
+    "capture:docs": "npm run sync:logo && CODEX_DESK_DOC_CAPTURE=1 electron . --docs-capture",
     "check": "node --check main/main.js && node --check main/app_controller.js && node --check main/codex_runner.js && node --check renderer/app/state_i18n.js && node --check renderer/app/conversation_runtime.js && node --check renderer/app/renderers.js && node --check renderer/app/bootstrap.js",
     "pack:dir": "npm run sync:logo && npx electron-builder@26.0.12 --dir --config electron-builder.yml",
     "dist:deb": "npm run sync:logo && npx electron-builder@26.0.12 --linux deb --config electron-builder.yml"

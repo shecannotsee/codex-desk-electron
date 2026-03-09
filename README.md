@@ -2,6 +2,12 @@
 
 Electron desktop client for Codex CLI, focused on multi-conversation workflow and runtime observability.
 
+## Logo
+
+<img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
+
+Window icon is generated from this source logo via `cd src && npm run sync:logo`.
+
 ## Quick Workflow
 
 1. Create/switch conversation from the left sidebar.

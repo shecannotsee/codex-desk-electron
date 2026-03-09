@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { newConversation } = require('./conversation_service');
+const { newConversation, nowTs } = require('./conversation_service');
 
 const APP_ROOT = path.resolve(__dirname, '..', '..');
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
@@ -48,10 +48,53 @@ function parseMessages(rawMessages) {
     const role = String(item.role || '').trim();
     const text = String(item.text || '');
     if ((role === 'user' || role === 'assistant') && text) {
-      result.push({ role, text });
+      const message = { role, text };
+      const createdAt = toNumber(item.createdAt ?? item.created_at ?? item.timestamp ?? item.time, 0);
+      if (createdAt > 0) {
+        message.createdAt = createdAt;
+      }
+      if (item.interrupted) {
+        message.interrupted = true;
+      }
+      if (typeof item.interruptedReason === 'string' && item.interruptedReason.trim()) {
+        message.interruptedReason = item.interruptedReason.trim();
+      }
+      const interruptedAt = toNumber(item.interruptedAt ?? item.interrupted_at, 0);
+      if (interruptedAt > 0) {
+        message.interruptedAt = interruptedAt;
+      }
+      result.push(message);
     }
   }
   return result;
+}
+
+function fillMissingMessageCreatedAt(messages, conversationCreatedAt, conversationUpdatedAt) {
+  if (!Array.isArray(messages) || !messages.length) {
+    return messages;
+  }
+  const start = toNumber(conversationCreatedAt, 0);
+  const endRaw = toNumber(conversationUpdatedAt, start);
+  const end = endRaw >= start ? endRaw : start;
+  const total = messages.length;
+  const span = Math.max(0, end - start);
+
+  for (let index = 0; index < total; index += 1) {
+    const item = messages[index];
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    if (toNumber(item.createdAt, 0) > 0) {
+      continue;
+    }
+    if (total <= 1) {
+      item.createdAt = end || start || nowTs();
+      continue;
+    }
+    const ratio = index / (total - 1);
+    item.createdAt = (start || nowTs()) + span * ratio;
+  }
+  return messages;
 }
 
 function toNumber(value, fallback) {
@@ -123,6 +166,7 @@ class StateStore {
       conv.messages = parseMessages(item.messages);
       conv.createdAt = toNumber(item.createdAt ?? item.created_at, conv.createdAt);
       conv.updatedAt = toNumber(item.updatedAt ?? item.updated_at, conv.updatedAt);
+      fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
       conversations.push(conv);
     }
 
@@ -133,6 +177,7 @@ class StateStore {
         const conv = newConversation();
         conv.messages = fallbackMessages;
         conv.sessionId = fallbackSessionId;
+        fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
         conversations.push(conv);
       }
     }

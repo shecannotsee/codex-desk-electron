@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('codexdesk', {
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
   invokeUiAction: (action) => ipcRenderer.invoke('ui:invoke-action', { action }),
+  isDocsCaptureEnabled: async () => {
+    const result = await ipcRenderer.invoke('docs:capture-enabled');
+    return Boolean(result?.enabled);
+  },
+  captureDocPage: (fileName) => ipcRenderer.invoke('docs:capture-page', { fileName }),
+  finishDocsCapture: () => ipcRenderer.invoke('docs:capture-finish'),
 
   onEvent: (callback) => {
     const handler = (_event, payload) => callback(payload);

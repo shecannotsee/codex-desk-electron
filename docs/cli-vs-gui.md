@@ -54,15 +54,12 @@ codex exec <PROMPT>
 4. 运行事件实时回传到三类面板。
 5. 完成后写回 assistant 消息并更新会话状态。
 
-### 流程图占位
+### 截图
 
-- 流程图（占位）：[docs/assets/flow-input-to-result.svg](./assets/flow-input-to-result.svg)
-
-### 截图占位
-
-- 输入并发送（占位）：[docs/assets/workflow-step-1-input.png](./assets/workflow-step-1-input.png)
-- 运行中日志（占位）：[docs/assets/workflow-step-2-runtime.png](./assets/workflow-step-2-runtime.png)
-- 完成结果（占位）：[docs/assets/workflow-step-3-result.png](./assets/workflow-step-3-result.png)
+- 自动截图命令：`cd src && npm run capture:docs`
+- 输入并发送：[docs/assets/workflow-step-1-input.png](./assets/workflow-step-1-input.png)
+- 运行中日志：[docs/assets/workflow-step-2-runtime.png](./assets/workflow-step-2-runtime.png)
+- 完成结果：[docs/assets/workflow-step-3-result.png](./assets/workflow-step-3-result.png)
 
 ## 5. 兼容性说明
 

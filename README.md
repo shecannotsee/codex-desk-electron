@@ -6,7 +6,7 @@ Electron desktop client for Codex CLI, focused on multi-conversation workflow an
 
 <img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
 
-Window icon is generated from this source logo via `cd src && npm run sync:logo`.
+Window icon is generated from this source logo via `cd src && npm run sync:logo`, preserving source alpha shape (no extra trim/mask clipping).
 
 ## Quick Workflow
 

@@ -123,7 +123,7 @@
 ### 操作步骤
 
 1. 点击右上角“设置”。
-2. 在一级分组中选择：对话 / 运行 / 视图 / 编辑 / 应用 / 帮助。
+2. 在一级分组中选择：对话 / 运行 / 界面 / 窗口 / 帮助。
 3. 进入二级页执行对应动作。
 
 ### 参数/配置说明
@@ -199,9 +199,9 @@
 
 - CLI 的中断由终端/进程管理；GUI 提供关闭保护。
 
-## 截图占位
+## 截图
 
-- 会话右键菜单（占位）：[docs/assets/screenshot-conversation-context-menu.png](./assets/screenshot-conversation-context-menu.png)
-- 运行日志三标签（占位）：[docs/assets/screenshot-runtime-tabs.png](./assets/screenshot-runtime-tabs.png)
-- 设置多级菜单（占位）：[docs/assets/screenshot-settings-nested.png](./assets/screenshot-settings-nested.png)
-- 关闭窗口保护弹窗（占位）：[docs/assets/screenshot-close-guard.png](./assets/screenshot-close-guard.png)
+- 自动截图命令：`cd src && npm run capture:docs`
+- 会话右键菜单：[docs/assets/screenshot-conversation-context-menu.png](./assets/screenshot-conversation-context-menu.png)
+- 运行日志三标签：[docs/assets/screenshot-runtime-tabs.png](./assets/screenshot-runtime-tabs.png)
+- 设置多级菜单：[docs/assets/screenshot-settings-nested.png](./assets/screenshot-settings-nested.png)

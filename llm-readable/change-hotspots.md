@@ -48,6 +48,13 @@
   - `resource/logo.png`
   - `start.sh`
 
+- Add/modify docs screenshot automation
+  - `src/main/main.js`
+  - `src/main/preload.js`
+  - `src/renderer/app/bootstrap.js`
+  - `src/package.json`
+  - `docs/assets/*`
+
 ## Required Validation after code change
 
 1. `cd src && npm run check`

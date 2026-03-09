@@ -54,6 +54,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run dist:deb
 ```
 
+## 文档截图自动生成
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run capture:docs
+```
+
 ## 文档维护约定
 
 - 每次发版前必须更新：

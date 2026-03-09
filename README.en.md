@@ -54,6 +54,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run dist:deb
 ```
 
+## Docs Screenshot Capture
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run capture:docs
+```
+
 ## Documentation Maintenance Rule
 
 - Must update before each release:

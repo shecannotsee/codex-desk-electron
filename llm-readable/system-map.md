@@ -58,6 +58,7 @@
   - IPC snapshot/event handling
   - user interaction bindings
   - action router for settings/menu/context-menu
+  - docs screenshot auto-capture flow (`capture:docs`)
 - `src/renderer/styles.css`
   - telegram-like visual tokens
   - light/dark theme vars
@@ -80,6 +81,9 @@
 - `chat:retry-last`
 - `meta:refresh-codex-version`
 - `meta:refresh-model`
+- `docs:capture-enabled`
+- `docs:capture-page`
+- `docs:capture-finish`
 
 ## 5) Event Bus (main -> renderer)
 

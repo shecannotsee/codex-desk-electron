@@ -70,7 +70,9 @@ npm start
 ## 6. 演示资源
 
 - 自动截图命令：`cd src && npm run capture:docs`
-- 主界面截图：[docs/assets/screenshot-main.png](./assets/screenshot-main.png)
-- 设置多级菜单截图：[docs/assets/screenshot-settings-menu.png](./assets/screenshot-settings-menu.png)
+- 主界面截图  
+![主界面截图](./assets/screenshot-main.png)
+- 设置多级菜单截图  
+![设置多级菜单截图](./assets/screenshot-settings-menu.png)
 
 > 说明：当前仅 Ubuntu 22.04 实机验证截图流程。

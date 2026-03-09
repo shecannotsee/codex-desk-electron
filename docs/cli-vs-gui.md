@@ -57,9 +57,12 @@ codex exec <PROMPT>
 ### 截图
 
 - 自动截图命令：`cd src && npm run capture:docs`
-- 输入并发送：[docs/assets/workflow-step-1-input.png](./assets/workflow-step-1-input.png)
-- 运行中日志：[docs/assets/workflow-step-2-runtime.png](./assets/workflow-step-2-runtime.png)
-- 完成结果：[docs/assets/workflow-step-3-result.png](./assets/workflow-step-3-result.png)
+- 输入并发送  
+![输入并发送](./assets/workflow-step-1-input.png)
+- 运行中日志  
+![运行中日志](./assets/workflow-step-2-runtime.png)
+- 完成结果  
+![完成结果](./assets/workflow-step-3-result.png)
 
 ## 5. 兼容性说明
 

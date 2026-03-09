@@ -202,6 +202,9 @@
 ## 截图
 
 - 自动截图命令：`cd src && npm run capture:docs`
-- 会话右键菜单：[docs/assets/screenshot-conversation-context-menu.png](./assets/screenshot-conversation-context-menu.png)
-- 运行日志三标签：[docs/assets/screenshot-runtime-tabs.png](./assets/screenshot-runtime-tabs.png)
-- 设置多级菜单：[docs/assets/screenshot-settings-nested.png](./assets/screenshot-settings-nested.png)
+- 会话右键菜单  
+![会话右键菜单](./assets/screenshot-conversation-context-menu.png)
+- 运行日志三标签  
+![运行日志三标签](./assets/screenshot-runtime-tabs.png)
+- 设置多级菜单  
+![设置多级菜单](./assets/screenshot-settings-nested.png)

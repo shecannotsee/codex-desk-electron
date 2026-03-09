@@ -2,6 +2,28 @@
 
 Electron desktop client for Codex CLI, focused on multi-conversation workflow and runtime observability.
 
+## Quick Workflow
+
+1. Create/switch conversation from the left sidebar.
+2. Input prompt and send (`Ctrl+Enter`).
+3. Watch runtime logs in `Structured / Workflow / Raw JSON` tabs.
+4. Queue follow-up questions while current response is running.
+5. Use quick settings for theme/language/layout adjustments.
+
+## UI Preview
+
+Main workspace:
+
+![Main workspace](./docs/assets/screenshot-main.png)
+
+Quick settings (Telegram-style nested menu):
+
+![Quick settings menu](./docs/assets/screenshot-settings-menu.png)
+
+Workflow/runtime view:
+
+![Workflow runtime](./docs/assets/workflow-step-2-runtime.png)
+
 ## Language
 
 - 中文文档: [README.zh-CN.md](./README.zh-CN.md)

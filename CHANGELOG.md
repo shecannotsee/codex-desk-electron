@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 - 新增“排队消息可视化”：在运行步骤标签展示待执行消息内容、顺序、入队时间。
 - 新增窗口关闭保护：检测运行中任务并提供三选确认（取消/停止并关闭/直接关闭）。
+- 新增文档截图自动化：`cd src && npm run capture:docs` 可批量生成 `docs/assets/*.png`。
 - 新增 Ubuntu 22.04 DEB 打包配置（`src/electron-builder.yml`）。
 - 新增 DEB 安装后脚本（`src/scripts/deb/postinst`、`src/scripts/deb/postrm`）。
 - 新增部署文档（`docs/deploy-ubuntu.md`）与卸载文档（`docs/uninstall.md`）。

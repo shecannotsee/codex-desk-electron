@@ -8,8 +8,9 @@ const sourceCandidates = [
 ];
 const targetDir = path.resolve(__dirname, '..', 'build');
 const target = path.resolve(targetDir, 'icon.png');
-const tempTrimmed = path.resolve(targetDir, 'icon.trimmed.png');
-const tempMask = path.resolve(targetDir, 'icon.mask.png');
+const tempPrepared = path.resolve(targetDir, 'icon.prepared.png');
+const ICON_SIZE = 1024;
+const LOGO_SAFE_BOX = 980;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -48,41 +49,22 @@ function runImageTool(cmd, args) {
 }
 
 function buildIconWithImageTool(cmd, source) {
-  // 1) Trim outer white border, 2) normalize to square canvas, 3) apply round mask.
+  // Source logo is already rounded: preserve source alpha shape and only fit it on standard icon canvas.
   runImageTool(cmd, [
     source,
     '-auto-orient',
-    '-fuzz', '8%',
-    '-trim',
-    '+repage',
     '-background', 'none',
     '-gravity', 'center',
-    '-resize', '900x900',
-    '-extent', '1024x1024',
-    tempTrimmed,
+    '-resize', `${LOGO_SAFE_BOX}x${LOGO_SAFE_BOX}>`,
+    '-extent', `${ICON_SIZE}x${ICON_SIZE}`,
+    tempPrepared,
   ]);
 
-  runImageTool(cmd, [
-    '-size', '1024x1024',
-    'xc:none',
-    '-fill', 'white',
-    '-draw', 'circle 512,512 512,20',
-    tempMask,
-  ]);
-
-  runImageTool(cmd, [
-    tempTrimmed,
-    tempMask,
-    '-alpha', 'off',
-    '-compose', 'copy_opacity',
-    '-composite',
-    target,
-  ]);
+  runImageTool(cmd, [tempPrepared, '-background', 'none', '-alpha', 'set', target]);
 }
 
 function cleanupTempFiles() {
-  fs.rmSync(tempTrimmed, { force: true });
-  fs.rmSync(tempMask, { force: true });
+  fs.rmSync(tempPrepared, { force: true });
 }
 
 function main() {
@@ -103,7 +85,7 @@ function main() {
     if (tool) {
       buildIconWithImageTool(tool, source);
       console.log(`[sync-logo] source: ${source}`);
-      console.log(`[sync-logo] icon updated with trim+round mask: ${target}`);
+      console.log(`[sync-logo] icon updated with preserve-source alpha shape: ${target}`);
     } else {
       fs.copyFileSync(source, target);
       console.log(`[sync-logo] source: ${source}`);

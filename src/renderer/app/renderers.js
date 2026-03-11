@@ -46,12 +46,17 @@ function renderHeader() {
   const runtime = conv ? ensureRuntime(state.activeConversationId) : { startedAt: null };
   const meta = conv ? ensureMeta(state.activeConversationId) : { Codex版本: '-', 模型: '-', 会话ID: '-' };
 
-  el.chatTitle.textContent = `${t('chatTitlePrefix')}: ${conv ? conv.title : '-'}`;
-  const sid = meta['会话ID'] || conv?.sessionId || '-';
+  el.chatTitle.textContent = conv ? conv.title : '-';
+  const sid = String(meta['会话ID'] || conv?.sessionId || '-').trim() || '-';
   if (sid && sid !== '-' && sid.length > 16) {
     el.sessionId.textContent = `${sid.slice(0, 8)}...${sid.slice(-6)}`;
   } else {
     el.sessionId.textContent = sid || '-';
+  }
+  if (el.btnSessionId) {
+    el.btnSessionId.disabled = !sid || sid === '-';
+    el.btnSessionId.dataset.fullValue = sid;
+    el.btnSessionId.title = sid && sid !== '-' ? sid : '';
   }
 
   const phaseRaw = effectivePhaseRaw();
@@ -79,21 +84,47 @@ function renderHeader() {
     el.elapsed.textContent = '00:00';
   }
 
-  el.modelMeta.textContent = t('modelMeta', {
-    version: meta['Codex版本'] || '-',
-    model: meta['模型'] || '-',
-  });
+  if (el.metaVersionValue) {
+    el.metaVersionValue.textContent = meta['Codex版本'] || '-';
+    el.metaVersionValue.title = meta['Codex版本'] || '-';
+  }
+  if (el.metaModelValue) {
+    el.metaModelValue.textContent = meta['模型'] || '-';
+    el.metaModelValue.title = meta['模型'] || '-';
+  }
 }
 
 function renderSettings() {
-  el.commandInput.value = state.settings.commandText || '';
-  el.workdirInput.value = state.settings.workdir || '';
+  if (el.commandInput) {
+    el.commandInput.value = state.settings.commandText || '';
+    el.commandInput.title = state.settings.commandText || '-';
+  }
+  if (el.workdirInput) {
+    el.workdirInput.value = state.settings.workdir || '';
+    el.workdirInput.title = state.settings.workdir || '-';
+  }
   const perm = resolvePermissionSummary();
-  el.permissionInput.value = perm.text;
-  el.permissionInput.title = perm.title;
+  if (el.permissionInput) {
+    el.permissionInput.value = perm.text;
+    el.permissionInput.title = perm.title;
+  }
   el.languageSelect.value = currentLang();
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);
+}
+
+function renderComposerDraft(options = {}) {
+  if (!el.inputBox) {
+    return;
+  }
+  const force = options.force === true;
+  const draftKey = draftStorageKey(state.activeConversationId);
+  const nextValue = getConversationDraft(state.activeConversationId);
+  const bindingChanged = state.inputBindingConversationId !== draftKey;
+  if (bindingChanged || force) {
+    el.inputBox.value = nextValue;
+  }
+  state.inputBindingConversationId = draftKey;
 }
 
 function toMessageTimeMs(input) {
@@ -435,10 +466,9 @@ function renderRunButtons() {
   el.btnRetryLast.textContent = t('retryLast');
   el.btnStop.textContent = t('stop');
   el.btnNewConv.textContent = t('newConversation');
+  el.btnImportSession.textContent = t('importSession');
   el.btnRenameConv.textContent = t('renameConversation');
   el.btnCloseConv.textContent = t('closeCurrentConversation');
-  el.btnRefreshVersion.textContent = t('refreshVersion');
-  el.btnRefreshModel.textContent = t('refreshModel');
   el.btnClearChat.textContent = t('clearChat');
   el.btnClearRuntime.textContent = t('clearRuntime');
   el.btnToggleSettings.textContent = state.ui.settingsPanelHidden ? t('toggleSettingsShow') : t('toggleSettingsHide');
@@ -494,8 +524,12 @@ function renderRunButtons() {
   el.btnCloseConv.disabled = !hasConv;
   el.btnClearChat.disabled = !hasConv;
   el.btnClearRuntime.disabled = !hasConv;
-  el.btnRefreshVersion.disabled = !hasConv;
-  el.btnRefreshModel.disabled = !hasConv;
+  if (el.btnMetaVersion) {
+    el.btnMetaVersion.disabled = !hasConv;
+  }
+  if (el.btnMetaModel) {
+    el.btnMetaModel.disabled = !hasConv;
+  }
   el.inputBox.disabled = !hasConv;
   if (!hasConv) {
     el.inputBox.placeholder = t('inputPlaceholderNoConversation');
@@ -534,12 +568,24 @@ function renderLocaleTexts() {
   el.labelPhase.textContent = t('status');
   el.labelQueue.textContent = t('queue');
   el.labelElapsed.textContent = t('elapsed');
+  if (el.labelMetaVersion) {
+    el.labelMetaVersion.textContent = t('codexVersionShort');
+  }
+  if (el.labelMetaModel) {
+    el.labelMetaModel.textContent = t('modelShort');
+  }
   if (el.labelQuickSettings) {
     el.labelQuickSettings.textContent = t('quickSettings');
   }
-  el.labelCommand.textContent = `${t('command')}:`;
-  el.labelWorkdir.textContent = `${t('workdir')}:`;
-  el.labelPermission.textContent = `${t('permission')}:`;
+  if (el.labelCommand) {
+    el.labelCommand.textContent = `${t('command')}:`;
+  }
+  if (el.labelWorkdir) {
+    el.labelWorkdir.textContent = `${t('workdir')}:`;
+  }
+  if (el.labelPermission) {
+    el.labelPermission.textContent = `${t('permission')}:`;
+  }
   if (el.labelLanguage) {
     el.labelLanguage.textContent = `${t('language')}:`;
   }
@@ -591,5 +637,6 @@ function renderAll() {
   renderChat();
   renderRuntime();
   renderRunButtons();
+  renderComposerDraft();
   renderTabs();
 }

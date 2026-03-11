@@ -48,6 +48,7 @@
               <div class="quick-settings-detail-body">
                 <section class="quick-settings-pane" data-pane="conversation">
                   <button type="button" class="quick-settings-item" data-action="conversation:new" data-i18n-key="newConversation">新建对话</button>
+                  <button type="button" class="quick-settings-item" data-action="conversation:import-session" data-i18n-key="importSession">导入会话JSONL</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:rename" data-i18n-key="renameConversation">重命名</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:close-current" data-i18n-key="closeCurrentConversation">关闭当前会话</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:clear-chat" data-i18n-key="clearChat">清空当前对话内容</button>
@@ -57,8 +58,6 @@
 
                 <section class="quick-settings-pane" data-pane="runtime">
                   <button type="button" class="quick-settings-item" data-action="conversation:clear-runtime" data-i18n-key="clearRuntime">清空右侧运行日志</button>
-                  <button type="button" class="quick-settings-item" data-action="meta:refresh-codex-version" data-i18n-key="refreshVersion">获取Codex版本</button>
-                  <button type="button" class="quick-settings-item" data-action="meta:refresh-model" data-i18n-key="refreshModel">获取模型</button>
                 </section>
 
                 <section class="quick-settings-pane" data-pane="view">
@@ -130,28 +129,27 @@
 
     <main id="workspace" class="workspace">
       <section id="focus-row" class="focus-row">
-        <div id="chat-title" class="chat-title">当前对话: -</div>
-        <div class="meta-chip"><span id="label-session-id">当前会话ID</span>: <span id="session-id">-</span></div>
+        <div id="chat-title" class="chat-title">-</div>
+        <div id="model-meta-chip" class="meta-chip model-meta-chip">
+          <button id="btn-meta-version" class="meta-link-button" type="button">
+            <span id="label-meta-version">Codex版本</span>: <span id="meta-version-value">-</span>
+          </button>
+          <span class="meta-separator">|</span>
+          <button id="btn-meta-model" class="meta-link-button" type="button">
+            <span id="label-meta-model">模型</span>: <span id="meta-model-value">-</span>
+          </button>
+        </div>
+        <div class="meta-chip">
+          <span id="label-session-id">ID</span>:
+          <button id="btn-session-id" class="meta-link-button session-id-button" type="button">
+            <span id="session-id">-</span>
+          </button>
+        </div>
         <div id="phase-chip" class="meta-chip phase-chip"><span id="label-phase">状态</span>: <span id="phase">空闲</span></div>
         <div id="queue-chip" class="meta-chip queue-chip"><span id="label-queue">排队</span>: <span id="queue-count">0</span></div>
         <div class="meta-chip"><span id="label-elapsed">耗时</span>: <span id="elapsed">00:00</span></div>
         <div id="busy-indicator" class="busy-indicator hidden">● 正在生成回复...</div>
         <div class="focus-spacer"></div>
-      </section>
-
-      <section id="row-command" class="setting-row">
-        <label id="label-command" for="command-input">Codex命令:</label>
-        <input id="command-input" type="text" readonly />
-      </section>
-
-      <section id="row-workdir" class="setting-row">
-        <label id="label-workdir" for="workdir-input">工作目录:</label>
-        <input id="workdir-input" type="text" readonly />
-      </section>
-
-      <section id="row-permission" class="setting-row">
-        <label id="label-permission" for="permission-input">会话权限:</label>
-        <input id="permission-input" type="text" readonly />
       </section>
 
       <section id="row-language-font" class="setting-row hidden">
@@ -165,12 +163,12 @@
       </section>
 
       <section id="row-model-meta" class="setting-row">
-        <div id="model-meta" class="model-meta">Codex版本: - | 模型: -</div>
         <button id="btn-refresh-version" class="btn-secondary menu-moved">获取Codex版本</button>
         <button id="btn-refresh-model" class="btn-secondary menu-moved">获取模型</button>
       </section>
 
       <section class="setting-row actions-row">
+        <button id="btn-import-session" class="menu-moved">导入会话JSONL</button>
         <button id="btn-clear-chat" class="menu-moved">清空当前对话内容</button>
         <button id="btn-clear-runtime" class="menu-moved">清空右侧运行日志</button>
         <button id="btn-toggle-settings" class="menu-moved">隐藏配置信息</button>
@@ -222,7 +220,22 @@
   <div id="about-modal" class="modal-backdrop hidden">
     <div class="modal-card about-modal-card">
       <div id="about-modal-title" class="modal-title" data-i18n-key="about">关于 Codex Desk</div>
-      <div id="about-modal-body" class="about-modal-body" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
+      <div id="about-modal-body" class="about-modal-body">
+        <div id="about-summary" class="about-summary" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
+        <div id="about-config-title" class="about-section-title" data-i18n-key="aboutSessionConfig">当前会话配置</div>
+        <section class="setting-row about-setting-row">
+          <label id="label-command" for="command-input">Codex命令:</label>
+          <input id="command-input" class="about-value-input" type="text" readonly />
+        </section>
+        <section class="setting-row about-setting-row">
+          <label id="label-workdir" for="workdir-input">工作目录:</label>
+          <input id="workdir-input" class="about-value-input" type="text" readonly />
+        </section>
+        <section class="setting-row about-setting-row">
+          <label id="label-permission" for="permission-input">会话权限:</label>
+          <input id="permission-input" class="about-value-input" type="text" readonly />
+        </section>
+      </div>
       <div class="modal-actions">
         <button id="about-close" data-i18n-key="close">关闭</button>
       </div>
@@ -236,7 +249,6 @@
   </div>
 
   <div id="chat-context-menu" class="context-menu hidden">
-    <button id="ctx-toggle-settings" type="button">隐藏配置信息</button>
     <button id="ctx-toggle-runtime" type="button">隐藏右侧面板</button>
     <button id="ctx-toggle-sidebar" type="button">隐藏左侧会话</button>
   </div>

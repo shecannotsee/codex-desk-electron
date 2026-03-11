@@ -55,6 +55,7 @@ function applySnapshot(snapshot) {
       delete state.queuedMessagesByConversation[id];
     }
   });
+  pruneConversationDrafts([...validIds]);
 
   if (!state.activeConversationId && state.conversations.length) {
     state.activeConversationId = state.conversations[0].id;
@@ -117,6 +118,7 @@ function applyEvent(event) {
       delete state.queuedMessagesByConversation[id];
       delete state.collapsedByConversation[id];
       delete state.workflowCollapsedByConversation[id];
+      setConversationDraft(id, '');
       state.runningConversationIds.delete(id);
       break;
     case 'meta-updated':
@@ -202,6 +204,7 @@ function askRenameTitle(initialValue) {
 
 async function init() {
   loadUiPrefs();
+  loadDraftPrefs();
   applyTheme();
   applySidebarWidth();
   applyChatFontSize();
@@ -259,9 +262,6 @@ async function init() {
   const showChatContextMenu = (x, y) => {
     if (!el.chatContextMenu) {
       return;
-    }
-    if (el.ctxToggleSettings) {
-      el.ctxToggleSettings.textContent = state.ui.settingsPanelHidden ? t('toggleSettingsShow') : t('toggleSettingsHide');
     }
     if (el.ctxToggleRuntime) {
       el.ctxToggleRuntime.textContent = state.ui.runtimePanelHidden ? t('toggleRuntimeShow') : t('toggleRuntimeHide');
@@ -351,12 +351,6 @@ async function init() {
       hideConversationContextMenu();
       await switchConversationIfNeeded(id);
       el.btnCloseConv.click();
-    });
-  }
-  if (el.ctxToggleSettings) {
-    el.ctxToggleSettings.addEventListener('click', () => {
-      hideChatContextMenu();
-      el.btnToggleSettings.click();
     });
   }
   if (el.ctxToggleRuntime) {
@@ -467,6 +461,7 @@ async function init() {
 
   const actionToButton = {
     'conversation:new': el.btnNewConv,
+    'conversation:import-session': el.btnImportSession,
     'conversation:rename': el.btnRenameConv,
     'conversation:close-current': el.btnCloseConv,
     'conversation:clear-chat': el.btnClearChat,
@@ -800,6 +795,9 @@ async function init() {
     hideConversationContextMenu();
     hideQuickSettingsMenu();
   });
+  window.addEventListener('beforeunload', () => {
+    setConversationDraft(state.activeConversationId, el.inputBox?.value || '');
+  });
   window.addEventListener('resize', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
@@ -881,6 +879,21 @@ async function init() {
     renderAll();
   });
 
+  el.btnImportSession.addEventListener('click', async () => {
+    const result = await codexdesk.importSession();
+    if (result?.canceled) {
+      return;
+    }
+    if (result?.error) {
+      window.alert(localizeKnownText(result.error));
+      applySnapshot(result?.snapshot || {});
+      renderAll();
+      return;
+    }
+    applySnapshot(result?.snapshot || result);
+    renderAll();
+  });
+
   el.btnRenameConv.addEventListener('click', async () => {
     const conv = currentConversation();
     const title = await askRenameTitle(conv?.title || '');
@@ -935,6 +948,58 @@ async function init() {
     applySnapshot(next);
     renderAll();
   });
+
+  if (el.btnMetaVersion) {
+    el.btnMetaVersion.addEventListener('click', () => {
+      el.btnRefreshVersion.click();
+    });
+  }
+
+  if (el.btnMetaModel) {
+    el.btnMetaModel.addEventListener('click', () => {
+      el.btnRefreshModel.click();
+    });
+  }
+
+  if (el.btnSessionId) {
+    el.btnSessionId.addEventListener('click', async () => {
+      const fullValue = String(el.btnSessionId.dataset.fullValue || '').trim();
+      if (!fullValue || fullValue === '-') {
+        return;
+      }
+      const flashCopiedState = () => {
+        el.btnSessionId.classList.remove('is-copied');
+        window.setTimeout(() => {
+          el.btnSessionId.classList.add('is-copied');
+          window.setTimeout(() => {
+            el.btnSessionId.classList.remove('is-copied');
+          }, 1200);
+        }, 0);
+      };
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(fullValue);
+        } else {
+          throw new Error('clipboard unavailable');
+        }
+        el.btnSessionId.title = fullValue;
+        flashCopiedState();
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(el.sessionId);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        try {
+          document.execCommand('copy');
+          el.btnSessionId.title = fullValue;
+          flashCopiedState();
+        } finally {
+          selection?.removeAllRanges();
+        }
+      }
+    });
+  }
 
   el.btnClearChat.addEventListener('click', async () => {
     const result = await codexdesk.clearChat(state.activeConversationId);
@@ -1001,8 +1066,15 @@ async function init() {
       return;
     }
     el.inputBox.value = '';
+    setConversationDraft(state.activeConversationId, '');
+    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
     applySnapshot(result?.snapshot || result);
     renderAll();
+  });
+
+  el.inputBox.addEventListener('input', () => {
+    setConversationDraft(state.activeConversationId, el.inputBox.value);
+    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
   });
 
   el.inputBox.addEventListener('keydown', async (event) => {

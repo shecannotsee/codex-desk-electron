@@ -14,6 +14,8 @@ const state = {
   queuedMessagesByConversation: {},
   collapsedByConversation: {},
   workflowCollapsedByConversation: {},
+  draftsByConversation: {},
+  inputBindingConversationId: '',
   activeTab: 'structured',
   ui: {
     language: 'zh-CN',
@@ -27,6 +29,8 @@ const state = {
 };
 
 const UI_PREFS_KEY = 'codexdesk.ui-prefs.v1';
+const DRAFT_PREFS_KEY = 'codexdesk.drafts.v1';
+const NO_CONVERSATION_DRAFT_KEY = '__no_conversation__';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
 const CHAT_FONT_SIZE_DEFAULT = 15;
@@ -38,10 +42,11 @@ const I18N = {
   'zh-CN': {
     sidebarTitle: '会话列表',
     newConversation: '新建对话',
+    importSession: '导入会话JSONL',
     renameConversation: '重命名',
     closeCurrentConversation: '关闭当前会话',
     chatTitlePrefix: '当前对话',
-    sessionId: '当前会话ID',
+    sessionId: 'ID',
     status: '状态',
     queue: '排队',
     elapsed: '耗时',
@@ -54,6 +59,8 @@ const I18N = {
     chatFontSize: '对话字号',
     refreshVersion: '获取Codex版本',
     refreshModel: '获取模型',
+    codexVersionShort: 'Codex版本',
+    modelShort: '模型',
     clearChat: '清空当前对话内容',
     clearRuntime: '清空右侧运行日志',
     toggleSettingsHide: '隐藏配置信息',
@@ -80,6 +87,7 @@ const I18N = {
     exitFullscreen: '退出全屏',
     about: '关于 Codex Desk',
     aboutDialogDesc: 'Codex Desk 是 Codex CLI 的桌面图形客户端。',
+    aboutSessionConfig: '当前会话配置',
     close: '关闭',
     theme: '主题',
     themeLight: '浅色',
@@ -153,10 +161,11 @@ const I18N = {
   'en-US': {
     sidebarTitle: 'Conversations',
     newConversation: 'New',
+    importSession: 'Import Session JSONL',
     renameConversation: 'Rename',
     closeCurrentConversation: 'Close Current',
     chatTitlePrefix: 'Current Conversation',
-    sessionId: 'Session ID',
+    sessionId: 'ID',
     status: 'Status',
     queue: 'Queue',
     elapsed: 'Elapsed',
@@ -169,6 +178,8 @@ const I18N = {
     chatFontSize: 'Chat Font Size',
     refreshVersion: 'Refresh Codex Version',
     refreshModel: 'Refresh Model',
+    codexVersionShort: 'Codex Version',
+    modelShort: 'Model',
     clearChat: 'Clear Chat',
     clearRuntime: 'Clear Runtime Logs',
     toggleSettingsHide: 'Hide Config Rows',
@@ -195,6 +206,7 @@ const I18N = {
     exitFullscreen: 'Exit Full Screen',
     about: 'About Codex Desk',
     aboutDialogDesc: 'Codex Desk is the desktop GUI client for Codex CLI.',
+    aboutSessionConfig: 'Current Session Configuration',
     close: 'Close',
     theme: 'Theme',
     themeLight: 'Light',
@@ -275,6 +287,7 @@ const el = {
   conversationList: document.getElementById('conversation-list'),
   focusRow: document.getElementById('focus-row'),
   btnNewConv: document.getElementById('btn-new-conv'),
+  btnImportSession: document.getElementById('btn-import-session'),
   btnRenameConv: document.getElementById('btn-rename-conv'),
   btnCloseConv: document.getElementById('btn-close-conv'),
 
@@ -283,7 +296,14 @@ const el = {
   labelPhase: document.getElementById('label-phase'),
   labelQueue: document.getElementById('label-queue'),
   labelElapsed: document.getElementById('label-elapsed'),
+  labelMetaVersion: document.getElementById('label-meta-version'),
+  labelMetaModel: document.getElementById('label-meta-model'),
   sessionId: document.getElementById('session-id'),
+  btnSessionId: document.getElementById('btn-session-id'),
+  btnMetaVersion: document.getElementById('btn-meta-version'),
+  btnMetaModel: document.getElementById('btn-meta-model'),
+  metaVersionValue: document.getElementById('meta-version-value'),
+  metaModelValue: document.getElementById('meta-model-value'),
   phase: document.getElementById('phase'),
   phaseChip: document.getElementById('phase-chip'),
   queueChip: document.getElementById('queue-chip'),
@@ -317,7 +337,6 @@ const el = {
   fontSizeRange: document.getElementById('font-size-range'),
   labelFontSize: document.getElementById('label-font-size'),
   fontSizeValue: document.getElementById('font-size-value'),
-  modelMeta: document.getElementById('model-meta'),
   btnRefreshVersion: document.getElementById('btn-refresh-version'),
   btnRefreshModel: document.getElementById('btn-refresh-model'),
 
@@ -357,7 +376,6 @@ const el = {
   ctxRenameConv: document.getElementById('ctx-rename-conv'),
   ctxCloseConv: document.getElementById('ctx-close-conv'),
   chatContextMenu: document.getElementById('chat-context-menu'),
-  ctxToggleSettings: document.getElementById('ctx-toggle-settings'),
   ctxToggleRuntime: document.getElementById('ctx-toggle-runtime'),
   ctxToggleSidebar: document.getElementById('ctx-toggle-sidebar'),
 };
@@ -431,6 +449,78 @@ function loadUiPrefs() {
 
 function saveUiPrefs() {
   window.localStorage.setItem(UI_PREFS_KEY, JSON.stringify(state.ui));
+}
+
+function draftStorageKey(conversationId) {
+  const id = String(conversationId || '').trim();
+  return id || NO_CONVERSATION_DRAFT_KEY;
+}
+
+function parseDraftPrefs(raw) {
+  if (!raw) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    const result = {};
+    Object.entries(parsed).forEach(([key, value]) => {
+      const nextKey = String(key || '').trim();
+      if (!nextKey) {
+        return;
+      }
+      const nextValue = String(value || '');
+      if (nextValue) {
+        result[nextKey] = nextValue;
+      }
+    });
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function loadDraftPrefs() {
+  state.draftsByConversation = parseDraftPrefs(window.localStorage.getItem(DRAFT_PREFS_KEY));
+}
+
+function saveDraftPrefs() {
+  window.localStorage.setItem(DRAFT_PREFS_KEY, JSON.stringify(state.draftsByConversation || {}));
+}
+
+function getConversationDraft(conversationId) {
+  return String(state.draftsByConversation[draftStorageKey(conversationId)] || '');
+}
+
+function setConversationDraft(conversationId, text, options = {}) {
+  const persist = options.persist !== false;
+  const key = draftStorageKey(conversationId);
+  const nextValue = String(text || '');
+  if (nextValue) {
+    state.draftsByConversation[key] = nextValue;
+  } else {
+    delete state.draftsByConversation[key];
+  }
+  if (persist) {
+    saveDraftPrefs();
+  }
+}
+
+function pruneConversationDrafts(validConversationIds) {
+  const validKeys = new Set((validConversationIds || []).map((id) => draftStorageKey(id)));
+  validKeys.add(NO_CONVERSATION_DRAFT_KEY);
+  let changed = false;
+  Object.keys(state.draftsByConversation || {}).forEach((key) => {
+    if (!validKeys.has(key)) {
+      delete state.draftsByConversation[key];
+      changed = true;
+    }
+  });
+  if (changed) {
+    saveDraftPrefs();
+  }
 }
 
 function syncMenuLanguage() {
@@ -517,6 +607,10 @@ function localizeKnownText(input) {
     ['当前对话上一条消息还在处理中，请稍候。', 'The previous message is still being processed. Please wait.'],
     ['当前对话没有可重试的用户消息。', 'No user message available to retry in this conversation.'],
     ['请先停止当前任务。', 'Please stop the current task first.'],
+    ['导入会话失败:', 'Session import failed:'],
+    ['会话文件路径不能为空', 'Session file path cannot be empty'],
+    ['会话文件不存在:', 'Session file not found:'],
+    ['未从会话文件中解析到可导入的用户/助手消息', 'No importable user/assistant messages were found in the session file'],
     ['已请求停止当前对话任务', 'Stop requested for current conversation task'],
     ['已关闭当前对话', 'Current conversation closed'],
     ['已清空当前对话内容', 'Current conversation content cleared'],

@@ -16,7 +16,7 @@
 
 ### 参数/配置说明
 
-- `Codex命令`：默认 `codex exec --skip-git-repo-check`
+- `Codex命令`：默认 `codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`
 - `工作目录`：必须存在
 - `会话权限`：根据命令参数自动推断展示
 

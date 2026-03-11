@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
@@ -69,6 +70,7 @@ const MENU_TEXT = {
     help: '帮助',
 
     newConversation: '新建对话',
+    importSession: '导入会话JSONL',
     renameConversation: '重命名当前对话',
     closeConversation: '关闭当前对话',
     clearChat: '清空当前对话内容',
@@ -122,6 +124,7 @@ const MENU_TEXT = {
     help: 'Help',
 
     newConversation: 'New Conversation',
+    importSession: 'Import Session JSONL',
     renameConversation: 'Rename Current Conversation',
     closeConversation: 'Close Current Conversation',
     clearChat: 'Clear Current Chat',
@@ -285,6 +288,7 @@ function applyMenuLanguage(language) {
       label: text.conversation,
       submenu: [
         { label: text.newConversation, accelerator: 'CmdOrCtrl+N', click: () => sendMenuAction('conversation:new') },
+        { label: text.importSession, accelerator: 'CmdOrCtrl+Shift+O', click: () => sendMenuAction('conversation:import-session') },
         { label: text.renameConversation, click: () => sendMenuAction('conversation:rename') },
         { label: text.closeConversation, click: () => sendMenuAction('conversation:close-current') },
         { type: 'separator' },
@@ -481,6 +485,36 @@ function registerIpc() {
   });
 
   ipcMain.handle('conversation:create', async () => controller.createConversation());
+
+  ipcMain.handle('conversation:import-session', async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '窗口不可用' };
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '导入 Codex 会话',
+      defaultPath: path.join(os.homedir(), '.codex', 'sessions'),
+      properties: ['openFile'],
+      filters: [
+        { name: 'Codex Session', extensions: ['jsonl'] },
+        { name: 'JSON', extensions: ['json', 'jsonl'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
+      return { canceled: true, snapshot: controller.snapshot() };
+    }
+
+    try {
+      return controller.importConversationFromSessionFile(result.filePaths[0]);
+    } catch (error) {
+      return {
+        error: `导入会话失败: ${error?.message || String(error)}`,
+        snapshot: controller.snapshot(),
+      };
+    }
+  });
 
   ipcMain.handle('conversation:rename', async (_, payload) => {
     const title = String(payload?.title || '');

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
 
   switchConversation: (conversationId) => ipcRenderer.invoke('conversation:switch', { conversationId }),
   createConversation: () => ipcRenderer.invoke('conversation:create'),
+  importSession: () => ipcRenderer.invoke('conversation:import-session'),
   renameConversation: (conversationId, title) => ipcRenderer.invoke('conversation:rename', { conversationId, title }),
   closeCurrentConversation: () => ipcRenderer.invoke('conversation:close-current'),
   clearChat: (conversationId) => ipcRenderer.invoke('conversation:clear-chat', { conversationId }),

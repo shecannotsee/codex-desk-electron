@@ -1,4 +1,5 @@
 const { nowTs, newConversation, getConversation, sortedConversations } = require('../conversation_service');
+const { importSessionJsonl } = require('../session_importer');
 const { normalizePreview, tsLabel } = require('./shared');
 
 const runtimeMethods = {
@@ -369,6 +370,39 @@ const runtimeMethods = {
     this._persist();
     this._autoRefreshMetaForConversation(conv.id);
     return this.snapshot();
+  },
+
+  importConversationFromSessionFile(filePath) {
+    const imported = importSessionJsonl(filePath);
+    const conv = newConversation(imported.title);
+    conv.sessionId = imported.sessionId || '';
+    conv.messages = imported.messages;
+    conv.createdAt = Number(imported.createdAt || nowTs());
+    conv.updatedAt = Number(imported.updatedAt || conv.createdAt);
+
+    this.conversations.push(conv);
+    this.runtimeStore.ensure(conv.id);
+
+    const meta = this._ensureMeta(conv.id);
+    meta['Codex版本'] = imported.cliVersion || '-';
+    meta['模型'] = imported.model || '-';
+    meta['会话ID'] = conv.sessionId || '-';
+
+    this.activeConversationId = conv.id;
+    this._appendStructuredEvent(conv.id, 'success', `已导入会话: ${conv.title}`);
+    this._appendStructuredEvent(conv.id, 'hint', `来源: ${imported.source} / ${imported.originator}`);
+    this._appendStructuredEvent(conv.id, 'hint', `原工作目录: ${imported.cwd}`);
+    this._appendStructuredEvent(conv.id, 'hint', `导入文件: ${imported.filePath}`);
+    this._persist();
+
+    return {
+      snapshot: this.snapshot(),
+      imported: {
+        conversationId: conv.id,
+        title: conv.title,
+        sessionId: conv.sessionId || '',
+      },
+    };
   },
 
   async _autoRefreshMetaForConversation(conversationId) {

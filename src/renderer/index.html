@@ -211,8 +211,19 @@
       <div id="rename-modal-title" class="modal-title">重命名会话</div>
       <input id="rename-input" class="modal-input" type="text" placeholder="请输入会话名称" />
       <div class="modal-actions">
-        <button id="rename-cancel">取消</button>
-        <button id="rename-confirm">确认</button>
+        <button id="rename-cancel" class="btn-secondary">取消</button>
+        <button id="rename-confirm" class="btn-primary">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm-modal" class="modal-backdrop hidden">
+    <div class="modal-card confirm-modal-card">
+      <div id="confirm-modal-title" class="modal-title">关闭当前会话</div>
+      <div id="confirm-modal-body" class="modal-message">确认关闭对话吗？</div>
+      <div class="modal-actions">
+        <button id="confirm-cancel" class="btn-secondary">取消</button>
+        <button id="confirm-accept" class="btn-danger">关闭</button>
       </div>
     </div>
   </div>
@@ -237,7 +248,7 @@
         </section>
       </div>
       <div class="modal-actions">
-        <button id="about-close" data-i18n-key="close">关闭</button>
+        <button id="about-close" class="btn-secondary" data-i18n-key="close">关闭</button>
       </div>
     </div>
   </div>

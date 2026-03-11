@@ -103,6 +103,7 @@ const I18N = {
     inputPlaceholderIdle: '输入消息，Ctrl+Enter 发送',
     inputPlaceholderRunning: '正在回复中，可继续输入并点击「排队发送」',
     inputPlaceholderNoConversation: '先新建一个会话，然后开始聊天',
+    runningInProgress: '正在执行中...',
     chatRunningHint: 'Codex 正在执行中，请稍候...',
     chatRunningHintWithQueue: 'Codex 正在执行中，当前还有 {count} 条排队消息...',
     send: '发送',
@@ -111,6 +112,7 @@ const I18N = {
     stop: '停止',
     renameModalTitle: '重命名会话',
     renameModalPlaceholder: '请输入会话名称',
+    closeConversationTitle: '关闭当前会话',
     cancel: '取消',
     confirm: '确认',
     noConversation: '暂无会话',
@@ -222,6 +224,7 @@ const I18N = {
     inputPlaceholderIdle: 'Type a message, press Ctrl+Enter to send',
     inputPlaceholderRunning: 'Response in progress. Keep typing and click "Queue Send".',
     inputPlaceholderNoConversation: 'Create a conversation first, then start chatting',
+    runningInProgress: 'Running...',
     chatRunningHint: 'Codex is working, please wait...',
     chatRunningHintWithQueue: 'Codex is working. {count} queued message(s) pending...',
     send: 'Send',
@@ -230,6 +233,7 @@ const I18N = {
     stop: 'Stop',
     renameModalTitle: 'Rename Conversation',
     renameModalPlaceholder: 'Enter conversation name',
+    closeConversationTitle: 'Close Current Conversation',
     cancel: 'Cancel',
     confirm: 'Confirm',
     noConversation: 'No conversations yet',
@@ -368,6 +372,11 @@ const el = {
   renameInput: document.getElementById('rename-input'),
   renameCancel: document.getElementById('rename-cancel'),
   renameConfirm: document.getElementById('rename-confirm'),
+  confirmModal: document.getElementById('confirm-modal'),
+  confirmModalTitle: document.getElementById('confirm-modal-title'),
+  confirmModalBody: document.getElementById('confirm-modal-body'),
+  confirmCancel: document.getElementById('confirm-cancel'),
+  confirmAccept: document.getElementById('confirm-accept'),
   aboutModal: document.getElementById('about-modal'),
   aboutClose: document.getElementById('about-close'),
 
@@ -558,6 +567,14 @@ function setSidebarWidth(input, options = {}) {
 
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', normalizeTheme(state.ui.theme));
+  syncWindowTheme();
+}
+
+function syncWindowTheme() {
+  if (!codexdesk || typeof codexdesk.setWindowTheme !== 'function') {
+    return;
+  }
+  codexdesk.setWindowTheme(normalizeTheme(state.ui.theme)).catch(() => {});
 }
 
 function setTheme(input, options = {}) {

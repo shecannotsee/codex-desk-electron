@@ -182,6 +182,43 @@ function menuText() {
   return MENU_TEXT[menuLanguage] || MENU_TEXT['zh-CN'];
 }
 
+function normalizeTheme(input) {
+  return String(input || '').trim().toLowerCase() === 'dark' ? 'dark' : 'light';
+}
+
+function themePalette(theme) {
+  if (normalizeTheme(theme) === 'dark') {
+    return {
+      background: '#0b1120',
+      titleBarColor: '#0f172a',
+      symbolColor: '#dbe4f0',
+    };
+  }
+  return {
+    background: '#f4f8fc',
+    titleBarColor: '#f8fbff',
+    symbolColor: '#223244',
+  };
+}
+
+function applyWindowTheme(theme) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  const palette = themePalette(theme);
+  mainWindow.setBackgroundColor(palette.background);
+  if (typeof mainWindow.setTitleBarOverlay === 'function') {
+    try {
+      mainWindow.setTitleBarOverlay({
+        color: palette.titleBarColor,
+        symbolColor: palette.symbolColor,
+      });
+    } catch {
+      // Ignore unsupported platforms/window managers.
+    }
+  }
+}
+
 function templateText(input, vars = {}) {
   return String(input || '').replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ''));
 }
@@ -438,7 +475,7 @@ function createWindow() {
     height: 920,
     minWidth: 1100,
     minHeight: 720,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -451,7 +488,22 @@ function createWindow() {
   allowWindowClose = false;
   closeGuardPending = false;
   applyMenuLanguage(menuLanguage);
+  mainWindow.setAutoHideMenuBar(false);
   mainWindow.setMenuBarVisibility(false);
+  applyWindowTheme('light');
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (
+      input
+      && input.type === 'keyDown'
+      && input.key === 'Alt'
+      && !input.control
+      && !input.shift
+      && !input.meta
+    ) {
+      event.preventDefault();
+      mainWindow.setMenuBarVisibility(false);
+    }
+  });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -469,6 +521,12 @@ function registerIpc() {
     const language = normalizeLanguage(payload?.language);
     applyMenuLanguage(language);
     return { ok: true, language };
+  });
+
+  ipcMain.handle('ui:set-window-theme', async (_, payload) => {
+    const theme = normalizeTheme(payload?.theme);
+    applyWindowTheme(theme);
+    return { ok: true, theme };
   });
 
   ipcMain.handle('ui:invoke-action', async (_, payload) => {

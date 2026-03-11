@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   sendMessage: (conversationId, text) => ipcRenderer.invoke('chat:send', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
+  setWindowTheme: (theme) => ipcRenderer.invoke('ui:set-window-theme', { theme }),
   invokeUiAction: (action) => ipcRenderer.invoke('ui:invoke-action', { action }),
   isDocsCaptureEnabled: async () => {
     const result = await ipcRenderer.invoke('docs:capture-enabled');

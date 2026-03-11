@@ -66,6 +66,9 @@ function applyEvent(event) {
   if (!event || typeof event !== 'object') {
     return;
   }
+  const stickChatToBottom = typeof isChatViewNearBottom === 'function'
+    ? isChatViewNearBottom()
+    : true;
 
   const id = String(event.conversationId || '');
   switch (event.type) {
@@ -143,7 +146,7 @@ function applyEvent(event) {
       break;
   }
 
-  renderAll();
+  renderAll({ stickChatToBottom });
 }
 
 function askRenameTitle(initialValue) {
@@ -199,6 +202,66 @@ function askRenameTitle(initialValue) {
     confirmBtn.addEventListener('click', onConfirm);
     modal.addEventListener('click', onBackdrop);
     input.addEventListener('keydown', onKeyDown);
+  });
+}
+
+function askConfirmDialog(options = {}) {
+  return new Promise((resolve) => {
+    const modal = el.confirmModal;
+    const titleEl = el.confirmModalTitle;
+    const bodyEl = el.confirmModalBody;
+    const cancelBtn = el.confirmCancel;
+    const acceptBtn = el.confirmAccept;
+    if (!modal || !titleEl || !bodyEl || !cancelBtn || !acceptBtn) {
+      resolve(false);
+      return;
+    }
+
+    titleEl.textContent = String(options.title || '');
+    bodyEl.textContent = String(options.message || '');
+    modal.classList.remove('hidden');
+    cancelBtn.focus();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      cancelBtn.removeEventListener('click', onCancel);
+      acceptBtn.removeEventListener('click', onAccept);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onAccept = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target === modal) {
+        onCancel();
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        onAccept();
+      }
+    };
+
+    cancelBtn.addEventListener('click', onCancel);
+    acceptBtn.addEventListener('click', onAccept);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeyDown);
   });
 }
 
@@ -916,7 +979,10 @@ async function init() {
   el.btnCloseConv.addEventListener('click', async () => {
     const conv = currentConversation();
     const title = String(conv?.title || t('chatTitlePrefix'));
-    const ok = window.confirm(t('confirmCloseConversation', { title }));
+    const ok = await askConfirmDialog({
+      title: t('closeConversationTitle'),
+      message: t('confirmCloseConversation', { title }),
+    });
     if (!ok) {
       return;
     }

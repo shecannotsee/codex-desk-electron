@@ -181,14 +181,55 @@ function resolveMessageTime(item, conversation, index) {
   return formatMessageTime(conversation?.createdAt);
 }
 
+function runningStepMarkdown(conversationId) {
+  if (!conversationId) {
+    return localizeKnownText(phaseLabel('运行中'));
+  }
+  const runtime = ensureRuntime(conversationId);
+  const items = Array.isArray(runtime.workflow) ? runtime.workflow : [];
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    if (item.type === 'round') {
+      const preview = String(localizeKnownText(item.preview || '')).trim();
+      if (preview) {
+        return preview;
+      }
+      continue;
+    }
+    const title = String(localizeKnownText(item.title || item.tag || '')).trim();
+    const body = String(localizeKnownText(item.body || '')).trim();
+    if (title && body) {
+      return `**${title}**\n\n${body}`;
+    }
+    if (title) {
+      return `**${title}**`;
+    }
+    if (body) {
+      return body;
+    }
+  }
+  const phaseText = String(localizeKnownText(phaseLabel(runtime.phase || ''))).trim();
+  return phaseText || localizeKnownText(phaseLabel('运行中'));
+}
+
 function renderRunningHintBlock(conversationId) {
   if (!isConversationRunning(conversationId)) {
     return '';
   }
+  const stepMarkdown = runningStepMarkdown(conversationId);
   return [
     '<div class="msg-block msg-assistant-row msg-running-row">',
-    '<div class="msg-bubble msg-assistant msg-running-bubble">',
+    '<div class="msg-running-panel">',
+    '<div class="msg-running-status">',
     '<div class="msg-running-dots" aria-hidden="true"><span></span><span></span><span></span></div>',
+    `<div class="msg-running-status-text">${escapeHtml(t('runningInProgress'))}</div>`,
+    '</div>',
+    '<div class="msg-running-step-panel">',
+    `<div class="msg-running-step">${renderMarkdownLike(stepMarkdown)}</div>`,
+    '</div>',
     '</div>',
     '</div>',
   ].join('');
@@ -540,6 +581,14 @@ function renderRunButtons() {
   }
 }
 
+function isChatViewNearBottom(threshold = 72) {
+  if (!el.chatView) {
+    return true;
+  }
+  const distance = el.chatView.scrollHeight - el.chatView.scrollTop - el.chatView.clientHeight;
+  return distance <= Math.max(0, Number(threshold) || 0);
+}
+
 function renderTabs() {
   el.tabButtons.forEach((btn) => {
     const tab = btn.getAttribute('data-tab');
@@ -597,6 +646,12 @@ function renderLocaleTexts() {
   el.renameInput.placeholder = t('renameModalPlaceholder');
   el.renameCancel.textContent = t('cancel');
   el.renameConfirm.textContent = t('confirm');
+  if (el.confirmCancel) {
+    el.confirmCancel.textContent = t('cancel');
+  }
+  if (el.confirmAccept) {
+    el.confirmAccept.textContent = t('close');
+  }
   if (el.ctxNewConv) {
     el.ctxNewConv.textContent = t('contextMenuNew');
   }
@@ -628,13 +683,14 @@ function renderLocaleTexts() {
   }
 }
 
-function renderAll() {
+function renderAll(options = {}) {
+  const stickChatToBottom = options.stickChatToBottom ?? isChatViewNearBottom();
   renderLocaleTexts();
   renderLayout();
   renderConversationList();
   renderSettings();
   renderHeader();
-  renderChat();
+  renderChat(stickChatToBottom);
   renderRuntime();
   renderRunButtons();
   renderComposerDraft();

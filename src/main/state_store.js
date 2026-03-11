@@ -8,7 +8,9 @@ const APP_ROOT = path.resolve(__dirname, '..', '..');
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
 const LEGACY_STATE_PATH = path.join(os.homedir(), '.codexdesk', 'state.electron.json');
 const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
-const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
+const LEGACY_DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
+const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox';
+const MAX_PERSISTED_MESSAGES = 2000;
 
 function normalizeCommandText(raw) {
   const text = String(raw || '').trim();
@@ -16,24 +18,37 @@ function normalizeCommandText(raw) {
     return DEFAULT_COMMAND_TEXT;
   }
   // Backward-compatible cleanup: remove legacy `--color never` from codex exec defaults.
-  return text.replace(/\s--color(?:=|\s+)never\b/g, '').replace(/\s+/g, ' ').trim();
+  const normalized = text.replace(/\s--color(?:=|\s+)never\b/g, '').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return DEFAULT_COMMAND_TEXT;
+  }
+  if (normalized === LEGACY_DEFAULT_COMMAND_TEXT) {
+    return DEFAULT_COMMAND_TEXT;
+  }
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  const execBin = String(parts[0] || '').toLowerCase();
+  if (parts.length < 2 || !execBin.includes('codex') || parts[1] !== 'exec') {
+    return normalized;
+  }
+  if (
+    normalized.includes('--dangerously-bypass-approvals-and-sandbox')
+    || normalized.includes('--full-auto')
+    || normalized.includes('--sandbox ')
+    || normalized.includes('--sandbox=')
+    || /\s-s\s+\S+/.test(normalized)
+  ) {
+    return normalized;
+  }
+  return `${normalized} --dangerously-bypass-approvals-and-sandbox`.trim();
 }
 
 function normalizeWorkdir(candidate) {
   const fallback = path.resolve(APP_ROOT);
-  const homeRoot = path.resolve(os.homedir());
-  const tmpRoot = path.resolve('/tmp');
-  const resolved = path.resolve(String(candidate || '').trim() || fallback);
-
-  if (
-    resolved === homeRoot
-    || resolved.startsWith(`${homeRoot}${path.sep}`)
-    || resolved === tmpRoot
-    || resolved.startsWith(`${tmpRoot}${path.sep}`)
-  ) {
-    return resolved;
+  const raw = String(candidate || '').trim();
+  if (!raw) {
+    return fallback;
   }
-  return fallback;
+  return path.resolve(raw);
 }
 
 function parseMessages(rawMessages) {
@@ -222,7 +237,7 @@ class StateStore {
         sessionId: item.sessionId || '',
         createdAt: Number(item.createdAt || 0),
         updatedAt: Number(item.updatedAt || 0),
-        messages: Array.isArray(item.messages) ? item.messages.slice(-200) : [],
+        messages: Array.isArray(item.messages) ? item.messages.slice(-MAX_PERSISTED_MESSAGES) : [],
       })),
     };
 

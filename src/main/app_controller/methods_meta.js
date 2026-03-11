@@ -5,6 +5,7 @@ const { spawn, spawnSync } = require('node:child_process');
 
 const { splitShellArgs, stripAnsi } = require('../codex_runner');
 const { getConversation } = require('../conversation_service');
+const { getCodexChildEnv } = require('../shell_env');
 
 const metaMethods = {
   _resolveCodexCommandParts() {
@@ -232,7 +233,7 @@ const metaMethods = {
       const child = spawn(cmd[0], cmd.slice(1), {
         cwd: this.workdir || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: process.env,
+        env: getCodexChildEnv(),
       });
 
       let stdout = '';
@@ -309,6 +310,7 @@ const metaMethods = {
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         timeout: 6000,
+        env: getCodexChildEnv(),
       });
       const output = stripAnsi(String(result.stdout || result.stderr || '').trim());
       const firstLine = output.split(/\r?\n/)[0]?.trim() || '';

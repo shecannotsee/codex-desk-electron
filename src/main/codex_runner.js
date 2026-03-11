@@ -3,6 +3,8 @@ const { spawn, spawnSync } = require('node:child_process');
 const os = require('node:os');
 const readline = require('node:readline');
 
+const { getCodexChildEnv } = require('./shell_env');
+
 const ANSI_PATTERN = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 const HEADER_FIELD_RE = /^([\w ]+):\s*(.+)$/;
 
@@ -33,6 +35,7 @@ class CodexRunner extends EventEmitter {
     this.workdir = workdir;
     this.sessionId = sessionId;
     this.useNativeMemory = useNativeMemory;
+    this.childEnv = getCodexChildEnv();
 
     this.proc = null;
     this.gotStreamDelta = false;
@@ -128,7 +131,7 @@ class CodexRunner extends EventEmitter {
       this.proc = spawn(cmd[0], cmd.slice(1), {
         cwd: this.workdir || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: process.env,
+        env: this.childEnv,
       });
 
       const onLine = (line) => {
@@ -192,6 +195,7 @@ class CodexRunner extends EventEmitter {
       const args = baseCmd.slice(2);
       const opts = [];
       let hasAddDir = false;
+      let hasPermissionMode = false;
       const optionsWithValueKeep = new Set([
         '--config', '-c', '--model', '-m', '--profile', '-p', '--sandbox', '-s',
         '--cd', '-C', '--add-dir', '--output-schema', '--enable', '--disable',
@@ -222,6 +226,16 @@ class CodexRunner extends EventEmitter {
           hasAddDir = true;
         }
 
+        if (
+          token === '--dangerously-bypass-approvals-and-sandbox'
+          || token === '--full-auto'
+          || token === '--sandbox'
+          || token === '-s'
+          || String(token).startsWith('--sandbox=')
+        ) {
+          hasPermissionMode = true;
+        }
+
         if (optionsWithValueKeep.has(token) && i + 1 < args.length) {
           opts.push(token, args[i + 1]);
           i += 1;
@@ -236,6 +250,10 @@ class CodexRunner extends EventEmitter {
         if (homeDir) {
           opts.push('--add-dir', homeDir);
         }
+      }
+
+      if (!hasPermissionMode) {
+        opts.push('--dangerously-bypass-approvals-and-sandbox');
       }
 
       opts.push('--json');
@@ -259,6 +277,7 @@ class CodexRunner extends EventEmitter {
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         timeout: 6000,
+        env: this.childEnv,
       });
       const output = stripAnsi(String(result.stdout || result.stderr || '').trim());
       const firstLine = output.split(/\r?\n/)[0]?.trim() || '';

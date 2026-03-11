@@ -81,7 +81,7 @@ npm run capture:docs
 说明：
 
 1. 截图由 Electron 内置 `capturePage` 实现，不依赖外部截图工具。
-2. 当前 Codex 沙箱环境无法直接启动 GUI；请在本机 Ubuntu 22.04 执行该命令。
+2. 建议在已验证的平台 `Ubuntu 22.04` 上执行，确保字体、窗口装饰和主题表现与文档一致。
 
 ## 6. 打包说明（Ubuntu DEB）
 
@@ -94,7 +94,7 @@ npm run capture:docs
 1. `.deb` 会打包 Electron、应用代码和 Node 依赖。
 2. 系统共享库依赖由 APT 安装。
 3. `codex` CLI 是外部依赖，不内置进安装包。
-4. 打包前会自动同步 `resource/logo.png` 到图标资源，并保留源图 alpha 形状（不额外裁切）。
+4. 打包前会自动同步 `resource/logo.png` 到图标资源。
 
 ## 7. 发布流程（建议）
 
@@ -108,6 +108,7 @@ npm run capture:docs
 6. 回归关键流程：
    - 新建会话 -> 发送 -> 查看运行日志
    - 运行中排队发送 -> 查看待执行队列
+   - 运行中临时状态区 -> 最终回复后自动消失
    - 设置多级菜单 + 主题切换
    - 关闭窗口保护
 

@@ -6,15 +6,14 @@ Electron desktop client for Codex CLI, focused on multi-conversation workflow an
 
 <img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
 
-Window icon is generated from this source logo via `cd src && npm run sync:logo`, preserving source alpha shape (no extra trim/mask clipping).
-
 ## Quick Workflow
 
 1. Create/switch conversation from the left sidebar.
 2. Input prompt and send (`Ctrl+Enter`).
 3. Watch runtime logs in `Structured / Workflow / Raw JSON` tabs.
 4. Queue follow-up questions while current response is running.
-5. Use quick settings for theme/language/layout adjustments.
+5. Watch temporary running status in the chat area while Codex is working.
+6. Use quick settings for theme/language/layout adjustments.
 
 ## UI Preview
 
@@ -60,7 +59,7 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-`start.sh` auto-installs missing dependencies, syncs logo resources, then launches app.
+`start.sh` auto-installs missing dependencies and launches the app.
 
 ## Ubuntu DEB Build
 

@@ -33,7 +33,7 @@ npm run check
 说明：
 
 - `npm run start` / `npm run dist:deb` 会自动执行 `sync:logo`
-- 自动把 `resource/logo.png` 按原始 alpha 形状居中适配后输出为 `src/build/icon.png`（不再额外裁白边/圆形遮罩）
+- `resource/logo.png` 会同步为应用图标资源
 
 ## 2. 生成 DEB 安装包
 

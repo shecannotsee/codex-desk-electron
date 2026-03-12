@@ -245,6 +245,13 @@ function sendMenuAction(action) {
   mainWindow.webContents.send('app:menu-action', { action: String(action || '') });
 }
 
+function sendCloseGuardPrompt(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.webContents.send('app:close-guard', payload || {});
+}
+
 function clampZoomFactor(input) {
   const value = Number(input);
   if (!Number.isFinite(value)) {
@@ -436,33 +443,16 @@ async function handleWindowCloseGuard(event) {
 
   try {
     const text = menuText();
-    const result = await dialog.showMessageBox(mainWindow, {
-      type: 'warning',
+    sendCloseGuardPrompt({
       title: text.closeGuardTitle,
       message: templateText(text.closeGuardMessage, { count: runningCount }),
       detail: text.closeGuardDetail,
-      buttons: [text.closeGuardCancel, text.closeGuardStopAndClose, text.closeGuardForceClose],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
+      cancelLabel: text.closeGuardCancel,
+      stopAndCloseLabel: text.closeGuardStopAndClose,
+      forceCloseLabel: text.closeGuardForceClose,
+      runningCount,
     });
-
-    if (result.response === 0) {
-      return;
-    }
-
-    if (result.response === 1) {
-      controller.stopAllRunningConversations();
-      await waitForRunnersStop(3000);
-    } else if (result.response === 2) {
-      controller.stopAllRunningConversations();
-    }
-
-    allowWindowClose = true;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.close();
-    }
-  } finally {
+  } catch {
     closeGuardPending = false;
   }
 }
@@ -615,6 +605,34 @@ function registerIpc() {
 
   ipcMain.handle('chat:retry-last', async (_, payload) => {
     return controller.retryLastMessage(String(payload?.conversationId || ''));
+  });
+
+  ipcMain.handle('app:resolve-close-guard', async (_, payload) => {
+    const action = String(payload?.action || '').trim();
+    if (!closeGuardPending) {
+      return { ok: false, ignored: true };
+    }
+    try {
+      if (action === 'cancel') {
+        return { ok: true, canceled: true };
+      }
+      if (action === 'stop-and-close') {
+        controller?.stopAllRunningConversations();
+        await waitForRunnersStop(3000);
+      } else if (action === 'force-close') {
+        controller?.stopAllRunningConversations();
+      } else {
+        return { ok: false, error: '无效动作' };
+      }
+
+      allowWindowClose = true;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.close();
+      }
+      return { ok: true };
+    } finally {
+      closeGuardPending = false;
+    }
   });
 
   ipcMain.handle('docs:capture-enabled', async () => {

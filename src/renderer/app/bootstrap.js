@@ -55,11 +55,123 @@ function applySnapshot(snapshot) {
       delete state.queuedMessagesByConversation[id];
     }
   });
+  pruneChatVisibleCounts([...validIds]);
   pruneConversationDrafts([...validIds]);
 
   if (!state.activeConversationId && state.conversations.length) {
     state.activeConversationId = state.conversations[0].id;
   }
+  state.conversations.forEach((conv) => {
+    const total = Array.isArray(conv?.messages) ? conv.messages.length : 0;
+    ensureChatVisibleCount(conv.id, total);
+  });
+}
+
+function createRenderJobs() {
+  return {
+    full: false,
+    locale: false,
+    layout: false,
+    conversationList: false,
+    settings: false,
+    header: false,
+    chat: false,
+    chatTransient: false,
+    runtime: false,
+    runtimeStructured: false,
+    runtimeWorkflow: false,
+    runtimeRaw: false,
+    runButtons: false,
+    composer: false,
+    tabs: false,
+  };
+}
+
+let pendingRenderJobs = createRenderJobs();
+let renderFlushScheduled = false;
+let pendingStickChatToBottom = false;
+
+function mergeRenderJobs(target, source) {
+  if (!target || !source) {
+    return;
+  }
+  Object.keys(target).forEach((key) => {
+    if (source[key]) {
+      target[key] = true;
+    }
+  });
+}
+
+function flushScheduledRender() {
+  renderFlushScheduled = false;
+  const jobs = pendingRenderJobs;
+  const stickChatToBottom = pendingStickChatToBottom;
+  pendingRenderJobs = createRenderJobs();
+  pendingStickChatToBottom = false;
+
+  if (jobs.full) {
+    renderAll({ stickChatToBottom });
+    return;
+  }
+  if (jobs.locale) {
+    renderLocaleTexts();
+  }
+  if (jobs.layout) {
+    renderLayout();
+  }
+  if (jobs.conversationList) {
+    renderConversationList();
+  }
+  if (jobs.settings) {
+    renderSettings();
+  }
+  if (jobs.header) {
+    renderHeader();
+  }
+  if (jobs.chat) {
+    renderChat(stickChatToBottom);
+  } else if (jobs.chatTransient) {
+    renderChatTransientPanels({ stickToBottom: stickChatToBottom });
+  }
+  if (jobs.runtime) {
+    renderRuntime();
+  } else {
+    if (!hasActiveConversation() && (jobs.runtimeStructured || jobs.runtimeWorkflow || jobs.runtimeRaw)) {
+      renderRuntime();
+    } else {
+      const runtime = hasActiveConversation() ? ensureRuntime(state.activeConversationId) : null;
+      if (jobs.runtimeStructured && runtime) {
+        renderStructuredTab(runtime);
+      }
+      if (jobs.runtimeWorkflow && runtime) {
+        renderWorkflowTab(runtime, stickChatToBottom);
+      }
+      if (jobs.runtimeRaw && runtime) {
+        renderRawTab(runtime);
+      }
+    }
+  }
+  if (jobs.runButtons) {
+    renderRunButtons();
+  }
+  if (jobs.composer) {
+    renderComposerDraft();
+  }
+  if (jobs.tabs) {
+    renderTabs();
+  }
+}
+
+function scheduleRender(jobs, options = {}) {
+  mergeRenderJobs(pendingRenderJobs, jobs);
+  if (options.stickChatToBottom) {
+    pendingStickChatToBottom = true;
+  }
+  if (renderFlushScheduled) {
+    return;
+  }
+  renderFlushScheduled = true;
+  window.requestAnimationFrame(flushScheduledRender);
 }
 
 function applyEvent(event) {
@@ -71,25 +183,48 @@ function applyEvent(event) {
     : true;
 
   const id = String(event.conversationId || '');
+  const isActiveConversation = Boolean(id) && id === state.activeConversationId;
+  let renderJobs = createRenderJobs();
   switch (event.type) {
     case 'runtime-event-append': {
       const runtime = ensureRuntime(id);
       if (!isDuplicateRuntimeEvent(runtime, event.item)) {
         runtime.events.push(event.item);
       }
+      if (isActiveConversation && state.activeTab === 'structured') {
+        renderJobs.runtimeStructured = true;
+      }
       break;
     }
     case 'runtime-workflow-append':
       ensureRuntime(id).workflow.push(event.item);
+      if (isActiveConversation) {
+        renderJobs.chatTransient = true;
+        if (state.activeTab === 'workflow') {
+          renderJobs.runtimeWorkflow = true;
+        }
+      }
       break;
     case 'runtime-raw-append':
       ensureRuntime(id).raw.push(event.line);
+      if (isActiveConversation && state.activeTab === 'raw') {
+        renderJobs.runtimeRaw = true;
+      }
       break;
     case 'runtime-phase':
       ensureRuntime(id).phase = event.phase;
+      renderJobs.conversationList = true;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+        renderJobs.runButtons = true;
+        renderJobs.chatTransient = true;
+      }
       break;
     case 'runtime-started-at':
       ensureRuntime(id).startedAt = event.startedAt;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+      }
       break;
     case 'runtime-reset':
       state.runtimeByConversation[id] = {
@@ -99,6 +234,13 @@ function applyEvent(event) {
         phase: '空闲',
         startedAt: null,
       };
+      renderJobs.conversationList = true;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+        renderJobs.runButtons = true;
+        renderJobs.runtime = true;
+        renderJobs.chatTransient = true;
+      }
       break;
     case 'conversation-updated': {
       const conv = event.conversation;
@@ -106,10 +248,20 @@ function applyEvent(event) {
         break;
       }
       const idx = state.conversations.findIndex((item) => item.id === conv.id);
+      const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
+        ? state.conversations[idx].messages.length
+        : 0;
       if (idx >= 0) {
         state.conversations[idx] = conv;
       } else {
         state.conversations.push(conv);
+      }
+      syncChatVisibleCount(conv.id, Array.isArray(conv.messages) ? conv.messages.length : 0, previousTotal);
+      renderJobs.conversationList = true;
+      if (conv.id === state.activeConversationId) {
+        renderJobs.header = true;
+        renderJobs.chat = true;
+        renderJobs.runButtons = true;
       }
       break;
     }
@@ -121,17 +273,28 @@ function applyEvent(event) {
       delete state.queuedMessagesByConversation[id];
       delete state.collapsedByConversation[id];
       delete state.workflowCollapsedByConversation[id];
+      delete state.chatVisibleCountByConversation[id];
       setConversationDraft(id, '');
       state.runningConversationIds.delete(id);
+      renderJobs.full = true;
       break;
     case 'meta-updated':
       ensureMeta(id)[event.key] = event.value;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+      }
       break;
     case 'runner-state':
       if (event.running) {
         state.runningConversationIds.add(id);
       } else {
         state.runningConversationIds.delete(id);
+      }
+      renderJobs.conversationList = true;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+        renderJobs.runButtons = true;
+        renderJobs.chatTransient = true;
       }
       break;
     case 'queue-updated':
@@ -141,12 +304,20 @@ function applyEvent(event) {
       } else if (Number(event.count || 0) <= 0) {
         state.queuedMessagesByConversation[id] = [];
       }
+      renderJobs.conversationList = true;
+      if (isActiveConversation) {
+        renderJobs.header = true;
+        renderJobs.runButtons = true;
+        renderJobs.chatTransient = true;
+        if (state.activeTab === 'workflow') {
+          renderJobs.runtimeWorkflow = true;
+        }
+      }
       break;
     default:
       break;
   }
-
-  renderAll({ stickChatToBottom });
+  scheduleRender(renderJobs, { stickChatToBottom });
 }
 
 function askRenameTitle(initialValue) {
@@ -265,6 +436,77 @@ function askConfirmDialog(options = {}) {
   });
 }
 
+function hideCloseGuardModal() {
+  if (!el.closeGuardModal) {
+    return;
+  }
+  el.closeGuardModal.classList.add('hidden');
+  if (el.closeGuardCancel) {
+    el.closeGuardCancel.disabled = false;
+  }
+  if (el.closeGuardStop) {
+    el.closeGuardStop.disabled = false;
+  }
+  if (el.closeGuardForce) {
+    el.closeGuardForce.disabled = false;
+  }
+}
+
+function showCloseGuardModal(payload = {}) {
+  if (!el.closeGuardModal) {
+    return;
+  }
+  if (el.closeGuardTitle) {
+    el.closeGuardTitle.textContent = String(payload.title || t('closeGuardTitle'));
+  }
+  if (el.closeGuardMessage) {
+    el.closeGuardMessage.textContent = String(payload.message || '');
+  }
+  if (el.closeGuardDetail) {
+    el.closeGuardDetail.textContent = String(payload.detail || t('closeGuardDetail'));
+  }
+  if (el.closeGuardCancel) {
+    el.closeGuardCancel.textContent = String(payload.cancelLabel || t('closeGuardCancel'));
+    el.closeGuardCancel.disabled = false;
+  }
+  if (el.closeGuardStop) {
+    el.closeGuardStop.textContent = String(payload.stopAndCloseLabel || t('closeGuardStopAndClose'));
+    el.closeGuardStop.disabled = false;
+  }
+  if (el.closeGuardForce) {
+    el.closeGuardForce.textContent = String(payload.forceCloseLabel || t('closeGuardForceClose'));
+    el.closeGuardForce.disabled = false;
+  }
+  el.closeGuardModal.classList.remove('hidden');
+  if (el.closeGuardCancel) {
+    el.closeGuardCancel.focus();
+  }
+}
+
+async function resolveCloseGuardAction(action) {
+  const nextAction = String(action || '').trim();
+  if (!nextAction) {
+    return;
+  }
+  if (el.closeGuardCancel) {
+    el.closeGuardCancel.disabled = true;
+  }
+  if (el.closeGuardStop) {
+    el.closeGuardStop.disabled = true;
+  }
+  if (el.closeGuardForce) {
+    el.closeGuardForce.disabled = true;
+  }
+  try {
+    await codexdesk.resolveCloseGuard(nextAction);
+    if (nextAction === 'cancel') {
+      hideCloseGuardModal();
+    }
+  } catch {
+    hideCloseGuardModal();
+  }
+}
+
 async function init() {
   loadUiPrefs();
   loadDraftPrefs();
@@ -280,6 +522,12 @@ async function init() {
   codexdesk.onEvent((event) => {
     applyEvent(event);
   });
+
+  if (typeof codexdesk.onCloseGuard === 'function') {
+    codexdesk.onCloseGuard((payload) => {
+      showCloseGuardModal(payload || {});
+    });
+  }
 
   let contextMenuConversationId = '';
   const hideConversationContextMenu = () => {
@@ -364,6 +612,40 @@ async function init() {
   });
 
   if (el.chatView) {
+    el.chatView.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const loadEarlierBtn = target.closest('.chat-load-more-button');
+      if (loadEarlierBtn) {
+        event.preventDefault();
+        const conv = currentConversation();
+        const total = Array.isArray(conv?.messages) ? conv.messages.length : 0;
+        const beforeHeight = el.chatView.scrollHeight;
+        const beforeTop = el.chatView.scrollTop;
+        increaseChatVisibleCount(state.activeConversationId, total);
+        renderChat(false);
+        const delta = el.chatView.scrollHeight - beforeHeight;
+        el.chatView.scrollTop = beforeTop + Math.max(0, delta);
+        return;
+      }
+
+      const toggleBtn = target.closest('.msg-toggle-collapse');
+      if (!toggleBtn) {
+        return;
+      }
+      event.preventDefault();
+      const index = Number(toggleBtn.getAttribute('data-msg-index') || '-1');
+      if (!Number.isInteger(index) || index < 0) {
+        return;
+      }
+      const nextCollapsed = !isMessageCollapsed(state.activeConversationId, index);
+      setMessageCollapsed(state.activeConversationId, index, nextCollapsed);
+      renderChat(false);
+    });
+
     el.chatView.addEventListener('contextmenu', (event) => {
       const clickedMessage = event.target.closest('.msg-block');
       if (clickedMessage) {
@@ -835,6 +1117,14 @@ async function init() {
       hideAboutModal();
       return;
     }
+    if (
+      el.closeGuardModal
+      && !el.closeGuardModal.classList.contains('hidden')
+      && event.target === el.closeGuardModal
+    ) {
+      resolveCloseGuardAction('cancel');
+      return;
+    }
     if (el.chatContextMenu && !el.chatContextMenu.classList.contains('hidden') && !el.chatContextMenu.contains(event.target)) {
       hideChatContextMenu();
     }
@@ -869,6 +1159,10 @@ async function init() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (el.closeGuardModal && !el.closeGuardModal.classList.contains('hidden')) {
+        resolveCloseGuardAction('cancel');
+        return;
+      }
       hideChatContextMenu();
       hideConversationContextMenu();
       hideQuickSettingsMenu();
@@ -879,6 +1173,21 @@ async function init() {
   if (el.aboutClose) {
     el.aboutClose.addEventListener('click', () => {
       hideAboutModal();
+    });
+  }
+  if (el.closeGuardCancel) {
+    el.closeGuardCancel.addEventListener('click', () => {
+      resolveCloseGuardAction('cancel');
+    });
+  }
+  if (el.closeGuardStop) {
+    el.closeGuardStop.addEventListener('click', () => {
+      resolveCloseGuardAction('stop-and-close');
+    });
+  }
+  if (el.closeGuardForce) {
+    el.closeGuardForce.addEventListener('click', () => {
+      resolveCloseGuardAction('force-close');
     });
   }
 
@@ -1153,6 +1462,7 @@ async function init() {
   el.tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       state.activeTab = btn.getAttribute('data-tab') || 'structured';
+      renderRuntime();
       renderTabs();
     });
   });

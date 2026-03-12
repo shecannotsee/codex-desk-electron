@@ -267,6 +267,69 @@ function renderQueuedQuestionBlocks(conversationId) {
   ].join('');
 }
 
+function renderChatPaginationBar(totalCount, visibleCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  const visible = Math.max(0, Math.min(total, Number(visibleCount) || 0));
+  const remaining = Math.max(0, total - visible);
+  if (!remaining) {
+    return '';
+  }
+  return [
+    '<div class="chat-pagination-bar">',
+    `<button type="button" class="chat-load-more-button" data-action="chat:load-earlier">${escapeHtml(t('loadEarlierMessages', { count: remaining }))}</button>`,
+    `<div class="chat-pagination-summary">${escapeHtml(t('showingRecentMessages', { visible, total }))}</div>`,
+    '</div>',
+  ].join('');
+}
+
+function renderChatTransientStack(conversationId) {
+  return [
+    '<div class="chat-transient-stack">',
+    renderQueuedQuestionBlocks(conversationId),
+    renderRunningHintBlock(conversationId),
+    '</div>',
+  ].join('');
+}
+
+function renderChatMessageBlock(item, index, conversation) {
+  const role = item.role === 'user' ? t('roleYou') : t('roleCodex');
+  const bubbleClass = item.role === 'user'
+    ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
+    : 'msg-assistant';
+  const collapsed = isMessageCollapsed(state.activeConversationId, index);
+  const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
+  const preview = messagePreview(item.text);
+  const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
+  const timeText = resolveMessageTime(item, conversation, index);
+  return [
+    `<div class="msg-block ${rowClass}" data-msg-row-index="${escapeHtml(index)}">`,
+    '<div class="msg-head">',
+    `<div class="msg-role">${escapeHtml(role)}</div>`,
+    `<button type="button" class="msg-toggle-collapse" data-msg-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
+    '</div>',
+    `<div class="msg-bubble ${bubbleClass}${collapsed ? ' collapsed' : ''}" data-msg-index="${escapeHtml(index)}">`,
+    `<div class="msg-expanded">${renderMarkdownLike(item.text)}</div>`,
+    `<div class="msg-collapsed-line">${escapeHtml(preview)}</div>`,
+    `<div class="msg-time">${escapeHtml(timeText)}</div>`,
+    '</div>',
+    '</div>',
+  ].join('');
+}
+
+function renderChatTransientPanels(options = {}) {
+  if (!el.chatView) {
+    return;
+  }
+  const target = el.chatView.querySelector('.chat-transient-stack');
+  if (!target) {
+    return;
+  }
+  target.innerHTML = `${renderQueuedQuestionBlocks(state.activeConversationId)}${renderRunningHintBlock(state.activeConversationId)}`;
+  if (options.stickToBottom) {
+    el.chatView.scrollTop = el.chatView.scrollHeight;
+  }
+}
+
 function renderChat(stickToBottom = true) {
   const conv = currentConversation();
   if (!conv) {
@@ -278,13 +341,12 @@ function renderChat(stickToBottom = true) {
     return;
   }
   if (!conv || !Array.isArray(conv.messages) || !conv.messages.length) {
-    const queuedQuestionsHtml = renderQueuedQuestionBlocks(state.activeConversationId);
-    const runningHintHtml = renderRunningHintBlock(state.activeConversationId);
     el.chatView.innerHTML = [
+      '<div class="chat-view-empty-shell">',
       `<div class="tip">${escapeHtml(t('noMessagesTip1'))}</div>`,
       `<div class="tip">${escapeHtml(t('noMessagesTip2'))}</div>`,
-      queuedQuestionsHtml,
-      runningHintHtml,
+      renderChatTransientStack(state.activeConversationId),
+      '</div>',
     ].join('');
     if (stickToBottom) {
       el.chatView.scrollTop = el.chatView.scrollHeight;
@@ -293,47 +355,20 @@ function renderChat(stickToBottom = true) {
   }
 
   cleanupCollapsed(state.activeConversationId, conv.messages.length);
+  const totalCount = conv.messages.length;
+  const visibleCount = ensureChatVisibleCount(state.activeConversationId, totalCount);
+  const startIndex = Math.max(0, totalCount - visibleCount);
+  const blocks = conv.messages
+    .slice(startIndex)
+    .map((item, offset) => renderChatMessageBlock(item, startIndex + offset, conv));
 
-  const blocks = conv.messages.map((item, index) => {
-    const role = item.role === 'user' ? t('roleYou') : t('roleCodex');
-    const bubbleClass = item.role === 'user'
-      ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
-      : 'msg-assistant';
-    const collapsed = isMessageCollapsed(state.activeConversationId, index);
-    const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
-    const preview = messagePreview(item.text);
-    const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
-    const timeText = resolveMessageTime(item, conv, index);
-    return [
-      `<div class="msg-block ${rowClass}">`,
-      '<div class="msg-head">',
-      `<div class="msg-role">${escapeHtml(role)}</div>`,
-      `<button type="button" class="msg-toggle-collapse" data-msg-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
-      '</div>',
-      `<div class="msg-bubble ${bubbleClass}${collapsed ? ' collapsed' : ''}" data-msg-index="${escapeHtml(index)}">`,
-      `<div class="msg-expanded">${renderMarkdownLike(item.text)}</div>`,
-      `<div class="msg-collapsed-line">${escapeHtml(preview)}</div>`,
-      `<div class="msg-time">${escapeHtml(timeText)}</div>`,
-      '</div>',
-      '</div>',
-    ].join('');
-  });
-
-  const queuedQuestionsHtml = renderQueuedQuestionBlocks(state.activeConversationId);
-  const runningHintHtml = renderRunningHintBlock(state.activeConversationId);
-  el.chatView.innerHTML = `${blocks.join('')}${queuedQuestionsHtml}${runningHintHtml}`;
-  Array.from(el.chatView.querySelectorAll('.msg-toggle-collapse')).forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.preventDefault();
-      const index = Number(btn.getAttribute('data-msg-index') || '-1');
-      if (!Number.isInteger(index) || index < 0) {
-        return;
-      }
-      const nextCollapsed = !isMessageCollapsed(state.activeConversationId, index);
-      setMessageCollapsed(state.activeConversationId, index, nextCollapsed);
-      renderChat(false);
-    });
-  });
+  el.chatView.innerHTML = [
+    renderChatPaginationBar(totalCount, visibleCount),
+    '<div class="chat-history-list">',
+    blocks.join(''),
+    '</div>',
+    renderChatTransientStack(state.activeConversationId),
+  ].join('');
   if (stickToBottom) {
     el.chatView.scrollTop = el.chatView.scrollHeight;
   }

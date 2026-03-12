@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
   setWindowTheme: (theme) => ipcRenderer.invoke('ui:set-window-theme', { theme }),
   invokeUiAction: (action) => ipcRenderer.invoke('ui:invoke-action', { action }),
+  resolveCloseGuard: (action) => ipcRenderer.invoke('app:resolve-close-guard', { action }),
   isDocsCaptureEnabled: async () => {
     const result = await ipcRenderer.invoke('docs:capture-enabled');
     return Boolean(result?.enabled);
@@ -39,6 +40,13 @@ contextBridge.exposeInMainWorld('codexdesk', {
     ipcRenderer.on('app:menu-action', handler);
     return () => {
       ipcRenderer.removeListener('app:menu-action', handler);
+    };
+  },
+  onCloseGuard: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('app:close-guard', handler);
+    return () => {
+      ipcRenderer.removeListener('app:close-guard', handler);
     };
   },
 });

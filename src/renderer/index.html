@@ -228,6 +228,24 @@
     </div>
   </div>
 
+  <div id="close-guard-modal" class="modal-backdrop hidden">
+    <div class="modal-card close-guard-modal-card">
+      <div class="close-guard-hero">
+        <div class="close-guard-icon" aria-hidden="true">!</div>
+        <div class="close-guard-copy">
+          <div id="close-guard-title" class="modal-title">存在进行中的任务</div>
+          <div id="close-guard-message" class="modal-message">当前有 1 个会话仍在运行。</div>
+        </div>
+      </div>
+      <div id="close-guard-detail" class="close-guard-detail">建议先停止任务再关闭窗口，避免中途中断。</div>
+      <div class="modal-actions close-guard-actions">
+        <button id="close-guard-cancel" class="btn-secondary">取消</button>
+        <button id="close-guard-stop" class="btn-primary">停止任务并关闭</button>
+        <button id="close-guard-force" class="btn-danger">直接关闭</button>
+      </div>
+    </div>
+  </div>
+
   <div id="about-modal" class="modal-backdrop hidden">
     <div class="modal-card about-modal-card">
       <div id="about-modal-title" class="modal-title" data-i18n-key="about">关于 Codex Desk</div>

@@ -14,6 +14,7 @@ const state = {
   queuedMessagesByConversation: {},
   collapsedByConversation: {},
   workflowCollapsedByConversation: {},
+  chatVisibleCountByConversation: {},
   draftsByConversation: {},
   inputBindingConversationId: '',
   activeTab: 'structured',
@@ -34,9 +35,13 @@ const NO_CONVERSATION_DRAFT_KEY = '__no_conversation__';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
 const CHAT_FONT_SIZE_DEFAULT = 15;
+const CHAT_PAGE_SIZE_INITIAL = 80;
+const CHAT_PAGE_SIZE_INCREMENT = 80;
 const SIDEBAR_WIDTH_MIN = 220;
 const SIDEBAR_WIDTH_MAX = 520;
 const SIDEBAR_WIDTH_DEFAULT = 320;
+const MARKDOWN_CACHE_LIMIT = 400;
+const markdownRenderCache = new Map();
 
 const I18N = {
   'zh-CN': {
@@ -113,6 +118,11 @@ const I18N = {
     renameModalTitle: '重命名会话',
     renameModalPlaceholder: '请输入会话名称',
     closeConversationTitle: '关闭当前会话',
+    closeGuardTitle: '存在进行中的任务',
+    closeGuardDetail: '建议先停止任务再关闭窗口，避免中途中断。',
+    closeGuardCancel: '取消',
+    closeGuardStopAndClose: '停止任务并关闭',
+    closeGuardForceClose: '直接关闭',
     cancel: '取消',
     confirm: '确认',
     noConversation: '暂无会话',
@@ -141,6 +151,8 @@ const I18N = {
     collapseMessage: '折叠',
     expandMessage: '展开',
     emptyMessagePreview: '（空消息）',
+    loadEarlierMessages: '加载更早消息（剩余 {count} 条）',
+    showingRecentMessages: '当前显示最近 {visible}/{total} 条消息',
     stateRunning: '运行中',
     stateError: '失败',
     stateSuccess: '已完成',
@@ -234,6 +246,11 @@ const I18N = {
     renameModalTitle: 'Rename Conversation',
     renameModalPlaceholder: 'Enter conversation name',
     closeConversationTitle: 'Close Current Conversation',
+    closeGuardTitle: 'Tasks Are Still Running',
+    closeGuardDetail: 'Recommended: stop tasks before closing to avoid interruption.',
+    closeGuardCancel: 'Cancel',
+    closeGuardStopAndClose: 'Stop And Close',
+    closeGuardForceClose: 'Close Now',
     cancel: 'Cancel',
     confirm: 'Confirm',
     noConversation: 'No conversations yet',
@@ -262,6 +279,8 @@ const I18N = {
     collapseMessage: 'Collapse',
     expandMessage: 'Expand',
     emptyMessagePreview: '(empty message)',
+    loadEarlierMessages: 'Load earlier messages ({count} remaining)',
+    showingRecentMessages: 'Showing latest {visible}/{total} messages',
     stateRunning: 'Running',
     stateError: 'Failed',
     stateSuccess: 'Completed',
@@ -377,6 +396,13 @@ const el = {
   confirmModalBody: document.getElementById('confirm-modal-body'),
   confirmCancel: document.getElementById('confirm-cancel'),
   confirmAccept: document.getElementById('confirm-accept'),
+  closeGuardModal: document.getElementById('close-guard-modal'),
+  closeGuardTitle: document.getElementById('close-guard-title'),
+  closeGuardMessage: document.getElementById('close-guard-message'),
+  closeGuardDetail: document.getElementById('close-guard-detail'),
+  closeGuardCancel: document.getElementById('close-guard-cancel'),
+  closeGuardStop: document.getElementById('close-guard-stop'),
+  closeGuardForce: document.getElementById('close-guard-force'),
   aboutModal: document.getElementById('about-modal'),
   aboutClose: document.getElementById('about-close'),
 
@@ -530,6 +556,71 @@ function pruneConversationDrafts(validConversationIds) {
   if (changed) {
     saveDraftPrefs();
   }
+}
+
+function defaultChatVisibleCount(totalCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  return Math.min(total, CHAT_PAGE_SIZE_INITIAL);
+}
+
+function ensureChatVisibleCount(conversationId, totalCount) {
+  const id = String(conversationId || '').trim();
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!id) {
+    return defaultChatVisibleCount(total);
+  }
+  const fallback = defaultChatVisibleCount(total);
+  const current = Number(state.chatVisibleCountByConversation[id]);
+  let next = Number.isFinite(current) ? Math.max(0, Math.round(current)) : fallback;
+  if (total <= 0) {
+    next = 0;
+  } else {
+    next = Math.max(fallback, Math.min(total, next || fallback));
+  }
+  state.chatVisibleCountByConversation[id] = next;
+  return next;
+}
+
+function syncChatVisibleCount(conversationId, totalCount, previousTotalCount = 0) {
+  const id = String(conversationId || '').trim();
+  const total = Math.max(0, Number(totalCount) || 0);
+  const previousTotal = Math.max(0, Number(previousTotalCount) || 0);
+  if (!id) {
+    return defaultChatVisibleCount(total);
+  }
+  let current = ensureChatVisibleCount(id, previousTotal);
+  if (total <= 0) {
+    state.chatVisibleCountByConversation[id] = 0;
+    return 0;
+  }
+  if (total > previousTotal && current >= previousTotal) {
+    current = Math.min(total, Math.max(defaultChatVisibleCount(total), current + (total - previousTotal)));
+  } else {
+    current = Math.max(defaultChatVisibleCount(total), Math.min(total, current));
+  }
+  state.chatVisibleCountByConversation[id] = current;
+  return current;
+}
+
+function increaseChatVisibleCount(conversationId, totalCount, step = CHAT_PAGE_SIZE_INCREMENT) {
+  const id = String(conversationId || '').trim();
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!id) {
+    return defaultChatVisibleCount(total);
+  }
+  const current = ensureChatVisibleCount(id, total);
+  const next = Math.min(total, current + Math.max(1, Number(step) || CHAT_PAGE_SIZE_INCREMENT));
+  state.chatVisibleCountByConversation[id] = next;
+  return next;
+}
+
+function pruneChatVisibleCounts(validConversationIds) {
+  const validIds = new Set((validConversationIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+  Object.keys(state.chatVisibleCountByConversation || {}).forEach((id) => {
+    if (!validIds.has(id)) {
+      delete state.chatVisibleCountByConversation[id];
+    }
+  });
 }
 
 function syncMenuLanguage() {
@@ -772,6 +863,14 @@ function renderMarkdownFallback(text) {
 
 function renderMarkdownLike(text) {
   const raw = String(text || '');
+  const cacheable = raw.length > 0 && raw.length <= 50000;
+  const cacheKey = cacheable ? `${currentLang()}::${raw}` : '';
+  if (cacheKey && markdownRenderCache.has(cacheKey)) {
+    const cached = markdownRenderCache.get(cacheKey);
+    markdownRenderCache.delete(cacheKey);
+    markdownRenderCache.set(cacheKey, cached);
+    return cached;
+  }
   const fencePattern = /```([^\n`]*)\n?([\s\S]*?)```/g;
   let start = 0;
   let html = '';
@@ -797,6 +896,16 @@ function renderMarkdownLike(text) {
   const tail = raw.slice(start);
   if (tail.trim() || !html) {
     html += renderMarkdownFallback(tail);
+  }
+  if (cacheKey) {
+    markdownRenderCache.set(cacheKey, html);
+    while (markdownRenderCache.size > MARKDOWN_CACHE_LIMIT) {
+      const oldestKey = markdownRenderCache.keys().next().value;
+      if (!oldestKey) {
+        break;
+      }
+      markdownRenderCache.delete(oldestKey);
+    }
   }
   return html;
 }

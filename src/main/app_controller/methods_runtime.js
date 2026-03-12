@@ -2,6 +2,14 @@ const { nowTs, newConversation, getConversation, sortedConversations } = require
 const { importSessionJsonl } = require('../session_importer');
 const { normalizePreview, tsLabel } = require('./shared');
 
+function isCompletedPhase(phaseText) {
+  const text = String(phaseText || '').trim().toLowerCase();
+  if (!text) {
+    return false;
+  }
+  return ['已完成', '完成', 'completed', 'success', 'done'].some((item) => text.includes(item));
+}
+
 const runtimeMethods = {
   _emit(event) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
@@ -351,6 +359,11 @@ const runtimeMethods = {
     const target = getConversation(this.conversations, conversationId);
     if (!target) {
       return this.snapshot();
+    }
+    const runtime = this.runtimeStore.ensure(target.id);
+    if (!this._isConversationRunning(target.id) && this._pendingQueueSize(target.id) <= 0 && isCompletedPhase(runtime.phase)) {
+      runtime.phase = '空闲';
+      this._emit({ type: 'runtime-phase', conversationId: target.id, phase: runtime.phase });
     }
     if (target.id !== this.activeConversationId) {
       this.activeConversationId = target.id;

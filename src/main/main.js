@@ -519,6 +519,22 @@ function registerIpc() {
     return { ok: true, theme };
   });
 
+  ipcMain.handle('ui:get-zoom-factor', async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '窗口不可用' };
+    }
+    return { ok: true, zoomFactor: clampZoomFactor(mainWindow.webContents.getZoomFactor()) };
+  });
+
+  ipcMain.handle('ui:set-zoom-factor', async (_, payload) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '窗口不可用' };
+    }
+    const zoomFactor = clampZoomFactor(payload?.zoomFactor);
+    mainWindow.webContents.setZoomFactor(zoomFactor);
+    return { ok: true, zoomFactor };
+  });
+
   ipcMain.handle('ui:invoke-action', async (_, payload) => {
     return invokeUiAction(payload?.action);
   });

@@ -109,6 +109,12 @@ function renderSettings() {
     el.permissionInput.title = perm.title;
   }
   el.languageSelect.value = currentLang();
+  if (el.zoomFactorRange) {
+    el.zoomFactorRange.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
+  }
+  if (el.zoomFactorValue) {
+    el.zoomFactorValue.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
+  }
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);
 }
@@ -673,6 +679,9 @@ function renderLocaleTexts() {
   if (el.labelLanguage) {
     el.labelLanguage.textContent = `${t('language')}:`;
   }
+  if (el.labelZoomFactor) {
+    el.labelZoomFactor.textContent = `${t('appZoom')}:`;
+  }
   el.labelFontSize.textContent = `${t('chatFontSize')}:`;
   el.tabBtnStructured.textContent = t('tabStructured');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
@@ -704,6 +713,12 @@ function renderLocaleTexts() {
       }
       node.textContent = t(key);
     });
+  }
+  if (el.labelZoomFactor) {
+    el.labelZoomFactor.textContent = `${t('appZoom')}:`;
+  }
+  if (el.labelFontSize) {
+    el.labelFontSize.textContent = `${t('chatFontSize')}:`;
   }
   if (el.qsDetailTitle) {
     const detailKey = el.qsDetailTitle.getAttribute('data-i18n-key');

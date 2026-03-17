@@ -2003,15 +2003,29 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .quick-settings-toggle-row {
-  margin-top: 8px;
-  border-top: 1px dashed #d6e4f1;
-  padding-top: 8px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: rgba(51, 144, 236, 0.06);
+  border: 0;
+  padding: 10px 12px;
 }
 
 .quick-settings-font-row {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.quick-settings-number-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 78px;
+}
+
+.quick-settings-number-suffix {
+  font-size: 12px;
+  color: #67839c;
 }
 
 .quick-settings-font-range {
@@ -2021,14 +2035,25 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .quick-settings-font-value {
-  width: 54px;
-  min-width: 54px;
+  width: 58px;
+  min-width: 58px;
   padding: 5px 6px;
+}
+
+.quick-settings-inline-action {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 0;
+  color: #2c4359;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .quick-settings-inline-label {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   color: #62809c;
   margin-bottom: 6px;
 }
@@ -2046,6 +2071,11 @@ html[data-theme='light'] .busy-indicator {
   border: 1px solid #c9d8e8;
   color: #2c4359;
   font-size: 12px;
+}
+
+.quick-settings-back,
+.quick-settings-inline-action {
+  flex: 0 0 auto;
 }
 
 .quick-settings-pill.active {
@@ -2520,7 +2550,7 @@ html[data-theme='dark'] .quick-settings-inline-label {
 }
 
 html[data-theme='dark'] .quick-settings-toggle-row {
-  border-top-color: #334155;
+  background: rgba(148, 163, 184, 0.08);
 }
 
 html[data-theme='dark'] .quick-settings-pill.active {

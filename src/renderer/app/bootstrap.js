@@ -507,12 +507,44 @@ async function resolveCloseGuardAction(action) {
   }
 }
 
+async function setAppZoomFactor(input, options = {}) {
+  const persist = options.persist !== false;
+  const rerenderControls = options.rerenderControls !== false;
+  const next = clampAppZoom(input, state.ui.zoomFactor);
+  if (!codexdesk || typeof codexdesk.setZoomFactor !== 'function') {
+    return next;
+  }
+  const result = await codexdesk.setZoomFactor(next);
+  if (result?.error) {
+    throw new Error(result.error);
+  }
+  state.ui.zoomFactor = clampAppZoom(result?.zoomFactor, next);
+  if (persist) {
+    saveUiPrefs();
+  }
+  if (rerenderControls) {
+    renderSettings();
+  }
+  return state.ui.zoomFactor;
+}
+
 async function init() {
   loadUiPrefs();
   loadDraftPrefs();
   applyTheme();
   applySidebarWidth();
   applyChatFontSize();
+  await setAppZoomFactor(state.ui.zoomFactor, { persist: false, rerenderControls: false }).catch(() => {});
+
+  if (typeof codexdesk.getAppInfo === 'function') {
+    const appInfo = await codexdesk.getAppInfo().catch(() => null);
+    if (appInfo && typeof appInfo === 'object') {
+      state.appInfo = {
+        name: String(appInfo.name || 'Codex Desk').trim() || 'Codex Desk',
+        version: String(appInfo.version || '').trim(),
+      };
+    }
+  }
 
   const snapshot = await codexdesk.getSnapshot();
   applySnapshot(snapshot);
@@ -867,6 +899,12 @@ async function init() {
       const result = await codexdesk.invokeUiAction(action);
       if (result?.error) {
         window.alert(localizeKnownText(result.error));
+        return;
+      }
+      if (typeof result?.zoomFactor === 'number') {
+        state.ui.zoomFactor = clampAppZoom(result.zoomFactor, state.ui.zoomFactor);
+        saveUiPrefs();
+        renderSettings();
       }
     }
   };
@@ -1100,7 +1138,7 @@ async function init() {
       event.preventDefault();
       event.stopPropagation();
       const action = String(button.getAttribute('data-action') || '');
-      const keepOpen = action.startsWith('ui:language:') || action.startsWith('ui:theme:');
+      const keepOpen = action.startsWith('ui:') || action.startsWith('view:');
       dispatchAction(action).catch(() => {});
       if (!keepOpen) {
         hideQuickSettingsMenu();
@@ -1473,6 +1511,57 @@ async function init() {
     renderAll();
     syncMenuLanguage();
   });
+
+  if (el.zoomFactorRange) {
+    el.zoomFactorRange.addEventListener('input', () => {
+      setAppZoomFactor(Number(el.zoomFactorRange.value || 100) / 100).then((applied) => {
+        if (el.zoomFactorValue) {
+          el.zoomFactorValue.value = String(Math.round(applied * 100));
+        }
+      }).catch(() => {});
+    });
+  }
+
+  if (el.zoomFactorValue) {
+    el.zoomFactorValue.addEventListener('input', () => {
+      const raw = String(el.zoomFactorValue.value || '').trim();
+      if (!raw) {
+        return;
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < APP_ZOOM_MIN * 100 || value > APP_ZOOM_MAX * 100) {
+        return;
+      }
+      setAppZoomFactor(value / 100, { rerenderControls: false }).then((applied) => {
+        if (el.zoomFactorRange) {
+          el.zoomFactorRange.value = String(Math.round(applied * 100));
+        }
+      }).catch(() => {});
+    });
+
+    const commitZoomFactorInput = () => {
+      const raw = Number(el.zoomFactorValue.value || Math.round(state.ui.zoomFactor * 100));
+      if (!Number.isFinite(raw)) {
+        renderSettings();
+        return;
+      }
+      setAppZoomFactor(raw / 100).catch(() => {
+        renderSettings();
+      });
+    };
+
+    el.zoomFactorValue.addEventListener('focus', () => {
+      el.zoomFactorValue.select();
+    });
+    el.zoomFactorValue.addEventListener('change', commitZoomFactorInput);
+    el.zoomFactorValue.addEventListener('blur', commitZoomFactorInput);
+    el.zoomFactorValue.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitZoomFactorInput();
+      }
+    });
+  }
 
   el.fontSizeRange.addEventListener('input', () => {
     setChatFontSize(el.fontSizeRange.value);

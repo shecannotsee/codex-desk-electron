@@ -64,24 +64,45 @@
                   <button id="qs-toggle-settings" type="button" class="quick-settings-item" data-action="ui:toggle-settings">隐藏配置信息</button>
                   <button id="qs-toggle-runtime" type="button" class="quick-settings-item" data-action="ui:toggle-runtime">隐藏右侧面板</button>
                   <button id="qs-toggle-sidebar" type="button" class="quick-settings-item" data-action="ui:toggle-sidebar">隐藏左侧会话</button>
-                  <button type="button" class="quick-settings-item" data-action="view:zoom-in" data-i18n-key="zoomIn">放大</button>
-                  <button type="button" class="quick-settings-item" data-action="view:zoom-out" data-i18n-key="zoomOut">缩小</button>
-                  <button type="button" class="quick-settings-item" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
+                  <div class="quick-settings-toggle-row">
+                    <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
+                    <div class="quick-settings-font-row">
+                      <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
+                      <div class="quick-settings-number-wrap">
+                        <input
+                          id="zoom-factor-value"
+                          class="font-size-value quick-settings-font-value"
+                          type="number"
+                          min="50"
+                          max="250"
+                          step="10"
+                          value="100"
+                          inputmode="numeric"
+                          aria-label="app zoom percent"
+                        />
+                        <span class="quick-settings-number-suffix">%</span>
+                      </div>
+                      <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
+                    </div>
+                  </div>
                   <div class="quick-settings-toggle-row">
                     <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
                     <div class="quick-settings-font-row">
                       <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="15" />
-                      <input
-                        id="font-size-value"
-                        class="font-size-value quick-settings-font-value"
-                        type="number"
-                        min="12"
-                        max="24"
-                        step="1"
-                        value="15"
-                        inputmode="numeric"
-                        aria-label="chat font size"
-                      />
+                      <div class="quick-settings-number-wrap">
+                        <input
+                          id="font-size-value"
+                          class="font-size-value quick-settings-font-value"
+                          type="number"
+                          min="12"
+                          max="24"
+                          step="1"
+                          value="15"
+                          inputmode="numeric"
+                          aria-label="chat font size"
+                        />
+                        <span class="quick-settings-number-suffix">px</span>
+                      </div>
                     </div>
                   </div>
                   <div class="quick-settings-toggle-row">

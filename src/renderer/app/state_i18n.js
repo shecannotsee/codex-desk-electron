@@ -21,6 +21,7 @@ const state = {
   ui: {
     language: 'zh-CN',
     theme: 'light',
+    zoomFactor: 1,
     sidebarWidth: 320,
     chatFontSize: 15,
     runtimePanelHidden: false,
@@ -35,6 +36,9 @@ const NO_CONVERSATION_DRAFT_KEY = '__no_conversation__';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
 const CHAT_FONT_SIZE_DEFAULT = 15;
+const APP_ZOOM_MIN = 0.5;
+const APP_ZOOM_MAX = 2.5;
+const APP_ZOOM_DEFAULT = 1;
 const CHAT_PAGE_SIZE_INITIAL = 80;
 const CHAT_PAGE_SIZE_INCREMENT = 80;
 const SIDEBAR_WIDTH_MIN = 220;
@@ -87,6 +91,7 @@ const I18N = {
     resetZoom: '实际大小',
     zoomIn: '放大',
     zoomOut: '缩小',
+    appZoom: '界面缩放',
     minimize: '最小化',
     fullscreen: '全屏',
     exitFullscreen: '退出全屏',
@@ -215,6 +220,7 @@ const I18N = {
     resetZoom: 'Actual Size',
     zoomIn: 'Zoom In',
     zoomOut: 'Zoom Out',
+    appZoom: 'App Zoom',
     minimize: 'Minimize',
     fullscreen: 'Full Screen',
     exitFullscreen: 'Exit Full Screen',
@@ -343,6 +349,10 @@ const el = {
   qsToggleSettings: document.getElementById('qs-toggle-settings'),
   qsToggleRuntime: document.getElementById('qs-toggle-runtime'),
   qsToggleSidebar: document.getElementById('qs-toggle-sidebar'),
+  labelZoomFactor: document.getElementById('label-zoom-factor'),
+  zoomFactorRange: document.getElementById('zoom-factor-range'),
+  zoomFactorValue: document.getElementById('zoom-factor-value'),
+  btnZoomResetInline: document.getElementById('btn-zoom-reset-inline'),
   qsLangZh: document.getElementById('qs-lang-zh'),
   qsLangEn: document.getElementById('qs-lang-en'),
   qsThemeLight: document.getElementById('qs-theme-light'),
@@ -433,6 +443,14 @@ function clampChatFontSize(input, fallback = CHAT_FONT_SIZE_DEFAULT) {
   return Math.min(CHAT_FONT_SIZE_MAX, Math.max(CHAT_FONT_SIZE_MIN, Math.round(value)));
 }
 
+function clampAppZoom(input, fallback = APP_ZOOM_DEFAULT) {
+  const value = Number(input);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(APP_ZOOM_MAX, Math.max(APP_ZOOM_MIN, Math.round(value * 100) / 100));
+}
+
 function clampSidebarWidth(input, fallback = SIDEBAR_WIDTH_DEFAULT) {
   const value = Number(input);
   if (!Number.isFinite(value)) {
@@ -450,6 +468,7 @@ function parseUiPrefs(rawText) {
     const data = JSON.parse(String(rawText || '{}'));
     const language = data.language === 'en-US' ? 'en-US' : 'zh-CN';
     const theme = normalizeTheme(data.theme);
+    const zoomFactor = clampAppZoom(data.zoomFactor, APP_ZOOM_DEFAULT);
     const sidebarWidth = clampSidebarWidth(data.sidebarWidth, SIDEBAR_WIDTH_DEFAULT);
     const chatFontSize = clampChatFontSize(data.chatFontSize, CHAT_FONT_SIZE_DEFAULT);
     const runtimePanelHidden = Boolean(data.runtimePanelHidden);
@@ -458,6 +477,7 @@ function parseUiPrefs(rawText) {
     return {
       language,
       theme,
+      zoomFactor,
       sidebarWidth,
       chatFontSize,
       runtimePanelHidden,
@@ -468,6 +488,7 @@ function parseUiPrefs(rawText) {
     return {
       language: 'zh-CN',
       theme: 'light',
+      zoomFactor: APP_ZOOM_DEFAULT,
       sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
       chatFontSize: CHAT_FONT_SIZE_DEFAULT,
       runtimePanelHidden: false,

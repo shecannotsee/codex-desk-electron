@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('codexdesk', {
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
   setWindowTheme: (theme) => ipcRenderer.invoke('ui:set-window-theme', { theme }),
+  getZoomFactor: () => ipcRenderer.invoke('ui:get-zoom-factor'),
+  setZoomFactor: (zoomFactor) => ipcRenderer.invoke('ui:set-zoom-factor', { zoomFactor }),
   invokeUiAction: (action) => ipcRenderer.invoke('ui:invoke-action', { action }),
   resolveCloseGuard: (action) => ipcRenderer.invoke('app:resolve-close-guard', { action }),
   isDocsCaptureEnabled: async () => {

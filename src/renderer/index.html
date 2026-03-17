@@ -12,37 +12,47 @@
       <div class="sidebar-topbar">
         <div class="quick-settings-wrap sidebar-quick-settings-wrap">
           <button id="btn-quick-settings" class="quick-settings-btn" type="button" aria-haspopup="true" aria-expanded="false">
-            <span class="quick-settings-icon">☰</span>
+            <span class="quick-settings-icon">⚙</span>
             <span id="label-quick-settings">设置</span>
           </button>
           <div id="quick-settings-menu" class="quick-settings-menu hidden">
-            <div id="quick-settings-root" class="quick-settings-root">
-              <div class="quick-settings-title" data-i18n-key="quickSettings">设置</div>
-              <button type="button" class="quick-settings-category" data-pane="conversation">
-                <span data-i18n-key="menuConversation">对话</span>
-                <span class="quick-settings-chevron">›</span>
-              </button>
-              <button type="button" class="quick-settings-category" data-pane="runtime">
-                <span data-i18n-key="menuRuntime">运行</span>
-                <span class="quick-settings-chevron">›</span>
-              </button>
-              <button type="button" class="quick-settings-category" data-pane="view">
-                <span data-i18n-key="menuInterface">界面</span>
-                <span class="quick-settings-chevron">›</span>
-              </button>
-              <button type="button" class="quick-settings-category" data-pane="window">
-                <span data-i18n-key="menuWindow">窗口</span>
-                <span class="quick-settings-chevron">›</span>
-              </button>
-              <button type="button" class="quick-settings-category" data-pane="help">
-                <span data-i18n-key="menuHelp">帮助</span>
-                <span class="quick-settings-chevron">›</span>
-              </button>
+            <div id="quick-settings-root" class="quick-settings-detail quick-settings-root">
+              <div class="quick-settings-detail-head quick-settings-root-head">
+                <div class="quick-settings-detail-title quick-settings-root-title" data-i18n-key="quickSettings">设置</div>
+              </div>
+              <div class="quick-settings-detail-body quick-settings-root-body">
+                <button type="button" class="quick-settings-category" data-pane="conversation">
+                  <span data-i18n-key="menuConversation">对话</span>
+                  <span class="quick-settings-chevron">›</span>
+                </button>
+                <button type="button" class="quick-settings-category" data-pane="runtime">
+                  <span data-i18n-key="menuRuntime">运行</span>
+                  <span class="quick-settings-chevron">›</span>
+                </button>
+                <button type="button" class="quick-settings-category" data-pane="view">
+                  <span data-i18n-key="menuInterface">界面</span>
+                  <span class="quick-settings-chevron">›</span>
+                </button>
+                <button type="button" class="quick-settings-category" data-pane="window">
+                  <span data-i18n-key="menuWindow">窗口</span>
+                  <span class="quick-settings-chevron">›</span>
+                </button>
+                <button type="button" class="quick-settings-category" data-pane="help">
+                  <span data-i18n-key="menuHelp">帮助</span>
+                  <span class="quick-settings-chevron">›</span>
+                </button>
+              </div>
+              <div class="quick-settings-detail-footer quick-settings-root-footer">
+                <div class="quick-settings-app-info" aria-label="application info">
+                  <div id="qs-app-name" class="quick-settings-app-name">Codex Desk</div>
+                  <div id="qs-app-version" class="quick-settings-app-version">v-</div>
+                  <div id="qs-app-desc" class="quick-settings-app-desc" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
+                </div>
+              </div>
             </div>
 
             <div id="quick-settings-detail" class="quick-settings-detail hidden">
               <div class="quick-settings-detail-head">
-                <button id="qs-back" type="button" class="quick-settings-back" data-i18n-key="settingsBack">返回</button>
                 <div id="qs-detail-title" class="quick-settings-detail-title">-</div>
               </div>
               <div class="quick-settings-detail-body">
@@ -132,6 +142,9 @@
                 <section class="quick-settings-pane" data-pane="help">
                   <button type="button" class="quick-settings-item" data-action="help:about" data-i18n-key="about">关于 Codex Desk</button>
                 </section>
+                <div class="quick-settings-detail-footer">
+                  <button id="qs-back" type="button" class="quick-settings-item quick-settings-back-row" data-i18n-key="settingsBack">返回</button>
+                </div>
               </div>
             </div>
           </div>
@@ -226,6 +239,7 @@
       </section>
     </main>
   </div>
+  <div id="quick-settings-scrim" class="quick-settings-scrim hidden"></div>
 
   <div id="rename-modal" class="modal-backdrop hidden">
     <div class="modal-card">

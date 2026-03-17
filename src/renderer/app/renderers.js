@@ -117,6 +117,13 @@ function renderSettings() {
   }
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);
+  if (el.qsAppName) {
+    el.qsAppName.textContent = String(state.appInfo?.name || 'Codex Desk').trim() || 'Codex Desk';
+  }
+  if (el.qsAppVersion) {
+    const rawVersion = String(state.appInfo?.version || '').trim();
+    el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
+  }
 }
 
 function renderComposerDraft(options = {}) {

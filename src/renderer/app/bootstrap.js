@@ -798,7 +798,11 @@ async function init() {
       return;
     }
     el.quickSettingsMenu.classList.add('hidden');
+    if (el.quickSettingsScrim) {
+      el.quickSettingsScrim.classList.add('hidden');
+    }
     el.btnQuickSettings.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('quick-settings-open');
   };
 
   const showQuickSettingsMenu = () => {
@@ -807,7 +811,11 @@ async function init() {
     }
     setQuickSettingsPane('root');
     el.quickSettingsMenu.classList.remove('hidden');
+    if (el.quickSettingsScrim) {
+      el.quickSettingsScrim.classList.remove('hidden');
+    }
     el.btnQuickSettings.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('quick-settings-open');
   };
 
   const toggleQuickSettingsMenu = () => {
@@ -1112,6 +1120,12 @@ async function init() {
       event.preventDefault();
       event.stopPropagation();
       toggleQuickSettingsMenu();
+    });
+  }
+
+  if (el.quickSettingsScrim) {
+    el.quickSettingsScrim.addEventListener('click', () => {
+      hideQuickSettingsMenu();
     });
   }
 

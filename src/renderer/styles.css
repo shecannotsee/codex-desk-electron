@@ -29,6 +29,10 @@ body {
   font-family: 'JetBrains Mono', 'Noto Sans SC', 'Microsoft YaHei', monospace;
 }
 
+body.quick-settings-open {
+  overflow: hidden;
+}
+
 .app-root {
   width: 100%;
   height: 100%;
@@ -1849,73 +1853,78 @@ html[data-theme='light'] .busy-indicator {
   line-height: 1;
 }
 
-.quick-settings-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 1300;
-  width: min(340px, 92vw);
-  max-height: min(76vh, 760px);
-  overflow: auto;
-  padding: 10px;
-  border-radius: 14px;
-  border: 1px solid #c8d9ea;
-  background: #ffffff;
-  box-shadow: 0 16px 34px rgba(35, 66, 96, 0.24);
+.quick-settings-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1280;
+  background: rgba(7, 14, 24, 0.48);
+  backdrop-filter: blur(2px);
+  animation: quickSettingsScrimIn 0.2s ease;
 }
 
-.sidebar-quick-settings-wrap .quick-settings-menu {
+.quick-settings-menu {
+  position: fixed;
   left: 0;
-  right: auto;
-  width: min(170px, 92vw);
+  top: 0;
+  bottom: 0;
+  z-index: 1300;
+  width: min(336px, 92vw);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 12px;
+  border-radius: 0 22px 22px 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9fd 100%);
+  box-shadow: 12px 0 36px rgba(35, 66, 96, 0.26);
+  overflow: hidden;
+  animation: quickSettingsPanelIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .quick-settings-root {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #d7e4f0;
-  border-radius: 12px;
-  background: #f7fbff;
-  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.quick-settings-title {
-  font-size: 14px;
+.quick-settings-root-head {
+  padding-bottom: 12px;
+}
+
+.quick-settings-root-title {
+  font-size: 18px;
   font-weight: 800;
-  color: #365269;
-  margin-bottom: 8px;
-  padding: 2px 2px 0 2px;
+  color: #213447;
 }
 
-.quick-settings-category {
+.quick-settings-menu .quick-settings-category {
+  flex: 0 0 auto;
   width: 100%;
   text-align: left;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  background: #ffffff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 2px;
+  background: transparent;
   color: #294056;
-  border: 1px solid #c9d8e8;
+  border: 0;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
+  min-height: 0;
+  line-height: 1.35;
 }
 
-.quick-settings-category:last-child {
+.quick-settings-menu .quick-settings-category:last-child {
   margin-bottom: 0;
 }
 
-.quick-settings-category:hover:not(:disabled) {
-  background: #eaf4ff;
-  border-color: #9ec0e1;
+.quick-settings-menu .quick-settings-category:hover:not(:disabled) {
+  background: rgba(51, 144, 236, 0.12);
   transform: none;
 }
 
-.quick-settings-category.active {
-  background: #eaf4ff;
-  border-color: #89b7df;
+.quick-settings-menu .quick-settings-category.active {
+  background: rgba(51, 144, 236, 0.15);
 }
 
 .quick-settings-chevron {
@@ -1928,38 +1937,38 @@ html[data-theme='light'] .busy-indicator {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .quick-settings-detail-head {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  padding: 2px 2px 8px 2px;
+  min-height: 38px;
+  padding: 6px 10px 12px 10px;
 }
 
 .quick-settings-back {
-  flex: 0 0 auto;
   border: 0;
   background: transparent;
-  color: #2f5c83;
+  color: #5b7a97;
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 999px;
 }
 
 .quick-settings-back:hover:not(:disabled) {
-  background: #eaf4ff;
-  transform: none;
+  background: rgba(51, 144, 236, 0.12);
 }
 
 .quick-settings-detail-title {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 800;
-  color: #365269;
+  color: #213447;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -1967,10 +1976,50 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .quick-settings-detail-body {
-  border: 1px solid #d7e4f0;
-  border-radius: 12px;
-  background: #f7fbff;
-  padding: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 4px 8px 4px;
+}
+
+.quick-settings-detail-footer {
+  padding-top: 10px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.quick-settings-back-row {
+  margin-top: 4px;
+  color: #5b7a97;
+}
+
+.quick-settings-root-footer {
+  padding-bottom: 8px;
+}
+
+.quick-settings-app-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 40px;
+  padding: 6px 12px 2px 12px;
+}
+
+.quick-settings-app-name {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: #5b7a97;
+}
+
+.quick-settings-app-version,
+.quick-settings-app-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #89a1b7;
 }
 
 .quick-settings-pane {
@@ -1981,24 +2030,28 @@ html[data-theme='light'] .busy-indicator {
   display: block;
 }
 
-.quick-settings-item {
+.quick-settings-menu .quick-settings-item {
+  flex: 0 0 auto;
   width: 100%;
   text-align: left;
-  padding: 7px 10px;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  background: #ffffff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 2px;
+  background: transparent;
   color: #294056;
-  border: 1px solid #c9d8e8;
+  border: 0;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 0;
+  line-height: 1.35;
 }
 
-.quick-settings-item:last-child {
+.quick-settings-menu .quick-settings-item:last-child {
   margin-bottom: 0;
 }
 
-.quick-settings-item:hover:not(:disabled) {
-  background: #eaf4ff;
-  border-color: #9ec0e1;
+.quick-settings-menu .quick-settings-item:hover:not(:disabled) {
+  background: rgba(51, 144, 236, 0.12);
   transform: none;
 }
 
@@ -2064,7 +2117,7 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .quick-settings-pill {
-  flex: 1;
+  flex: 1 1 0;
   padding: 6px 8px;
   border-radius: 999px;
   background: #ffffff;
@@ -2471,23 +2524,22 @@ html[data-theme='dark'] .about-value-input {
 
 html[data-theme='dark'] .context-menu,
 html[data-theme='dark'] .quick-settings-menu {
-  background: #0f172a;
-  border-color: #334155;
-  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.5);
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  box-shadow: 12px 0 36px rgba(2, 6, 23, 0.58);
 }
 
 html[data-theme='dark'] .context-menu button,
 html[data-theme='dark'] .quick-settings-item,
-html[data-theme='dark'] .quick-settings-pill {
-  background: #111827;
-  border-color: #374151;
+html[data-theme='dark'] .quick-settings-pill,
+html[data-theme='dark'] .quick-settings-inline-action {
+  background: transparent;
+  border-color: transparent;
   color: #dbe4f0;
 }
 
 html[data-theme='dark'] .context-menu button:hover:not(:disabled),
 html[data-theme='dark'] .quick-settings-item:hover:not(:disabled) {
-  background: #1f2937;
-  border-color: #4b5563;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 html[data-theme='dark'] .context-menu button:disabled {
@@ -2506,23 +2558,17 @@ html[data-theme='dark'] #ctx-close-conv:hover:not(:disabled) {
 }
 
 html[data-theme='dark'] .quick-settings-category {
-  background: #111827;
-  border-color: #374151;
+  background: transparent;
+  border-color: transparent;
   color: #dbe4f0;
 }
 
-html[data-theme='dark'] .quick-settings-category:hover:not(:disabled),
-html[data-theme='dark'] .quick-settings-back:hover:not(:disabled) {
-  background: #1f2937;
-}
-
 html[data-theme='dark'] .quick-settings-category:hover:not(:disabled) {
-  border-color: #4b5563;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 html[data-theme='dark'] .quick-settings-category.active {
-  background: #1f2937;
-  border-color: #64748b;
+  background: rgba(51, 144, 236, 0.18);
 }
 
 html[data-theme='dark'] .quick-settings-chevron {
@@ -2530,19 +2576,26 @@ html[data-theme='dark'] .quick-settings-chevron {
 }
 
 html[data-theme='dark'] .quick-settings-title,
-html[data-theme='dark'] .quick-settings-detail-title,
-html[data-theme='dark'] .quick-settings-back {
+html[data-theme='dark'] .quick-settings-detail-title {
   color: #dbeafe;
 }
 
+html[data-theme='dark'] .quick-settings-back {
+  color: #9fb8d1;
+}
+
+html[data-theme='dark'] .quick-settings-back:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.12);
+}
+
 html[data-theme='dark'] .quick-settings-detail-body {
-  background: #111827;
-  border-color: #334155;
+  background: transparent;
+  border-color: transparent;
 }
 
 html[data-theme='dark'] .quick-settings-root {
-  background: #111827;
-  border-color: #334155;
+  background: transparent;
+  border-color: transparent;
 }
 
 html[data-theme='dark'] .quick-settings-inline-label {
@@ -2557,6 +2610,39 @@ html[data-theme='dark'] .quick-settings-pill.active {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #ffffff;
+}
+
+html[data-theme='dark'] .quick-settings-number-suffix {
+  color: #94a3b8;
+}
+
+html[data-theme='dark'] .quick-settings-app-name {
+  color: #9fb8d1;
+}
+
+html[data-theme='dark'] .quick-settings-app-version,
+html[data-theme='dark'] .quick-settings-app-desc {
+  color: #7f95ab;
+}
+
+@keyframes quickSettingsPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes quickSettingsScrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Workflow tab colors follow theme */

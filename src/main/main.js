@@ -541,6 +541,12 @@ function registerIpc() {
 
   ipcMain.handle('app:get-snapshot', async () => controller.snapshot());
 
+  ipcMain.handle('app:get-info', async () => ({
+    ok: true,
+    name: app.getName(),
+    version: app.getVersion(),
+  }));
+
   ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
 
   ipcMain.handle('conversation:switch', async (_, payload) => {

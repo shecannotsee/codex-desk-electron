@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('codexdesk', {
+  getAppInfo: () => ipcRenderer.invoke('app:get-info'),
   getSnapshot: () => ipcRenderer.invoke('app:get-snapshot'),
   updateSettings: (payload) => ipcRenderer.invoke('app:update-settings', payload),
 

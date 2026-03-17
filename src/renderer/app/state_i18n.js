@@ -1,6 +1,10 @@
 /* global codexdesk */
 
 const state = {
+  appInfo: {
+    name: 'Codex Desk',
+    version: '',
+  },
   settings: {
     commandText: '',
     workdir: '',
@@ -342,10 +346,14 @@ const el = {
   btnQuickSettings: document.getElementById('btn-quick-settings'),
   labelQuickSettings: document.getElementById('label-quick-settings'),
   quickSettingsMenu: document.getElementById('quick-settings-menu'),
+  quickSettingsScrim: document.getElementById('quick-settings-scrim'),
   quickSettingsRoot: document.getElementById('quick-settings-root'),
   quickSettingsDetail: document.getElementById('quick-settings-detail'),
   qsBack: document.getElementById('qs-back'),
   qsDetailTitle: document.getElementById('qs-detail-title'),
+  qsAppName: document.getElementById('qs-app-name'),
+  qsAppVersion: document.getElementById('qs-app-version'),
+  qsAppDesc: document.getElementById('qs-app-desc'),
   qsToggleSettings: document.getElementById('qs-toggle-settings'),
   qsToggleRuntime: document.getElementById('qs-toggle-runtime'),
   qsToggleSidebar: document.getElementById('qs-toggle-sidebar'),

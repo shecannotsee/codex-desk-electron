@@ -36,7 +36,7 @@ function renderConversationList() {
       const id = node.getAttribute('data-id') || '';
       const snapshot = await codexdesk.switchConversation(id);
       applySnapshot(snapshot);
-      renderAll();
+      renderAll({ stickChatToBottom: true });
     });
   });
 }

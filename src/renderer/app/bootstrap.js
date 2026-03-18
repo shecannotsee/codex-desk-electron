@@ -678,7 +678,7 @@ async function init() {
     }
     const snapshot = await codexdesk.switchConversation(targetId);
     applySnapshot(snapshot);
-    renderAll();
+    renderAll({ stickChatToBottom: true });
   };
 
   el.conversationList.addEventListener('contextmenu', (event) => {

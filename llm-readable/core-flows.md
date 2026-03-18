@@ -73,3 +73,25 @@
 5. renderer invokes `docs:capture-page` for each target image
 6. main writes png files into `docs/assets/`
 7. renderer calls `docs:capture-finish`, app exits automatically
+
+## J. Open External Link
+
+1. renderer markdown outputs external anchor
+2. user clicks `http/https` link
+3. main process intercepts `window.open` / navigation
+4. `shell.openExternal` delegates to system default browser
+5. in-app child window creation is denied
+
+## K. Right-click Copy Selected Text
+
+1. user selects text in chat/runtime panel
+2. renderer `contextmenu` handler reads current selection
+3. custom context menu adds `Copy` only when selection exists
+4. click copies text to clipboard
+
+## L. Keyboard Zoom HUD
+
+1. user presses `Alt+=`, `Alt+-`, or `Alt+0`
+2. renderer applies stepped zoom factor
+3. zoom controls sync to current percent
+4. temporary HUD shows percentage then auto-hides

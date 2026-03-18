@@ -15,6 +15,8 @@ Electron desktop client for Codex CLI, focused on multi-conversation workflow an
 5. Watch temporary running status in the chat area while Codex is working.
 6. Use quick settings for theme/language/layout adjustments and app zoom.
 7. Adjust app zoom in 10% steps from Settings, or use `Alt+=`, `Alt+-`, `Alt+0`.
+8. Select text in chat/runtime panels and copy it from the right-click menu.
+9. Open reply links in the system default browser instead of an in-app window.
 
 ## UI Preview
 
@@ -29,6 +31,10 @@ Quick settings (Telegram-style nested menu):
 Workflow/runtime view:
 
 ![Workflow runtime](./docs/assets/workflow-step-2-runtime.png)
+
+Selection copy menu:
+
+![Selection copy menu](./docs/assets/screenshot-chat-copy-menu.png)
 
 ## Language
 

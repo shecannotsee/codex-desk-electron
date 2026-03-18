@@ -1109,6 +1109,8 @@ async function init() {
       hideConversationContextMenu();
       hideQuickSettingsMenu();
       hideAboutModal();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
     };
 
     const capture = async (fileName, delayMs = 220) => {
@@ -1269,6 +1271,20 @@ async function init() {
       state.activeTab = 'workflow';
       renderAll();
       await capture('screenshot-runtime-tabs.png');
+
+      const assistantTextNode = el.chatView.querySelector('.msg-assistant .msg-expanded');
+      if (assistantTextNode) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        const range = document.createRange();
+        range.selectNodeContents(assistantTextNode);
+        selection?.addRange(range);
+        const rect = assistantTextNode.getBoundingClientRect();
+        showChatContextMenu(rect.left + 16, rect.top + 16);
+        await capture('screenshot-chat-copy-menu.png', 260);
+        hideChatContextMenu();
+        selection?.removeAllRanges();
+      }
 
       renderConversationList();
       const firstItem = el.conversationList.querySelector('.conversation-item');

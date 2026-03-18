@@ -34,6 +34,10 @@ Human narration is intentionally minimized.
 - Native menubar: hidden by default (`autoHideMenuBar: true`)
 - Theme: light/dark (persisted)
 - Language: zh-CN / en-US (persisted)
+- App zoom HUD: shown on keyboard zoom shortcut
+- Conversation switch: scrolls to bottom by default
+- Selected text copy: custom context menu item in chat/runtime panels
+- External links: open in system default browser
 - Sidebar: hide/show + drag resize (persisted)
 - Close-window guard: confirms when tasks are running
 

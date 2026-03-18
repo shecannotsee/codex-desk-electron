@@ -73,7 +73,11 @@ npm run capture:docs
 
 - App zoom in the settings drawer now uses a `10%` stepped slider.
 - Dragging the zoom slider applies zoom immediately and keeps the settings drawer open.
+- Keyboard zoom shortcuts show a temporary percentage HUD near the top of the window.
 - Main keyboard shortcuts:
   - `Alt+=`: zoom in
   - `Alt+-`: zoom out
   - `Alt+0`: reset zoom
+- Switching conversations scrolls directly to the latest message.
+- Selected text in chat and runtime panels can be copied from the right-click menu.
+- External links in replies open in the system default browser.

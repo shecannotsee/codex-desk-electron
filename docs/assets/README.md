@@ -7,6 +7,7 @@
 - `screenshot-settings-nested.png`
 - `screenshot-runtime-tabs.png`
 - `screenshot-conversation-context-menu.png`
+- `screenshot-chat-copy-menu.png`
 - `workflow-step-1-input.png`
 - `workflow-step-2-runtime.png`
 - `workflow-step-3-result.png`

@@ -34,6 +34,20 @@
   - `src/renderer/app/bootstrap.js`
   - `src/renderer/styles.css`
 
+- Add/modify selection copy / external link behavior
+  - `src/main/main.js`
+  - `src/renderer/index.html`
+  - `src/renderer/app/bootstrap.js`
+  - `src/renderer/app/renderers.js`
+  - `src/renderer/app/state_i18n.js`
+
+- Add/modify zoom shortcut HUD / conversation switch scroll behavior
+  - `src/renderer/index.html`
+  - `src/renderer/app/bootstrap.js`
+  - `src/renderer/app/renderers.js`
+  - `src/renderer/app/state_i18n.js`
+  - `src/renderer/styles.css`
+
 - Add/modify close-window behavior
   - `src/main/main.js`
   - optionally `src/main/app_controller/methods_runtime.js`
@@ -65,6 +79,10 @@
    - queued preview visible
    - settings multi-level navigation
    - light/dark switch affects runtime tabs and scrollbars
+   - zoom shortcut HUD appears and auto-hides
+   - conversation switch lands at latest message
+   - selected text can be copied via context menu in chat/runtime panels
+   - external links open in default browser
    - sidebar width drag and hide/show
    - close-window guard when running
 

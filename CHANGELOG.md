@@ -16,11 +16,15 @@ All notable changes to this project are documented in this file.
 - 运行步骤支持折叠/展开，且默认折叠。
 - 对话消息支持折叠/展开，字号输入支持滑杆和数字输入双通道。
 - 深色/浅色主题覆盖聊天区、运行步骤、右键菜单、滚动条等组件。
+- 聊天消息中的外部链接改为系统默认浏览器打开，不再在应用内部弹出额外窗口。
+- 切换会话后会自动滚动到最新消息，避免沿用上一个会话的滚动位置。
 
 ### Added
 
 - 新增“排队消息可视化”：在运行步骤标签展示待执行消息内容、顺序、入队时间。
 - 新增窗口关闭保护：检测运行中任务并提供三选确认（取消/停止并关闭/直接关闭）。
+- 新增快捷键缩放百分比提示：`Alt+= / Alt+- / Alt+0` 时顶部显示当前比例并自动消失。
+- 新增聊天区和运行面板选区右键复制入口。
 - 新增文档截图自动化：`cd src && npm run capture:docs` 可批量生成 `docs/assets/*.png`。
 - 新增 Ubuntu 22.04 DEB 打包配置（`src/electron-builder.yml`）。
 - 新增 DEB 安装后脚本（`src/scripts/deb/postinst`、`src/scripts/deb/postrm`）。
@@ -29,6 +33,7 @@ All notable changes to this project are documented in this file.
 ### Docs
 
 - 文档同步到当前 UI 结构：右键会话、多级设置、队列预览、默认折叠、主题与布局控制。
+- 补充外链默认浏览器、缩放 HUD、切会话自动到底部、选区右键复制的说明与截图。
 - `gpt-readable/` 重命名为 `llm-readable/`，并重写为大模型优先快速摄入结构：
   - `llm-readable/system-map.md`
   - `llm-readable/core-flows.md`

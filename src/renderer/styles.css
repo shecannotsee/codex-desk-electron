@@ -2073,7 +2073,7 @@ html[data-theme='light'] .busy-indicator {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-width: 78px;
+  min-width: 64px;
 }
 
 .quick-settings-number-suffix {
@@ -2091,6 +2091,17 @@ html[data-theme='light'] .busy-indicator {
   width: 58px;
   min-width: 58px;
   padding: 5px 6px;
+}
+
+.quick-settings-static-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 48px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b647d;
+  text-align: right;
 }
 
 .quick-settings-inline-action {
@@ -2614,6 +2625,10 @@ html[data-theme='dark'] .quick-settings-pill.active {
 
 html[data-theme='dark'] .quick-settings-number-suffix {
   color: #94a3b8;
+}
+
+html[data-theme='dark'] .quick-settings-static-value {
+  color: #c7d6e5;
 }
 
 html[data-theme='dark'] .quick-settings-app-name {

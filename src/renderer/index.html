@@ -79,18 +79,7 @@
                     <div class="quick-settings-font-row">
                       <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
                       <div class="quick-settings-number-wrap">
-                        <input
-                          id="zoom-factor-value"
-                          class="font-size-value quick-settings-font-value"
-                          type="number"
-                          min="50"
-                          max="250"
-                          step="10"
-                          value="100"
-                          inputmode="numeric"
-                          aria-label="app zoom percent"
-                        />
-                        <span class="quick-settings-number-suffix">%</span>
+                        <span id="zoom-factor-value" class="quick-settings-static-value" aria-live="polite">100%</span>
                       </div>
                       <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
                     </div>

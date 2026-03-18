@@ -43,6 +43,7 @@ const CHAT_FONT_SIZE_DEFAULT = 15;
 const APP_ZOOM_MIN = 0.5;
 const APP_ZOOM_MAX = 2.5;
 const APP_ZOOM_DEFAULT = 1;
+const APP_ZOOM_STEP = 0.1;
 const CHAT_PAGE_SIZE_INITIAL = 80;
 const CHAT_PAGE_SIZE_INCREMENT = 80;
 const SIDEBAR_WIDTH_MIN = 220;
@@ -456,7 +457,8 @@ function clampAppZoom(input, fallback = APP_ZOOM_DEFAULT) {
   if (!Number.isFinite(value)) {
     return fallback;
   }
-  return Math.min(APP_ZOOM_MAX, Math.max(APP_ZOOM_MIN, Math.round(value * 100) / 100));
+  const snapped = Math.round(value / APP_ZOOM_STEP) * APP_ZOOM_STEP;
+  return Math.min(APP_ZOOM_MAX, Math.max(APP_ZOOM_MIN, Math.round(snapped * 100) / 100));
 }
 
 function clampSidebarWidth(input, fallback = SIDEBAR_WIDTH_DEFAULT) {

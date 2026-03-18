@@ -528,6 +528,30 @@ async function setAppZoomFactor(input, options = {}) {
   return state.ui.zoomFactor;
 }
 
+function currentAppZoomPercent() {
+  return Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100);
+}
+
+function syncZoomControls(percent) {
+  const nextPercent = Math.round(Number(percent) || currentAppZoomPercent());
+  if (el.zoomFactorRange) {
+    el.zoomFactorRange.value = String(nextPercent);
+  }
+  if (el.zoomFactorValue) {
+    el.zoomFactorValue.textContent = `${nextPercent}%`;
+  }
+}
+
+let quickSettingsAutoHideLockUntil = 0;
+
+function lockQuickSettingsAutoHide(durationMs = 260) {
+  quickSettingsAutoHideLockUntil = Date.now() + Math.max(0, Number(durationMs) || 0);
+}
+
+function shouldKeepQuickSettingsOpen() {
+  return Date.now() < quickSettingsAutoHideLockUntil;
+}
+
 async function init() {
   loadUiPrefs();
   loadDraftPrefs();
@@ -896,6 +920,24 @@ async function init() {
       showAboutModal();
       return;
     }
+    if (action === 'view:zoom-reset') {
+      lockQuickSettingsAutoHide(360);
+      const applied = await setAppZoomFactor(APP_ZOOM_DEFAULT, { rerenderControls: false });
+      syncZoomControls(Math.round(applied * 100));
+      return;
+    }
+    if (action === 'view:zoom-in') {
+      lockQuickSettingsAutoHide(360);
+      const applied = await setAppZoomFactor(state.ui.zoomFactor + APP_ZOOM_STEP, { rerenderControls: false });
+      syncZoomControls(Math.round(applied * 100));
+      return;
+    }
+    if (action === 'view:zoom-out') {
+      lockQuickSettingsAutoHide(360);
+      const applied = await setAppZoomFactor(state.ui.zoomFactor - APP_ZOOM_STEP, { rerenderControls: false });
+      syncZoomControls(Math.round(applied * 100));
+      return;
+    }
 
     const btn = actionToButton[action];
     if (btn) {
@@ -1198,7 +1240,9 @@ async function init() {
   window.addEventListener('blur', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
-    hideQuickSettingsMenu();
+    if (!shouldKeepQuickSettingsOpen()) {
+      hideQuickSettingsMenu();
+    }
   });
   window.addEventListener('beforeunload', () => {
     setConversationDraft(state.activeConversationId, el.inputBox?.value || '');
@@ -1206,10 +1250,29 @@ async function init() {
   window.addEventListener('resize', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
-    hideQuickSettingsMenu();
+    if (!shouldKeepQuickSettingsOpen()) {
+      hideQuickSettingsMenu();
+    }
     hideAboutModal();
   });
   document.addEventListener('keydown', (event) => {
+    if (event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (event.code === 'Equal') {
+        event.preventDefault();
+        dispatchAction('view:zoom-in').catch(() => {});
+        return;
+      }
+      if (!event.shiftKey && event.code === 'Minus') {
+        event.preventDefault();
+        dispatchAction('view:zoom-out').catch(() => {});
+        return;
+      }
+      if (!event.shiftKey && event.code === 'Digit0') {
+        event.preventDefault();
+        dispatchAction('view:zoom-reset').catch(() => {});
+        return;
+      }
+    }
     if (event.key === 'Escape') {
       if (el.closeGuardModal && !el.closeGuardModal.classList.contains('hidden')) {
         resolveCloseGuardAction('cancel');
@@ -1528,52 +1591,22 @@ async function init() {
 
   if (el.zoomFactorRange) {
     el.zoomFactorRange.addEventListener('input', () => {
-      setAppZoomFactor(Number(el.zoomFactorRange.value || 100) / 100).then((applied) => {
-        if (el.zoomFactorValue) {
-          el.zoomFactorValue.value = String(Math.round(applied * 100));
-        }
-      }).catch(() => {});
-    });
-  }
-
-  if (el.zoomFactorValue) {
-    el.zoomFactorValue.addEventListener('input', () => {
-      const raw = String(el.zoomFactorValue.value || '').trim();
-      if (!raw) {
-        return;
-      }
-      const value = Number(raw);
-      if (!Number.isFinite(value) || value < APP_ZOOM_MIN * 100 || value > APP_ZOOM_MAX * 100) {
-        return;
-      }
-      setAppZoomFactor(value / 100, { rerenderControls: false }).then((applied) => {
-        if (el.zoomFactorRange) {
-          el.zoomFactorRange.value = String(Math.round(applied * 100));
-        }
-      }).catch(() => {});
-    });
-
-    const commitZoomFactorInput = () => {
-      const raw = Number(el.zoomFactorValue.value || Math.round(state.ui.zoomFactor * 100));
-      if (!Number.isFinite(raw)) {
-        renderSettings();
-        return;
-      }
-      setAppZoomFactor(raw / 100).catch(() => {
-        renderSettings();
+      const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
+      syncZoomControls(nextPercent);
+      lockQuickSettingsAutoHide();
+      setAppZoomFactor(nextPercent / 100, { persist: false, rerenderControls: false }).catch(() => {
+        syncZoomControls(currentAppZoomPercent());
       });
-    };
-
-    el.zoomFactorValue.addEventListener('focus', () => {
-      el.zoomFactorValue.select();
     });
-    el.zoomFactorValue.addEventListener('change', commitZoomFactorInput);
-    el.zoomFactorValue.addEventListener('blur', commitZoomFactorInput);
-    el.zoomFactorValue.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        commitZoomFactorInput();
-      }
+
+    el.zoomFactorRange.addEventListener('change', () => {
+      const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
+      lockQuickSettingsAutoHide(360);
+      setAppZoomFactor(nextPercent / 100, { rerenderControls: false }).then((applied) => {
+        syncZoomControls(Math.round(applied * 100));
+      }).catch(() => {
+        syncZoomControls(currentAppZoomPercent());
+      });
     });
   }
 

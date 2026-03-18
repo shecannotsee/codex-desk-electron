@@ -113,7 +113,7 @@ function renderSettings() {
     el.zoomFactorRange.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
   }
   if (el.zoomFactorValue) {
-    el.zoomFactorValue.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
+    el.zoomFactorValue.textContent = `${Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100)}%`;
   }
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);

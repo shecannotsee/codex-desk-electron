@@ -68,3 +68,12 @@ npm run capture:docs
   - `CHANGELOG.md`
 - PR should include doc update status:
   - `.github/pull_request_template.md`
+
+## Current Interaction Notes
+
+- App zoom in the settings drawer now uses a `10%` stepped slider.
+- Dragging the zoom slider applies zoom immediately and keeps the settings drawer open.
+- Main keyboard shortcuts:
+  - `Alt+=`: zoom in
+  - `Alt+-`: zoom out
+  - `Alt+0`: reset zoom

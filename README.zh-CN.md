@@ -68,3 +68,12 @@ npm run capture:docs
   - `CHANGELOG.md`
 - PR 必须勾选文档更新状态：
   - `.github/pull_request_template.md`
+
+## 当前交互补充
+
+- 设置抽屉中的“界面缩放”已改为 `10%` 一档的滑杆。
+- 拖动缩放时会即时生效，并在设置中同步显示当前百分比。
+- 快捷键使用主键区：
+  - `Alt+=`：放大
+  - `Alt+-`：缩小
+  - `Alt+0`：恢复实际大小

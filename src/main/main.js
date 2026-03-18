@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 
 const { AppController } = require('./app_controller');
 
@@ -225,6 +225,23 @@ function templateText(input, vars = {}) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isExternalHttpUrl(input) {
+  try {
+    const target = new URL(String(input || ''));
+    return target.protocol === 'http:' || target.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function openExternalUrl(input) {
+  if (!isExternalHttpUrl(input)) {
+    return false;
+  }
+  shell.openExternal(String(input)).catch(() => {});
+  return true;
 }
 
 async function waitForRunnersStop(timeoutMs = 3000, intervalMs = 120) {
@@ -481,7 +498,19 @@ function createWindow() {
   mainWindow.setAutoHideMenuBar(false);
   mainWindow.setMenuBarVisibility(false);
   applyWindowTheme('light');
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  const wc = mainWindow.webContents;
+
+  wc.setWindowOpenHandler(({ url }) => {
+    openExternalUrl(url);
+    return { action: 'deny' };
+  });
+  wc.on('will-navigate', (event, url) => {
+    if (!openExternalUrl(url)) {
+      return;
+    }
+    event.preventDefault();
+  });
+  wc.on('before-input-event', (event, input) => {
     if (
       input
       && input.type === 'keyDown'

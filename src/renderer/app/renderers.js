@@ -310,18 +310,32 @@ function renderChatMessageBlock(item, index, conversation) {
     ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
     : 'msg-assistant';
   const collapsed = isMessageCollapsed(state.activeConversationId, index);
+  const defaultMarkdownEnabled = item.role === 'assistant';
+  const markdownEnabled = !collapsed && resolveMessageMarkdownEnabled(
+    state.activeConversationId,
+    index,
+    defaultMarkdownEnabled,
+  );
   const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
+  const renderToggleText = markdownEnabled ? t('renderMarkdown') : t('renderRaw');
   const preview = messagePreview(item.text);
   const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
   const timeText = resolveMessageTime(item, conversation, index);
+  const expandedHtml = markdownEnabled
+    ? renderMarkdownLike(item.text)
+    : `<div class="msg-plain-text">${escapeHtml(String(item.text || ''))}</div>`;
+  const renderToggle = `<button type="button" class="msg-toggle-render" data-msg-index="${escapeHtml(index)}" aria-pressed="${markdownEnabled ? 'true' : 'false'}" ${collapsed ? 'disabled' : ''}>${escapeHtml(renderToggleText)}</button>`;
   return [
     `<div class="msg-block ${rowClass}" data-msg-row-index="${escapeHtml(index)}">`,
     '<div class="msg-head">',
     `<div class="msg-role">${escapeHtml(role)}</div>`,
+    '<div class="msg-actions">',
+    renderToggle,
     `<button type="button" class="msg-toggle-collapse" data-msg-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
     '</div>',
+    '</div>',
     `<div class="msg-bubble ${bubbleClass}${collapsed ? ' collapsed' : ''}" data-msg-index="${escapeHtml(index)}">`,
-    `<div class="msg-expanded">${renderMarkdownLike(item.text)}</div>`,
+    `<div class="msg-expanded">${expandedHtml}</div>`,
     `<div class="msg-collapsed-line">${escapeHtml(preview)}</div>`,
     `<div class="msg-time">${escapeHtml(timeText)}</div>`,
     '</div>',
@@ -368,6 +382,7 @@ function renderChat(stickToBottom = true) {
   }
 
   cleanupCollapsed(state.activeConversationId, conv.messages.length);
+  cleanupMessageMarkdown(state.activeConversationId, conv.messages.length);
   const totalCount = conv.messages.length;
   const visibleCount = ensureChatVisibleCount(state.activeConversationId, totalCount);
   const startIndex = Math.max(0, totalCount - visibleCount);
@@ -473,6 +488,23 @@ function renderWorkflowTab(runtime, stickToBottom = true) {
         '</div>',
         `<div class="preview">${escapeHtml(item.preview || '')}</div>`,
         `<div class="time">${escapeHtml(t('startTime'))} ${escapeHtml(item.timestamp || '--:--:--')}</div>`,
+        `<div class="runtime-step-collapsed-line">${escapeHtml(collapsedLine)}</div>`,
+        '</div>',
+      ].join('');
+    }
+
+    if (item.type === 'assistant') {
+      const collapsedLine = messagePreview(localizeKnownText(item.body || ''));
+      return [
+        `<div class="runtime-step tag-${escapeHtml(item.tag || 'REPLY')}${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
+        '<div class="runtime-step-head">',
+        `<span class="left">${escapeHtml(t('roleCodex'))} | ${escapeHtml(t('stateSuccess'))}</span>`,
+        '<span class="right-group">',
+        `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
+        `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
+        '</span>',
+        '</div>',
+        `<div class="runtime-step-body">${renderMarkdownLike(localizeKnownText(item.body || ''))}</div>`,
         `<div class="runtime-step-collapsed-line">${escapeHtml(collapsedLine)}</div>`,
         '</div>',
       ].join('');

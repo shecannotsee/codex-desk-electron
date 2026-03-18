@@ -59,6 +59,48 @@ function cleanupCollapsed(conversationId, messageCount) {
   });
 }
 
+function ensureMessageMarkdown(conversationId) {
+  if (!state.messageMarkdownByConversation[conversationId] || typeof state.messageMarkdownByConversation[conversationId] !== 'object') {
+    state.messageMarkdownByConversation[conversationId] = {};
+  }
+  return state.messageMarkdownByConversation[conversationId];
+}
+
+function resolveMessageMarkdownEnabled(conversationId, index, defaultEnabled = false) {
+  if (!conversationId) {
+    return Boolean(defaultEnabled);
+  }
+  const table = ensureMessageMarkdown(conversationId);
+  const key = String(index);
+  if (!Object.prototype.hasOwnProperty.call(table, key)) {
+    return Boolean(defaultEnabled);
+  }
+  return Boolean(table[key]);
+}
+
+function setMessageMarkdownEnabled(conversationId, index, enabled) {
+  if (!conversationId) {
+    return;
+  }
+  const key = String(index);
+  const table = ensureMessageMarkdown(conversationId);
+  table[key] = Boolean(enabled);
+}
+
+function cleanupMessageMarkdown(conversationId, messageCount) {
+  if (!conversationId || !state.messageMarkdownByConversation[conversationId]) {
+    return;
+  }
+  const table = state.messageMarkdownByConversation[conversationId];
+  const maxIndex = Number(messageCount || 0) - 1;
+  Object.keys(table).forEach((key) => {
+    const idx = Number(key);
+    if (!Number.isInteger(idx) || idx < 0 || idx > maxIndex) {
+      delete table[key];
+    }
+  });
+}
+
 function ensureWorkflowCollapsed(conversationId) {
   if (!state.workflowCollapsedByConversation[conversationId] || typeof state.workflowCollapsedByConversation[conversationId] !== 'object') {
     state.workflowCollapsedByConversation[conversationId] = {};

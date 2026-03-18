@@ -272,6 +272,7 @@ const chatMethods = {
     runner.on('finished', (result) => {
       const targetConv = getConversation(this.conversations, targetId);
       const runtimeState = this.runtimeStore.ensure(targetId);
+      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
 
       if (targetConv) {
         if (result.sessionId) {
@@ -297,6 +298,7 @@ const chatMethods = {
       const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
       if (finalText && targetConv) {
         targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
+        this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
       } else if (!finalText && targetConv && result.exitCode === 0) {
         this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
       }

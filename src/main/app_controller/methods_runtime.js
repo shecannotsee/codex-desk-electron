@@ -234,6 +234,25 @@ const runtimeMethods = {
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
+  _appendWorkflowAssistantReply(conversationId, roundIndex, text) {
+    const body = String(text || '').trim();
+    if (!body) {
+      return;
+    }
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      type: 'assistant',
+      roundIndex: Number(roundIndex || 0),
+      stepIndex: 999,
+      title: 'assistant-reply',
+      tag: 'REPLY',
+      body,
+      timestamp: tsLabel(),
+    };
+    runtime.workflow.push(item);
+    this._emit({ type: 'runtime-workflow-append', conversationId, item });
+  },
+
   _appendRawJsonLine(conversationId, line) {
     if (!String(line || '').trimStart().startsWith('{')) {
       return;

@@ -45,6 +45,11 @@ function applySnapshot(snapshot) {
       delete state.collapsedByConversation[id];
     }
   });
+  Object.keys(state.messageMarkdownByConversation).forEach((id) => {
+    if (!validIds.has(id)) {
+      delete state.messageMarkdownByConversation[id];
+    }
+  });
   Object.keys(state.workflowCollapsedByConversation).forEach((id) => {
     if (!validIds.has(id)) {
       delete state.workflowCollapsedByConversation[id];
@@ -689,16 +694,39 @@ async function init() {
       }
 
       const toggleBtn = target.closest('.msg-toggle-collapse');
-      if (!toggleBtn) {
+      if (toggleBtn) {
+        event.preventDefault();
+        const index = Number(toggleBtn.getAttribute('data-msg-index') || '-1');
+        if (!Number.isInteger(index) || index < 0) {
+          return;
+        }
+        const nextCollapsed = !isMessageCollapsed(state.activeConversationId, index);
+        setMessageCollapsed(state.activeConversationId, index, nextCollapsed);
+        if (nextCollapsed) {
+          setMessageMarkdownEnabled(state.activeConversationId, index, false);
+        }
+        renderChat(false);
+        return;
+      }
+
+      const renderBtn = target.closest('.msg-toggle-render');
+      if (!renderBtn) {
         return;
       }
       event.preventDefault();
-      const index = Number(toggleBtn.getAttribute('data-msg-index') || '-1');
+      const index = Number(renderBtn.getAttribute('data-msg-index') || '-1');
       if (!Number.isInteger(index) || index < 0) {
         return;
       }
-      const nextCollapsed = !isMessageCollapsed(state.activeConversationId, index);
-      setMessageCollapsed(state.activeConversationId, index, nextCollapsed);
+      const conversation = currentConversation();
+      const message = Array.isArray(conversation?.messages) ? conversation.messages[index] : null;
+      const defaultMarkdownEnabled = message?.role === 'assistant';
+      const nextEnabled = !resolveMessageMarkdownEnabled(
+        state.activeConversationId,
+        index,
+        defaultMarkdownEnabled,
+      );
+      setMessageMarkdownEnabled(state.activeConversationId, index, nextEnabled);
       renderChat(false);
     });
 

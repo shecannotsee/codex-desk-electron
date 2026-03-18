@@ -360,6 +360,7 @@ const el = {
   qsAppName: document.getElementById('qs-app-name'),
   qsAppVersion: document.getElementById('qs-app-version'),
   qsAppDesc: document.getElementById('qs-app-desc'),
+  zoomHud: document.getElementById('zoom-hud'),
   qsToggleSettings: document.getElementById('qs-toggle-settings'),
   qsToggleRuntime: document.getElementById('qs-toggle-runtime'),
   qsToggleSidebar: document.getElementById('qs-toggle-sidebar'),

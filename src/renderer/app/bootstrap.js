@@ -548,6 +548,23 @@ function syncZoomControls(percent) {
 }
 
 let quickSettingsAutoHideLockUntil = 0;
+let zoomHudHideTimer = 0;
+
+function showZoomHud(percent) {
+  if (!el.zoomHud) {
+    return;
+  }
+  const nextPercent = Math.round(Number(percent) || currentAppZoomPercent());
+  el.zoomHud.textContent = `${nextPercent}%`;
+  el.zoomHud.classList.remove('zoom-hud-visible');
+  window.clearTimeout(zoomHudHideTimer);
+  window.requestAnimationFrame(() => {
+    el.zoomHud.classList.add('zoom-hud-visible');
+  });
+  zoomHudHideTimer = window.setTimeout(() => {
+    el.zoomHud.classList.remove('zoom-hud-visible');
+  }, 900);
+}
 
 function lockQuickSettingsAutoHide(durationMs = 260) {
   quickSettingsAutoHideLockUntil = Date.now() + Math.max(0, Number(durationMs) || 0);
@@ -951,19 +968,25 @@ async function init() {
     if (action === 'view:zoom-reset') {
       lockQuickSettingsAutoHide(360);
       const applied = await setAppZoomFactor(APP_ZOOM_DEFAULT, { rerenderControls: false });
-      syncZoomControls(Math.round(applied * 100));
+      const percent = Math.round(applied * 100);
+      syncZoomControls(percent);
+      showZoomHud(percent);
       return;
     }
     if (action === 'view:zoom-in') {
       lockQuickSettingsAutoHide(360);
       const applied = await setAppZoomFactor(state.ui.zoomFactor + APP_ZOOM_STEP, { rerenderControls: false });
-      syncZoomControls(Math.round(applied * 100));
+      const percent = Math.round(applied * 100);
+      syncZoomControls(percent);
+      showZoomHud(percent);
       return;
     }
     if (action === 'view:zoom-out') {
       lockQuickSettingsAutoHide(360);
       const applied = await setAppZoomFactor(state.ui.zoomFactor - APP_ZOOM_STEP, { rerenderControls: false });
-      syncZoomControls(Math.round(applied * 100));
+      const percent = Math.round(applied * 100);
+      syncZoomControls(percent);
+      showZoomHud(percent);
       return;
     }
 
@@ -983,6 +1006,7 @@ async function init() {
         state.ui.zoomFactor = clampAppZoom(result.zoomFactor, state.ui.zoomFactor);
         saveUiPrefs();
         renderSettings();
+        showZoomHud(Math.round(state.ui.zoomFactor * 100));
       }
     }
   };

@@ -648,9 +648,63 @@ async function init() {
     el.chatContextMenu.classList.add('hidden');
   };
 
+  let chatContextSelectionText = '';
+
+  const currentSelectionText = () => {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLTextAreaElement
+      || (active instanceof HTMLInputElement && !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(String(active.type || '').toLowerCase()))
+    ) {
+      const start = Number(active.selectionStart);
+      const end = Number(active.selectionEnd);
+      if (Number.isInteger(start) && Number.isInteger(end) && end > start) {
+        return String(active.value || '').slice(start, end);
+      }
+    }
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      return '';
+    }
+    return selection.toString();
+  };
+
+  const hasSelectionText = () => String(currentSelectionText() || '').length > 0;
+
+  const copyPlainText = async (text) => {
+    const content = String(text || '');
+    if (!content) {
+      return;
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(content);
+      return;
+    }
+    const helper = document.createElement('textarea');
+    helper.value = content;
+    helper.setAttribute('readonly', 'readonly');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    try {
+      document.execCommand('copy');
+    } finally {
+      document.body.removeChild(helper);
+    }
+  };
+
   const showChatContextMenu = (x, y) => {
     if (!el.chatContextMenu) {
       return;
+    }
+    chatContextSelectionText = currentSelectionText();
+    const showCopy = chatContextSelectionText.length > 0;
+    if (el.ctxCopySelection) {
+      el.ctxCopySelection.classList.toggle('hidden', !showCopy);
+      el.ctxCopySelection.disabled = !showCopy;
     }
     if (el.ctxToggleRuntime) {
       el.ctxToggleRuntime.textContent = state.ui.runtimePanelHidden ? t('toggleRuntimeShow') : t('toggleRuntimeHide');
@@ -748,8 +802,22 @@ async function init() {
     });
 
     el.chatView.addEventListener('contextmenu', (event) => {
+      if (event.target.closest('button')) {
+        return;
+      }
       const clickedMessage = event.target.closest('.msg-block');
-      if (clickedMessage) {
+      if (!hasSelectionText() && clickedMessage) {
+        return;
+      }
+      event.preventDefault();
+      hideConversationContextMenu();
+      showChatContextMenu(event.clientX, event.clientY);
+    });
+  }
+
+  if (el.runtimePanel) {
+    el.runtimePanel.addEventListener('contextmenu', (event) => {
+      if (event.target.closest('button')) {
         return;
       }
       event.preventDefault();
@@ -803,6 +871,16 @@ async function init() {
     el.ctxToggleRuntime.addEventListener('click', () => {
       hideChatContextMenu();
       el.btnToggleRuntime.click();
+    });
+  }
+  if (el.ctxCopySelection) {
+    el.ctxCopySelection.addEventListener('click', async () => {
+      const text = chatContextSelectionText;
+      hideChatContextMenu();
+      if (!text) {
+        return;
+      }
+      await copyPlainText(text).catch(() => {});
     });
   }
   if (el.ctxToggleSidebar) {

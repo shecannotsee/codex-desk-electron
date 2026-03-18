@@ -113,6 +113,7 @@ const I18N = {
     contextMenuNew: '新建对话',
     contextMenuRename: '重命名当前对话',
     contextMenuClose: '关闭当前会话',
+    copy: '复制',
     tabStructured: '结构化事件',
     tabWorkflow: '运行步骤',
     tabRaw: '事件原文(JSON)',
@@ -244,6 +245,7 @@ const I18N = {
     contextMenuNew: 'New Conversation',
     contextMenuRename: 'Rename Current Conversation',
     contextMenuClose: 'Close Current Conversation',
+    copy: 'Copy',
     tabStructured: 'Structured Events',
     tabWorkflow: 'Workflow',
     tabRaw: 'Raw Events (JSON)',
@@ -436,6 +438,7 @@ const el = {
   ctxRenameConv: document.getElementById('ctx-rename-conv'),
   ctxCloseConv: document.getElementById('ctx-close-conv'),
   chatContextMenu: document.getElementById('chat-context-menu'),
+  ctxCopySelection: document.getElementById('ctx-copy-selection'),
   ctxToggleRuntime: document.getElementById('ctx-toggle-runtime'),
   ctxToggleSidebar: document.getElementById('ctx-toggle-sidebar'),
 };

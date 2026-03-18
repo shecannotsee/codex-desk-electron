@@ -744,6 +744,9 @@ function renderLocaleTexts() {
   if (el.ctxCloseConv) {
     el.ctxCloseConv.textContent = t('contextMenuClose');
   }
+  if (el.ctxCopySelection) {
+    el.ctxCopySelection.textContent = t('copy');
+  }
   if (Array.isArray(el.i18nNodes) && el.i18nNodes.length) {
     el.i18nNodes.forEach((node) => {
       const key = node.getAttribute('data-i18n-key');

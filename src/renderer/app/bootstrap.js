@@ -1725,6 +1725,17 @@ async function init() {
       state.activeTab = btn.getAttribute('data-tab') || 'structured';
       renderRuntime();
       renderTabs();
+      window.requestAnimationFrame(() => {
+        let pane = el.tabStructured;
+        if (state.activeTab === 'workflow') {
+          pane = el.tabWorkflow;
+        } else if (state.activeTab === 'raw') {
+          pane = el.tabRaw;
+        }
+        if (pane) {
+          pane.scrollTop = pane.scrollHeight;
+        }
+      });
     });
   });
 

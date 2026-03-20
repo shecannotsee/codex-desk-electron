@@ -621,6 +621,11 @@ function registerIpc() {
     return controller.renameConversation(conversationId, title);
   });
 
+  ipcMain.handle('conversation:toggle-pin', async (_, payload) => {
+    const conversationId = String(payload?.conversationId || '');
+    return controller.toggleConversationPin(conversationId);
+  });
+
   ipcMain.handle('conversation:close-current', async () => controller.closeCurrentConversation());
 
   ipcMain.handle('meta:refresh-codex-version', async (_, payload) => {

@@ -1,5 +1,15 @@
 function sortedConversations() {
   return [...state.conversations].sort((a, b) => {
+    const bp = Number(b.pinnedAt || 0);
+    const ap = Number(a.pinnedAt || 0);
+    const aPinned = ap > 0;
+    const bPinned = bp > 0;
+    if (aPinned !== bPinned) {
+      return bPinned - aPinned;
+    }
+    if (aPinned && bPinned && bp !== ap) {
+      return bp - ap;
+    }
     const bu = Number(b.updatedAt || 0);
     const au = Number(a.updatedAt || 0);
     if (bu !== au) {

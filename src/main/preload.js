@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   createConversation: () => ipcRenderer.invoke('conversation:create'),
   importSession: () => ipcRenderer.invoke('conversation:import-session'),
   renameConversation: (conversationId, title) => ipcRenderer.invoke('conversation:rename', { conversationId, title }),
+  toggleConversationPin: (conversationId) => ipcRenderer.invoke('conversation:toggle-pin', { conversationId }),
   closeCurrentConversation: () => ipcRenderer.invoke('conversation:close-current'),
   clearChat: (conversationId) => ipcRenderer.invoke('conversation:clear-chat', { conversationId }),
   clearRuntime: (conversationId, silent = false) => ipcRenderer.invoke('conversation:clear-runtime', { conversationId, silent }),

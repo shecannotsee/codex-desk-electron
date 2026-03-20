@@ -622,8 +622,15 @@ async function init() {
     }
     contextMenuConversationId = String(conversationId || '');
     const hasTarget = Boolean(contextMenuConversationId);
+    const targetConversation = state.conversations.find((item) => item.id === contextMenuConversationId) || null;
     if (el.ctxRenameConv) {
       el.ctxRenameConv.disabled = !hasTarget;
+    }
+    if (el.ctxPinConv) {
+      el.ctxPinConv.disabled = !hasTarget;
+      el.ctxPinConv.textContent = hasTarget && Number(targetConversation?.pinnedAt || 0) > 0
+        ? t('contextMenuUnpin')
+        : t('contextMenuPin');
     }
     if (el.ctxCloseConv) {
       el.ctxCloseConv.disabled = !hasTarget;
@@ -857,6 +864,22 @@ async function init() {
       hideConversationContextMenu();
       await switchConversationIfNeeded(id);
       el.btnRenameConv.click();
+    });
+  }
+  if (el.ctxPinConv) {
+    el.ctxPinConv.addEventListener('click', async () => {
+      const id = contextMenuConversationId;
+      hideConversationContextMenu();
+      if (!id) {
+        return;
+      }
+      const next = await codexdesk.toggleConversationPin(id);
+      if (next?.error) {
+        window.alert(localizeKnownText(next.error));
+        return;
+      }
+      applySnapshot(next?.snapshot || next);
+      renderAll();
     });
   }
   if (el.ctxCloseConv) {

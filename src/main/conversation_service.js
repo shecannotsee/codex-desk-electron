@@ -22,6 +22,7 @@ function newConversation(title = formatConversationTitle()) {
     title,
     sessionId: '',
     messages: [],
+    pinnedAt: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -33,6 +34,16 @@ function getConversation(conversations, conversationId) {
 
 function sortedConversations(conversations) {
   return [...conversations].sort((a, b) => {
+    const ap = Number(a.pinnedAt || 0);
+    const bp = Number(b.pinnedAt || 0);
+    const aPinned = ap > 0;
+    const bPinned = bp > 0;
+    if (aPinned !== bPinned) {
+      return bPinned - aPinned;
+    }
+    if (aPinned && bPinned && bp !== ap) {
+      return bp - ap;
+    }
     const au = Number(a.updatedAt || 0);
     const bu = Number(b.updatedAt || 0);
     if (bu !== au) {

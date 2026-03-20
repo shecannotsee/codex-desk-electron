@@ -203,6 +203,21 @@ button:hover:not(:disabled) {
   gap: 6px;
 }
 
+.conversation-pin-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
 .conversation-item.active {
   background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
   color: #fff;
@@ -210,6 +225,12 @@ button:hover:not(:disabled) {
 
 .conversation-item.active .conversation-title-row {
   color: #fff;
+}
+
+.conversation-item.active .conversation-pin-badge {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .conversation-item.active .conversation-avatar {
@@ -1438,6 +1459,12 @@ body {
 
 .conversation-title-row {
   color: #243447;
+}
+
+.conversation-pin-badge {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(254, 240, 138, 0.48);
+  color: #b45309;
 }
 
 .conversation-item.active {
@@ -2678,6 +2705,12 @@ html[data-theme='dark'] .context-menu button:disabled {
   background: #111827;
   border-color: #2a3442;
   color: #6f8297;
+}
+
+html[data-theme='dark'] .conversation-pin-badge {
+  border-color: rgba(245, 158, 11, 0.36);
+  background: rgba(146, 64, 14, 0.26);
+  color: #fbbf24;
 }
 
 html[data-theme='dark'] #ctx-close-conv:not(:disabled) {

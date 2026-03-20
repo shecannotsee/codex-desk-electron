@@ -478,6 +478,19 @@ const runtimeMethods = {
     this._persist();
     return this.snapshot();
   },
+
+  toggleConversationPin(conversationId) {
+    const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
+    if (!conv) {
+      return { error: '会话不存在', snapshot: this.snapshot() };
+    }
+    const nextPinned = !(Number(conv.pinnedAt || 0) > 0);
+    conv.pinnedAt = nextPinned ? nowTs() : 0;
+    this._syncConversationUpdated(conv);
+    this._appendStructuredEvent(conv.id, 'hint', nextPinned ? '已置顶当前对话' : '已取消置顶当前对话');
+    this._persist();
+    return this.snapshot();
+  },
 };
 
 module.exports = {

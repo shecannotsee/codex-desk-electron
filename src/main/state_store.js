@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { newConversation, nowTs } = require('./conversation_service');
+const { newConversation, nowTs, sortedConversations } = require('./conversation_service');
 
 const APP_ROOT = path.resolve(__dirname, '..', '..');
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
@@ -179,6 +179,7 @@ class StateStore {
       conv.title = String(item.title || '').trim() || conv.title;
       conv.sessionId = String(item.sessionId || item.session_id || '').trim();
       conv.messages = parseMessages(item.messages);
+      conv.pinnedAt = toNumber(item.pinnedAt ?? item.pinned_at, 0);
       conv.createdAt = toNumber(item.createdAt ?? item.created_at, conv.createdAt);
       conv.updatedAt = toNumber(item.updatedAt ?? item.updated_at, conv.updatedAt);
       fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
@@ -199,7 +200,7 @@ class StateStore {
 
     let activeConversationId = String(data.activeConversationId || data.active_conversation_id || '').trim();
     if (conversations.length && (!activeConversationId || !conversations.some((item) => item.id === activeConversationId))) {
-      activeConversationId = conversations[0].id;
+      activeConversationId = sortedConversations(conversations)[0].id;
     } else if (!conversations.length) {
       activeConversationId = '';
     }
@@ -221,7 +222,7 @@ class StateStore {
 
     let activeConversationId = String(state.activeConversationId || '').trim();
     if (conversations.length && (!activeConversationId || !conversations.some((item) => item.id === activeConversationId))) {
-      activeConversationId = conversations[0].id;
+      activeConversationId = sortedConversations(conversations)[0].id;
     } else if (!conversations.length) {
       activeConversationId = '';
     }
@@ -235,6 +236,7 @@ class StateStore {
         id: item.id,
         title: item.title,
         sessionId: item.sessionId || '',
+        pinnedAt: Number(item.pinnedAt || 0),
         createdAt: Number(item.createdAt || 0),
         updatedAt: Number(item.updatedAt || 0),
         messages: Array.isArray(item.messages) ? item.messages.slice(-MAX_PERSISTED_MESSAGES) : [],

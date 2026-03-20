@@ -10,16 +10,18 @@ function renderConversationList() {
   const html = sortedConversations()
     .map((item) => {
       const active = item.id === activeId ? ' active' : '';
+      const pinned = Number(item.pinnedAt || 0) > 0;
       const status = getConversationState(item.id);
       const queue = queuedCount(item.id);
       const queueBadge = queue > 0 ? ` <span class="queue-badge">${escapeHtml(t('queueBadge', { count: queue }))}</span>` : '';
+      const pinBadge = pinned ? ` <span class="conversation-pin-badge">${escapeHtml(t('pinnedConversation'))}</span>` : '';
       const titleText = String(item.title || '-').trim();
       const avatarChar = titleText ? Array.from(titleText)[0] : '•';
       return [
         `<div class="conversation-item${active}" data-id="${escapeHtml(item.id)}">`,
         `<div class="conversation-avatar">${escapeHtml(avatarChar)}</div>`,
         '<div class="conversation-main">',
-        `<div class="conversation-title-row">${escapeHtml(item.title || '-')}</div>`,
+        `<div class="conversation-title-row">${escapeHtml(item.title || '-')}${pinBadge}</div>`,
         '<div class="conversation-meta-row">',
         `<span class="conv-state-pill state-${escapeHtml(status.key)}">${escapeHtml(status.label)}</span>`,
         queueBadge,
@@ -740,6 +742,9 @@ function renderLocaleTexts() {
   }
   if (el.ctxRenameConv) {
     el.ctxRenameConv.textContent = t('contextMenuRename');
+  }
+  if (el.ctxPinConv) {
+    el.ctxPinConv.textContent = t('contextMenuPin');
   }
   if (el.ctxCloseConv) {
     el.ctxCloseConv.textContent = t('contextMenuClose');

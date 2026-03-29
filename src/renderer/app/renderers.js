@@ -591,6 +591,7 @@ function renderRunButtons() {
   el.btnStop.textContent = t('stop');
   el.btnNewConv.textContent = t('newConversation');
   el.btnImportSession.textContent = t('importSession');
+  el.btnExportSession.textContent = t('exportSession');
   el.btnRenameConv.textContent = t('renameConversation');
   el.btnCloseConv.textContent = t('closeCurrentConversation');
   el.btnClearChat.textContent = t('clearChat');
@@ -623,6 +624,7 @@ function renderRunButtons() {
       'conversation:close-current',
       'conversation:clear-chat',
       'conversation:clear-runtime',
+      'conversation:export-session',
       'meta:refresh-codex-version',
       'meta:refresh-model',
     ]);
@@ -646,6 +648,7 @@ function renderRunButtons() {
   el.btnStop.disabled = !hasConv || !running;
   el.btnRenameConv.disabled = !hasConv;
   el.btnCloseConv.disabled = !hasConv;
+  el.btnExportSession.disabled = !hasConv;
   el.btnClearChat.disabled = !hasConv;
   el.btnClearRuntime.disabled = !hasConv;
   if (el.btnMetaVersion) {
@@ -732,6 +735,30 @@ function renderLocaleTexts() {
   el.renameInput.placeholder = t('renameModalPlaceholder');
   el.renameCancel.textContent = t('cancel');
   el.renameConfirm.textContent = t('confirm');
+  if (el.importModeTitle) {
+    el.importModeTitle.textContent = t('importModeTitle');
+  }
+  if (el.importModeMessage) {
+    el.importModeMessage.textContent = t('importModeMessage');
+  }
+  if (el.importModeResumeTitle) {
+    el.importModeResumeTitle.textContent = t('importModeResumeTitle');
+  }
+  if (el.importModeResumeDesc) {
+    el.importModeResumeDesc.textContent = t('importModeResumeDesc');
+  }
+  if (el.importModeForkTitle) {
+    el.importModeForkTitle.textContent = t('importModeForkTitle');
+  }
+  if (el.importModeForkDesc) {
+    el.importModeForkDesc.textContent = t('importModeForkDesc');
+  }
+  if (el.importModeCancel) {
+    el.importModeCancel.textContent = t('cancel');
+  }
+  if (el.importModeConfirm) {
+    el.importModeConfirm.textContent = t('importModeConfirm');
+  }
   if (el.confirmCancel) {
     el.confirmCancel.textContent = t('cancel');
   }

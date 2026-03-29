@@ -1,5 +1,6 @@
 const { nowTs, newConversation, getConversation, sortedConversations } = require('../conversation_service');
 const { importSessionJsonl } = require('../session_importer');
+const { buildExportFileName, exportConversationJsonl } = require('../session_exporter');
 const { normalizePreview, tsLabel } = require('./shared');
 
 function isCompletedPhase(phaseText) {
@@ -474,10 +475,27 @@ const runtimeMethods = {
     return this.snapshot();
   },
 
-  importConversationFromSessionFile(filePath) {
+  previewConversationImportFromSessionFile(filePath) {
+    const imported = importSessionJsonl(filePath);
+    return {
+      filePath: imported.filePath,
+      title: imported.title,
+      sessionId: imported.sessionId || '',
+      source: imported.source,
+      originator: imported.originator,
+      cwd: imported.cwd,
+      model: imported.model || '-',
+      cliVersion: imported.cliVersion || '-',
+    };
+  },
+
+  importConversationFromSessionFile(filePath, { continuationMode = 'resume' } = {}) {
     const imported = importSessionJsonl(filePath);
     const conv = newConversation(imported.title);
     conv.sessionId = imported.sessionId || '';
+    conv.sessionContinuationMode = conv.sessionId
+      ? (continuationMode === 'fork' ? 'fork' : 'resume')
+      : '';
     conv.messages = imported.messages;
     conv.createdAt = Number(imported.createdAt || nowTs());
     conv.updatedAt = Number(imported.updatedAt || conv.createdAt);
@@ -495,6 +513,15 @@ const runtimeMethods = {
     this._appendStructuredEvent(conv.id, 'hint', `来源: ${imported.source} / ${imported.originator}`);
     this._appendStructuredEvent(conv.id, 'hint', `原工作目录: ${imported.cwd}`);
     this._appendStructuredEvent(conv.id, 'hint', `导入文件: ${imported.filePath}`);
+    if (conv.sessionId) {
+      this._appendStructuredEvent(
+        conv.id,
+        'hint',
+        conv.sessionContinuationMode === 'fork'
+          ? '导入后继续方式: 分叉为新会话（fork）'
+          : '导入后继续方式: 继续原会话（resume）',
+      );
+    }
     this._persist();
 
     return {
@@ -503,8 +530,67 @@ const runtimeMethods = {
         conversationId: conv.id,
         title: conv.title,
         sessionId: conv.sessionId || '',
+        continuationMode: conv.sessionContinuationMode || '',
       },
     };
+  },
+
+  previewConversationExport(conversationId) {
+    const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
+    if (!conv) {
+      throw new Error('会话不存在');
+    }
+    const messages = Array.isArray(conv.messages)
+      ? conv.messages.filter((item) => item && String(item.text || '').trim())
+      : [];
+    if (!messages.length) {
+      throw new Error('当前会话没有可导出的消息');
+    }
+    return {
+      conversationId: conv.id,
+      title: conv.title,
+      sessionId: String(conv.sessionId || '').trim(),
+      suggestedFileName: buildExportFileName(conv),
+      messageCount: messages.length,
+    };
+  },
+
+  exportConversationToSessionFile(conversationId, filePath) {
+    const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
+    if (!conv) {
+      return { error: '会话不存在', snapshot: this.snapshot() };
+    }
+
+    try {
+      const meta = this._ensureMeta(conv.id);
+      const exported = exportConversationJsonl(
+        filePath,
+        conv,
+        {
+          model: meta['模型'],
+          cliVersion: meta['Codex版本'],
+        },
+        {
+          workdir: this.workdir,
+        },
+      );
+      return {
+        snapshot: this.snapshot(),
+        exported: {
+          conversationId: conv.id,
+          title: conv.title,
+          filePath: exported.filePath,
+          fileName: exported.fileName,
+          messageCount: exported.messageCount,
+          sessionId: exported.sessionId || '',
+        },
+      };
+    } catch (error) {
+      return {
+        error: `导出会话失败: ${error?.message || String(error)}`,
+        snapshot: this.snapshot(),
+      };
+    }
   },
 
   async _autoRefreshMetaForConversation(conversationId) {

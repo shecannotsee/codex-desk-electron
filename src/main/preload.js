@@ -7,7 +7,12 @@ contextBridge.exposeInMainWorld('codexdesk', {
 
   switchConversation: (conversationId) => ipcRenderer.invoke('conversation:switch', { conversationId }),
   createConversation: () => ipcRenderer.invoke('conversation:create'),
-  importSession: () => ipcRenderer.invoke('conversation:import-session'),
+  pickImportSession: () => ipcRenderer.invoke('conversation:pick-import-session'),
+  importSessionFromFile: (filePath, continuationMode) => ipcRenderer.invoke('conversation:import-session-file', {
+    filePath,
+    continuationMode,
+  }),
+  exportSession: (conversationId) => ipcRenderer.invoke('conversation:export-session', { conversationId }),
   renameConversation: (conversationId, title) => ipcRenderer.invoke('conversation:rename', { conversationId, title }),
   toggleConversationPin: (conversationId) => ipcRenderer.invoke('conversation:toggle-pin', { conversationId }),
   closeCurrentConversation: () => ipcRenderer.invoke('conversation:close-current'),

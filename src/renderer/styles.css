@@ -1261,6 +1261,70 @@ body.sidebar-resizing {
   width: min(420px, 92vw);
 }
 
+.import-mode-modal-card {
+  width: min(560px, 94vw);
+}
+
+.import-mode-meta {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8e4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.import-mode-meta-line {
+  color: #45617a;
+  font-size: 12px;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.import-mode-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.import-mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cfe0ef;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #27455f;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.import-mode-option:hover {
+  border-color: #7aa8d6;
+  transform: translateY(-1px);
+}
+
+.import-mode-option.is-selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.import-mode-option-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #173754;
+}
+
+.import-mode-option-desc {
+  color: #557089;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .close-guard-modal-card {
   width: min(500px, 92vw);
 }
@@ -2655,6 +2719,38 @@ html[data-theme='dark'] .about-modal-body {
 }
 
 html[data-theme='dark'] .modal-message {
+  color: #a9bfd3;
+}
+
+html[data-theme='dark'] .import-mode-meta {
+  background: #0f1a2a;
+  border-color: #334155;
+}
+
+html[data-theme='dark'] .import-mode-meta-line {
+  color: #a9bfd3;
+}
+
+html[data-theme='dark'] .import-mode-option {
+  background: #111c2d;
+  border-color: #334155;
+  color: #d7e3ee;
+}
+
+html[data-theme='dark'] .import-mode-option:hover {
+  border-color: #4b89c8;
+}
+
+html[data-theme='dark'] .import-mode-option.is-selected {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+html[data-theme='dark'] .import-mode-option-title {
+  color: #e2edf8;
+}
+
+html[data-theme='dark'] .import-mode-option-desc {
   color: #a9bfd3;
 }
 

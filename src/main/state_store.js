@@ -178,6 +178,9 @@ class StateStore {
       conv.id = String(item.id || conv.id).trim() || conv.id;
       conv.title = String(item.title || '').trim() || conv.title;
       conv.sessionId = String(item.sessionId || item.session_id || '').trim();
+      conv.sessionContinuationMode = String(
+        item.sessionContinuationMode || item.session_continuation_mode || '',
+      ).trim();
       conv.messages = parseMessages(item.messages);
       conv.pinnedAt = toNumber(item.pinnedAt ?? item.pinned_at, 0);
       conv.createdAt = toNumber(item.createdAt ?? item.created_at, conv.createdAt);
@@ -236,6 +239,7 @@ class StateStore {
         id: item.id,
         title: item.title,
         sessionId: item.sessionId || '',
+        sessionContinuationMode: item.sessionContinuationMode || '',
         pinnedAt: Number(item.pinnedAt || 0),
         createdAt: Number(item.createdAt || 0),
         updatedAt: Number(item.updatedAt || 0),

@@ -71,6 +71,7 @@ const MENU_TEXT = {
 
     newConversation: '新建对话',
     importSession: '导入会话JSONL',
+    exportSession: '导出当前会话JSONL',
     renameConversation: '重命名当前对话',
     closeConversation: '关闭当前对话',
     clearChat: '清空当前对话内容',
@@ -125,6 +126,7 @@ const MENU_TEXT = {
 
     newConversation: 'New Conversation',
     importSession: 'Import Session JSONL',
+    exportSession: 'Export Current Conversation JSONL',
     renameConversation: 'Rename Current Conversation',
     closeConversation: 'Close Current Conversation',
     clearChat: 'Clear Current Chat',
@@ -350,6 +352,7 @@ function applyMenuLanguage(language) {
       submenu: [
         { label: text.newConversation, accelerator: 'CmdOrCtrl+N', click: () => sendMenuAction('conversation:new') },
         { label: text.importSession, accelerator: 'CmdOrCtrl+Shift+O', click: () => sendMenuAction('conversation:import-session') },
+        { label: text.exportSession, accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuAction('conversation:export-session') },
         { label: text.renameConversation, click: () => sendMenuAction('conversation:rename') },
         { label: text.closeConversation, click: () => sendMenuAction('conversation:close-current') },
         { type: 'separator' },
@@ -585,7 +588,7 @@ function registerIpc() {
 
   ipcMain.handle('conversation:create', async () => controller.createConversation());
 
-  ipcMain.handle('conversation:import-session', async () => {
+  ipcMain.handle('conversation:pick-import-session', async () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { ok: false, error: '窗口不可用' };
     }
@@ -606,10 +609,58 @@ function registerIpc() {
     }
 
     try {
-      return controller.importConversationFromSessionFile(result.filePaths[0]);
+      return {
+        snapshot: controller.snapshot(),
+        preview: controller.previewConversationImportFromSessionFile(result.filePaths[0]),
+      };
     } catch (error) {
       return {
         error: `导入会话失败: ${error?.message || String(error)}`,
+        snapshot: controller.snapshot(),
+      };
+    }
+  });
+
+  ipcMain.handle('conversation:import-session-file', async (_, payload) => {
+    const filePath = String(payload?.filePath || '');
+    const continuationMode = String(payload?.continuationMode || 'resume');
+    try {
+      return controller.importConversationFromSessionFile(filePath, { continuationMode });
+    } catch (error) {
+      return {
+        error: `导入会话失败: ${error?.message || String(error)}`,
+        snapshot: controller.snapshot(),
+      };
+    }
+  });
+
+  ipcMain.handle('conversation:export-session', async (_, payload) => {
+    const conversationId = String(payload?.conversationId || '');
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '窗口不可用' };
+    }
+
+    try {
+      const preview = controller.previewConversationExport(conversationId);
+      const defaultDir = path.join(os.homedir(), 'Downloads');
+      const result = await dialog.showSaveDialog(mainWindow, {
+        title: '导出当前会话',
+        defaultPath: path.join(defaultDir, preview.suggestedFileName),
+        filters: [
+          { name: 'Codex Session', extensions: ['jsonl'] },
+          { name: 'JSON', extensions: ['json', 'jsonl'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { canceled: true, snapshot: controller.snapshot() };
+      }
+
+      return controller.exportConversationToSessionFile(preview.conversationId, result.filePath);
+    } catch (error) {
+      return {
+        error: `导出会话失败: ${error?.message || String(error)}`,
         snapshot: controller.snapshot(),
       };
     }

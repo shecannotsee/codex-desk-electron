@@ -108,6 +108,11 @@ function summarizeTitle(text) {
 }
 
 function fallbackTitle(sessionMeta, messages) {
+  const metaTitle = String(sessionMeta?.title || '').trim();
+  if (metaTitle) {
+    return metaTitle;
+  }
+
   const firstUser = messages.find((item) => item && item.role === 'user' && item.text.trim());
   const summary = summarizeTitle(firstUser?.text || '');
   if (summary) {

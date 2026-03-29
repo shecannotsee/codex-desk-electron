@@ -2,6 +2,7 @@ const fs = require('node:fs');
 
 const { nowTs, getConversation, sortedConversations } = require('../conversation_service');
 const { CodexRunner } = require('../codex_runner');
+const { CodexAppServerRunner } = require('../codex_app_server_runner');
 const { normalizePreview } = require('./shared');
 
 function normalizeAssistantRuntimeText(text) {
@@ -136,7 +137,7 @@ const chatMethods = {
       conversationId: targetId,
       text: String(lastUser.text || ''),
       appendUserMessage: false,
-      forceFreshSession: true,
+      forceFreshSession: conv.sessionContinuationMode === 'fork' ? false : true,
       fromRetry: true,
     });
   },
@@ -177,6 +178,7 @@ const chatMethods = {
 
     if (forceFreshSession) {
       conv.sessionId = '';
+      conv.sessionContinuationMode = '';
       const meta = this._ensureMeta(targetId);
       meta['会话ID'] = '-';
       this._emit({ type: 'meta-updated', conversationId: targetId, key: '会话ID', value: '-' });
@@ -207,13 +209,30 @@ const chatMethods = {
     this._persist();
 
     const prompt = userText;
-    const runner = new CodexRunner({
-      commandText: this.commandText,
-      prompt,
-      workdir: this.workdir,
-      sessionId: conv.sessionId || '',
-      useNativeMemory: this.useNativeMemory,
-    });
+    const shouldForkImportedSession = this.useNativeMemory
+      && !forceFreshSession
+      && String(conv.sessionId || '').trim()
+      && String(conv.sessionContinuationMode || '').trim() === 'fork';
+
+    if (shouldForkImportedSession) {
+      this._appendStructuredEvent(targetId, 'hint', '本次将先分叉导入的原生会话（fork），后续继续新的 thread id');
+    }
+
+    const runner = shouldForkImportedSession
+      ? new CodexAppServerRunner({
+        commandText: this.commandText,
+        prompt,
+        workdir: this.workdir,
+        sessionId: conv.sessionId || '',
+        mode: 'fork',
+      })
+      : new CodexRunner({
+        commandText: this.commandText,
+        prompt,
+        workdir: this.workdir,
+        sessionId: conv.sessionId || '',
+        useNativeMemory: this.useNativeMemory,
+      });
 
     this.runners.set(targetId, runner);
     this._emit({ type: 'runner-state', conversationId: targetId, running: true });
@@ -248,6 +267,9 @@ const chatMethods = {
         const targetConv = getConversation(this.conversations, targetId);
         if (targetConv) {
           targetConv.sessionId = value;
+          if (targetConv.sessionContinuationMode === 'fork' && value && value !== '-') {
+            targetConv.sessionContinuationMode = 'resume';
+          }
           targetConv.updatedAt = nowTs();
           this._syncConversationUpdated(targetConv);
         }

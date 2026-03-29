@@ -21,6 +21,7 @@ function newConversation(title = formatConversationTitle()) {
     id: crypto.randomUUID().replaceAll('-', ''),
     title,
     sessionId: '',
+    sessionContinuationMode: '',
     messages: [],
     pinnedAt: 0,
     createdAt: now,

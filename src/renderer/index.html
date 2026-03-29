@@ -59,6 +59,7 @@
                 <section class="quick-settings-pane" data-pane="conversation">
                   <button type="button" class="quick-settings-item" data-action="conversation:new" data-i18n-key="newConversation">新建对话</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:import-session" data-i18n-key="importSession">导入会话JSONL</button>
+                  <button type="button" class="quick-settings-item" data-action="conversation:export-session" data-i18n-key="exportSession">导出当前会话JSONL</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:rename" data-i18n-key="renameConversation">重命名</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:close-current" data-i18n-key="closeCurrentConversation">关闭当前会话</button>
                   <button type="button" class="quick-settings-item" data-action="conversation:clear-chat" data-i18n-key="clearChat">清空当前对话内容</button>
@@ -192,6 +193,7 @@
 
       <section class="setting-row actions-row">
         <button id="btn-import-session" class="menu-moved">导入会话JSONL</button>
+        <button id="btn-export-session" class="menu-moved">导出当前会话JSONL</button>
         <button id="btn-clear-chat" class="menu-moved">清空当前对话内容</button>
         <button id="btn-clear-runtime" class="menu-moved">清空右侧运行日志</button>
         <button id="btn-toggle-settings" class="menu-moved">隐藏配置信息</button>
@@ -249,6 +251,31 @@
       <div class="modal-actions">
         <button id="confirm-cancel" class="btn-secondary">取消</button>
         <button id="confirm-accept" class="btn-danger">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="import-mode-modal" class="modal-backdrop hidden">
+    <div class="modal-card import-mode-modal-card">
+      <div id="import-mode-title" class="modal-title">导入后如何继续这条会话？</div>
+      <div id="import-mode-message" class="modal-message">检测到这个会话包含原生会话 ID。请选择导入后下一次发送消息时，要继续原会话还是先分叉成新会话。</div>
+      <div class="import-mode-meta">
+        <div id="import-mode-file" class="import-mode-meta-line">文件: -</div>
+        <div id="import-mode-session" class="import-mode-meta-line">会话ID: -</div>
+      </div>
+      <div class="import-mode-options" role="radiogroup" aria-labelledby="import-mode-title">
+        <button id="import-mode-resume" type="button" class="import-mode-option" data-mode="resume" aria-pressed="false">
+          <span id="import-mode-resume-title" class="import-mode-option-title">继续原会话（resume）</span>
+          <span id="import-mode-resume-desc" class="import-mode-option-desc">后续消息继续写进同一个 Codex 原生会话。如果原电脑也继续使用，会互相影响。</span>
+        </button>
+        <button id="import-mode-fork" type="button" class="import-mode-option" data-mode="fork" aria-pressed="false">
+          <span id="import-mode-fork-title" class="import-mode-option-title">分叉为新会话（fork）</span>
+          <span id="import-mode-fork-desc" class="import-mode-option-desc">第一次继续时先从当前会话历史分叉出新的 thread id，后续不再影响原会话。</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button id="import-mode-cancel" class="btn-secondary">取消</button>
+        <button id="import-mode-confirm" class="btn-primary" disabled>确认导入</button>
       </div>
     </div>
   </div>

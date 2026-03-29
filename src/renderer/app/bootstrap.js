@@ -470,6 +470,100 @@ function askConfirmDialog(options = {}) {
   });
 }
 
+function askImportSessionMode(importInfo = {}) {
+  return new Promise((resolve) => {
+    const modal = el.importModeModal;
+    const cancelBtn = el.importModeCancel;
+    const confirmBtn = el.importModeConfirm;
+    const fileEl = el.importModeFile;
+    const sessionEl = el.importModeSession;
+    const optionButtons = [el.importModeResume, el.importModeFork].filter(Boolean);
+    if (!modal || !cancelBtn || !confirmBtn || !fileEl || !sessionEl || optionButtons.length < 2) {
+      resolve(null);
+      return;
+    }
+
+    let selectedMode = '';
+    fileEl.textContent = t('importModeFile', { value: String(importInfo.filePath || '-') });
+    sessionEl.textContent = t('importModeSession', { value: String(importInfo.sessionId || '-') });
+    confirmBtn.disabled = true;
+    optionButtons.forEach((button) => {
+      button.classList.remove('is-selected');
+      button.setAttribute('aria-pressed', 'false');
+    });
+    modal.classList.remove('hidden');
+    optionButtons[0].focus();
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      cancelBtn.removeEventListener('click', onCancel);
+      confirmBtn.removeEventListener('click', onConfirm);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeyDown);
+      optionButtons.forEach((button) => {
+        button.removeEventListener('click', onOptionClick);
+      });
+    };
+
+    const applySelection = (mode) => {
+      selectedMode = mode;
+      confirmBtn.disabled = !selectedMode;
+      optionButtons.forEach((button) => {
+        const active = button.getAttribute('data-mode') === selectedMode;
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onConfirm = () => {
+      if (!selectedMode) {
+        return;
+      }
+      cleanup();
+      resolve(selectedMode);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target === modal) {
+        onCancel();
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key === 'Enter' && selectedMode) {
+        event.preventDefault();
+        onConfirm();
+      }
+    };
+
+    const onOptionClick = (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      applySelection(String(target.getAttribute('data-mode') || ''));
+    };
+
+    cancelBtn.addEventListener('click', onCancel);
+    confirmBtn.addEventListener('click', onConfirm);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeyDown);
+    optionButtons.forEach((button) => {
+      button.addEventListener('click', onOptionClick);
+    });
+  });
+}
+
 function hideCloseGuardModal() {
   if (!el.closeGuardModal) {
     return;
@@ -1046,6 +1140,7 @@ async function init() {
   const actionToButton = {
     'conversation:new': el.btnNewConv,
     'conversation:import-session': el.btnImportSession,
+    'conversation:export-session': el.btnExportSession,
     'conversation:rename': el.btnRenameConv,
     'conversation:close-current': el.btnCloseConv,
     'conversation:clear-chat': el.btnClearChat,
@@ -1564,8 +1659,14 @@ async function init() {
     renderAll();
   });
 
-  el.btnImportSession.addEventListener('click', async () => {
-    const result = await codexdesk.importSession();
+  el.btnImportSession.addEventListener('click', () => {
+    runImportSessionFlow().catch((error) => {
+      window.alert(localizeKnownText(`导入会话失败: ${error?.message || String(error)}`));
+    });
+  });
+
+  el.btnExportSession.addEventListener('click', async () => {
+    const result = await codexdesk.exportSession(state.activeConversationId);
     if (result?.canceled) {
       return;
     }
@@ -1577,6 +1678,11 @@ async function init() {
     }
     applySnapshot(result?.snapshot || result);
     renderAll();
+    const exportedPath = String(result?.exported?.filePath || '').trim();
+    const exportedCount = Number(result?.exported?.messageCount || 0);
+    if (exportedPath) {
+      window.alert(localizeKnownText(`已导出会话到:\n${exportedPath}\n\n消息数: ${exportedCount}`));
+    }
   });
 
   el.btnRenameConv.addEventListener('click', async () => {
@@ -1688,6 +1794,48 @@ async function init() {
       }
     });
   }
+
+  const runImportSessionFlow = async () => {
+    const picked = await codexdesk.pickImportSession();
+    if (picked?.canceled) {
+      return;
+    }
+    if (picked?.error) {
+      window.alert(localizeKnownText(picked.error));
+      applySnapshot(picked?.snapshot || {});
+      renderAll();
+      return;
+    }
+
+    const preview = picked?.preview;
+    const filePath = String(preview?.filePath || '').trim();
+    if (!filePath) {
+      window.alert(localizeKnownText('导入会话失败: 未获取到导入文件信息'));
+      applySnapshot(picked?.snapshot || {});
+      renderAll();
+      return;
+    }
+
+    let continuationMode = 'resume';
+    if (String(preview?.sessionId || '').trim()) {
+      const selectedMode = await askImportSessionMode(preview);
+      if (!selectedMode) {
+        return;
+      }
+      continuationMode = selectedMode;
+    }
+
+    const result = await codexdesk.importSessionFromFile(filePath, continuationMode);
+    if (result?.error) {
+      window.alert(localizeKnownText(result.error));
+      applySnapshot(result?.snapshot || {});
+      renderAll();
+      return;
+    }
+
+    applySnapshot(result?.snapshot || result);
+    renderAll();
+  };
 
   el.btnClearChat.addEventListener('click', async () => {
     const result = await codexdesk.clearChat(state.activeConversationId);

@@ -4,6 +4,14 @@ const { nowTs, getConversation, sortedConversations } = require('../conversation
 const { CodexRunner } = require('../codex_runner');
 const { normalizePreview } = require('./shared');
 
+function normalizeAssistantRuntimeText(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const chatMethods = {
   closeCurrentConversation() {
     if (!this.conversations.length) {
@@ -254,6 +262,16 @@ const chatMethods = {
       this.assistantBufferByRunner.set(runner, current + String(delta || ''));
     });
 
+    runner.on('assistant_update', (payload) => {
+      const text = String(payload?.text || '').trim();
+      if (!text) {
+        return;
+      }
+      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+      this._appendStructuredAssistantUpdate(targetId, text);
+      this._appendWorkflowAssistantUpdate(targetId, currentRound, text);
+    });
+
     runner.on('step', (step) => {
       const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
       const stepIndex = (this.stepIndexByRunner.get(runner) || 0) + 1;
@@ -283,6 +301,25 @@ const chatMethods = {
         }
       }
 
+      const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
+      const normalizedFinalText = normalizeAssistantRuntimeText(finalText);
+      if (finalText && targetConv) {
+        this._removeLastStructuredEventIf(
+          targetId,
+          (item) => item?.kind === 'assistant-update'
+            && normalizeAssistantRuntimeText(item.body || '') === normalizedFinalText,
+        );
+        this._removeLastWorkflowItemIf(
+          targetId,
+          (item) => item.type === 'assistant'
+            && item.status === 'running'
+            && normalizeAssistantRuntimeText(item.body || '') === normalizedFinalText,
+        );
+        targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
+      } else if (!finalText && targetConv && result.exitCode === 0) {
+        this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
+      }
+
       if (result.exitCode === 0) {
         runtimeState.phase = '已完成';
         this._appendStructuredEvent(targetId, 'success', `任务完成，用时 ${result.durationSeconds.toFixed(1)}s`);
@@ -293,14 +330,6 @@ const chatMethods = {
           'error',
           `任务失败，退出码 ${result.exitCode}，用时 ${result.durationSeconds.toFixed(1)}s`,
         );
-      }
-
-      const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
-      if (finalText && targetConv) {
-        targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
-        this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
-      } else if (!finalText && targetConv && result.exitCode === 0) {
-        this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
       }
 
       if (targetConv) {

@@ -496,11 +496,12 @@ function renderWorkflowTab(runtime, stickToBottom = true) {
     }
 
     if (item.type === 'assistant') {
+      const assistantStatus = item.status === 'running' ? t('stateRunning') : t('stateSuccess');
       const collapsedLine = messagePreview(localizeKnownText(item.body || ''));
       return [
         `<div class="runtime-step tag-${escapeHtml(item.tag || 'REPLY')}${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
         '<div class="runtime-step-head">',
-        `<span class="left">${escapeHtml(t('roleCodex'))} | ${escapeHtml(t('stateSuccess'))}</span>`,
+        `<span class="left">${escapeHtml(t('roleCodex'))} | ${escapeHtml(assistantStatus)}</span>`,
         '<span class="right-group">',
         `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
         `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,

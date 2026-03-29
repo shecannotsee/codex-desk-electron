@@ -12,6 +12,14 @@ function stripAnsi(text) {
   return String(text || '').replace(ANSI_PATTERN, '');
 }
 
+function normalizeAssistantCompareText(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function splitShellArgs(commandText) {
   const input = String(commandText || '').trim();
   if (!input) {
@@ -40,6 +48,7 @@ class CodexRunner extends EventEmitter {
     this.proc = null;
     this.gotStreamDelta = false;
     this.detectedSessionId = sessionId;
+    this.lastAssistantUpdateText = '';
     this.stopped = false;
   }
 
@@ -335,7 +344,25 @@ class CodexRunner extends EventEmitter {
       return;
     }
 
+    const role = String(item.role || '').trim().toLowerCase();
+    const isAssistantMessage = itemType === 'agent_message'
+      || itemType === 'assistant_message'
+      || itemType === 'assistant'
+      || (itemType === 'message' && role === 'assistant');
+    if (isAssistantMessage) {
+      return;
+    }
+
     if (itemType !== 'command_execution') {
+      const itemLabel = itemType || 'unknown_item';
+      const detail = this._extractItemMessageText(item)
+        || String(item.title || item.name || item.label || item.command || '').trim();
+      const detailPreview = this._trimForStep(detail, 220);
+      if (eventType === 'item.started') {
+        this.emit('step', detailPreview ? `开始处理 ${itemLabel}: ${detailPreview}` : `开始处理 ${itemLabel}`);
+      } else if (eventType === 'item.completed') {
+        this.emit('step', detailPreview ? `处理完成 ${itemLabel}: ${detailPreview}` : `处理完成 ${itemLabel}`);
+      }
       return;
     }
 
@@ -368,6 +395,75 @@ class CodexRunner extends EventEmitter {
 
       this.emit('step', text);
     }
+  }
+
+  _extractItemMessageText(item) {
+    if (!item || typeof item !== 'object') {
+      return '';
+    }
+
+    const directText = String(item.text || item.message || item.output_text || item.outputText || '').trim();
+    if (directText) {
+      return directText;
+    }
+
+    const content = Array.isArray(item.content) ? item.content : [];
+    const blocks = [];
+    for (const block of content) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      const blockType = String(block.type || '').toLowerCase();
+      if (blockType === 'output_text' || blockType === 'text') {
+        const text = String(
+          block.text
+          || block.output_text
+          || block.outputText
+          || block.input_text
+          || block.inputText
+          || '',
+        ).trim();
+        if (text) {
+          blocks.push(text);
+        }
+      }
+    }
+    if (blocks.length) {
+      return blocks.join('\n').trim();
+    }
+
+    const fallback = this._extractEventTexts({ item }).join('\n').trim();
+    return fallback;
+  }
+
+  _emitAssistantUpdate(eventType, item) {
+    if (eventType !== 'item.completed' || !item || typeof item !== 'object') {
+      return;
+    }
+
+    const itemType = String(item.type || '').trim().toLowerCase();
+    const role = String(item.role || '').trim().toLowerCase();
+    const isAssistantMessage = itemType === 'agent_message'
+      || itemType === 'assistant_message'
+      || itemType === 'assistant'
+      || (itemType === 'message' && role === 'assistant');
+
+    if (!isAssistantMessage) {
+      return;
+    }
+
+    const text = this._extractItemMessageText(item);
+    const normalizedText = normalizeAssistantCompareText(text);
+    if (!normalizedText || normalizedText === this.lastAssistantUpdateText) {
+      return;
+    }
+
+    this.lastAssistantUpdateText = normalizedText;
+    this.emit('assistant_update', {
+      eventType,
+      itemType,
+      text,
+    });
   }
 
   _handleOutputLine(line, assistantChunks) {
@@ -449,6 +545,7 @@ class CodexRunner extends EventEmitter {
     if (eventType === 'item.started' || eventType === 'item.completed') {
       if (event.item && typeof event.item === 'object') {
         this._emitItemStep(eventType, event.item);
+        this._emitAssistantUpdate(eventType, event.item);
       }
     }
 

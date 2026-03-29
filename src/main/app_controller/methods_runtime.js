@@ -171,6 +171,46 @@ const runtimeMethods = {
     this._emit({ type: 'runtime-event-append', conversationId, item });
   },
 
+  _appendStructuredAssistantUpdate(conversationId, text) {
+    const body = String(text || '').trim();
+    if (!body) {
+      return;
+    }
+    this.structuredEventSeq += 1;
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      id: `evt-${Date.now()}-${this.structuredEventSeq}`,
+      level: 'info',
+      kind: 'assistant-update',
+      body,
+      message: `运行中回复: ${normalizePreview(body, 180)}`,
+      timestamp: tsLabel(),
+    };
+    runtime.events.push(item);
+    this._emit({ type: 'runtime-event-append', conversationId, item });
+  },
+
+  _removeLastStructuredEventIf(conversationId, predicate) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (typeof predicate !== 'function') {
+      return false;
+    }
+    let targetIndex = -1;
+    for (let index = runtime.events.length - 1; index >= 0; index -= 1) {
+      const item = runtime.events[index];
+      if (predicate(item)) {
+        targetIndex = index;
+        break;
+      }
+    }
+    if (targetIndex < 0) {
+      return false;
+    }
+    runtime.events.splice(targetIndex, 1);
+    this._emit({ type: 'runtime-event-pop', conversationId, index: targetIndex });
+    return true;
+  },
+
   _appendWorkflowRoundHeader(conversationId, roundIndex, userText) {
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
@@ -234,7 +274,7 @@ const runtimeMethods = {
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
-  _appendWorkflowAssistantReply(conversationId, roundIndex, text) {
+  _appendWorkflowAssistantMessage(conversationId, roundIndex, text, status = 'success') {
     const body = String(text || '').trim();
     if (!body) {
       return;
@@ -244,13 +284,43 @@ const runtimeMethods = {
       type: 'assistant',
       roundIndex: Number(roundIndex || 0),
       stepIndex: 999,
-      title: 'assistant-reply',
+      title: status === 'running' ? 'assistant-update' : 'assistant-reply',
       tag: 'REPLY',
       body,
+      status,
       timestamp: tsLabel(),
     };
     runtime.workflow.push(item);
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
+  },
+
+  _appendWorkflowAssistantUpdate(conversationId, roundIndex, text) {
+    this._appendWorkflowAssistantMessage(conversationId, roundIndex, text, 'running');
+  },
+
+  _appendWorkflowAssistantReply(conversationId, roundIndex, text) {
+    this._appendWorkflowAssistantMessage(conversationId, roundIndex, text, 'success');
+  },
+
+  _removeLastWorkflowItemIf(conversationId, predicate) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (typeof predicate !== 'function') {
+      return false;
+    }
+    let targetIndex = -1;
+    for (let index = runtime.workflow.length - 1; index >= 0; index -= 1) {
+      const item = runtime.workflow[index];
+      if (predicate(item)) {
+        targetIndex = index;
+        break;
+      }
+    }
+    if (targetIndex < 0) {
+      return false;
+    }
+    runtime.workflow.splice(targetIndex, 1);
+    this._emit({ type: 'runtime-workflow-pop', conversationId, index: targetIndex });
+    return true;
   },
 
   _appendRawJsonLine(conversationId, line) {

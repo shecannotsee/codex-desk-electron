@@ -201,6 +201,19 @@ function applyEvent(event) {
       }
       break;
     }
+    case 'runtime-event-pop': {
+      const runtime = ensureRuntime(id);
+      const index = Number(event.index);
+      if (Number.isInteger(index) && index >= 0 && index < runtime.events.length) {
+        runtime.events.splice(index, 1);
+      } else if (runtime.events.length) {
+        runtime.events.pop();
+      }
+      if (isActiveConversation && state.activeTab === 'structured') {
+        renderJobs.runtimeStructured = true;
+      }
+      break;
+    }
     case 'runtime-workflow-append':
       ensureRuntime(id).workflow.push(event.item);
       if (isActiveConversation) {
@@ -210,6 +223,22 @@ function applyEvent(event) {
         }
       }
       break;
+    case 'runtime-workflow-pop': {
+      const runtime = ensureRuntime(id);
+      const index = Number(event.index);
+      if (Number.isInteger(index) && index >= 0 && index < runtime.workflow.length) {
+        runtime.workflow.splice(index, 1);
+      } else if (runtime.workflow.length) {
+        runtime.workflow.pop();
+      }
+      if (isActiveConversation) {
+        renderJobs.chatTransient = true;
+        if (state.activeTab === 'workflow') {
+          renderJobs.runtimeWorkflow = true;
+        }
+      }
+      break;
+    }
     case 'runtime-raw-append':
       ensureRuntime(id).raw.push(event.line);
       if (isActiveConversation && state.activeTab === 'raw') {

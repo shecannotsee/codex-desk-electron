@@ -746,6 +746,12 @@ async function init() {
     contextMenuConversationId = String(conversationId || '');
     const hasTarget = Boolean(contextMenuConversationId);
     const targetConversation = state.conversations.find((item) => item.id === contextMenuConversationId) || null;
+    if (el.ctxImportConv) {
+      el.ctxImportConv.disabled = false;
+    }
+    if (el.ctxExportConv) {
+      el.ctxExportConv.disabled = !hasTarget;
+    }
     if (el.ctxRenameConv) {
       el.ctxRenameConv.disabled = !hasTarget;
     }
@@ -979,6 +985,23 @@ async function init() {
     el.ctxNewConv.addEventListener('click', async () => {
       hideConversationContextMenu();
       el.btnNewConv.click();
+    });
+  }
+  if (el.ctxImportConv) {
+    el.ctxImportConv.addEventListener('click', () => {
+      hideConversationContextMenu();
+      el.btnImportSession.click();
+    });
+  }
+  if (el.ctxExportConv) {
+    el.ctxExportConv.addEventListener('click', async () => {
+      const id = contextMenuConversationId;
+      hideConversationContextMenu();
+      await switchConversationIfNeeded(id);
+      if (!id) {
+        return;
+      }
+      el.btnExportSession.click();
     });
   }
   if (el.ctxRenameConv) {

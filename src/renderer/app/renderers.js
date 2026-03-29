@@ -768,6 +768,12 @@ function renderLocaleTexts() {
   if (el.ctxNewConv) {
     el.ctxNewConv.textContent = t('contextMenuNew');
   }
+  if (el.ctxImportConv) {
+    el.ctxImportConv.textContent = t('contextMenuImport');
+  }
+  if (el.ctxExportConv) {
+    el.ctxExportConv.textContent = t('contextMenuExport');
+  }
   if (el.ctxRenameConv) {
     el.ctxRenameConv.textContent = t('contextMenuRename');
   }

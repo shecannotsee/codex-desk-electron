@@ -856,9 +856,7 @@ function renderInline(text) {
     let escaped = escapeHtml(part);
     escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "<a href='$2' target='_blank' rel='noreferrer'>$1</a>");
     escaped = escaped.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
-    escaped = escaped.replace(/__([^_\n]+)__/g, '<b>$1</b>');
     escaped = escaped.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<i>$1</i>');
-    escaped = escaped.replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<i>$1</i>');
     return escaped;
   }).join('');
 }

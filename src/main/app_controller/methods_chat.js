@@ -13,6 +13,8 @@ function normalizeAssistantRuntimeText(text) {
     .trim();
 }
 
+const USAGE_META_KEYS = new Set(['输入Tokens', '缓存输入Tokens', '输出Tokens', '总Tokens']);
+
 const chatMethods = {
   closeCurrentConversation() {
     if (!this.conversations.length) {
@@ -276,7 +278,9 @@ const chatMethods = {
       }
 
       this._emit({ type: 'meta-updated', conversationId: targetId, key, value });
-      this._appendStructuredEvent(targetId, 'hint', `${key}: ${value}`);
+      if (!USAGE_META_KEYS.has(key)) {
+        this._appendStructuredEvent(targetId, 'hint', `${key}: ${value}`);
+      }
     });
 
     runner.on('assistant_delta', (delta) => {

@@ -46,7 +46,16 @@ function renderConversationList() {
 function renderHeader() {
   const conv = currentConversation();
   const runtime = conv ? ensureRuntime(state.activeConversationId) : { startedAt: null };
-  const meta = conv ? ensureMeta(state.activeConversationId) : { Codex版本: '-', 模型: '-', 会话ID: '-' };
+  const meta = conv
+    ? ensureMeta(state.activeConversationId)
+    : {
+      Codex版本: '-',
+      模型: '-',
+      会话ID: '-',
+      输入Tokens: '-',
+      缓存输入Tokens: '-',
+      输出Tokens: '-',
+    };
 
   el.chatTitle.textContent = conv ? conv.title : '-';
   const sid = String(meta['会话ID'] || conv?.sessionId || '-').trim() || '-';
@@ -94,6 +103,9 @@ function renderHeader() {
     el.metaModelValue.textContent = meta['模型'] || '-';
     el.metaModelValue.title = meta['模型'] || '-';
   }
+  updateUsageMetaValue(el.metaInputValue, meta['输入Tokens'], 'usageInputTitle');
+  updateUsageMetaValue(el.metaCachedInputValue, meta['缓存输入Tokens'], 'usageCachedTitle');
+  updateUsageMetaValue(el.metaOutputValue, meta['输出Tokens'], 'usageOutputTitle');
 }
 
 function renderSettings() {
@@ -182,6 +194,28 @@ function formatMessageTime(input) {
     return `${mm}-${dd} ${hh}:${mi}`;
   }
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+}
+
+function formatUsageCount(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '-') {
+    return '-';
+  }
+  const normalized = raw.replace(/,/g, '');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return raw;
+  }
+  return parsed.toLocaleString(currentLang());
+}
+
+function updateUsageMetaValue(node, rawValue, titleKey) {
+  if (!node) {
+    return;
+  }
+  const formatted = formatUsageCount(rawValue);
+  node.textContent = formatted;
+  node.title = formatted === '-' ? t(titleKey) : `${t(titleKey)}: ${formatted}`;
 }
 
 function resolveMessageTime(item, conversation, index) {
@@ -800,6 +834,24 @@ function renderLocaleTexts() {
   }
   if (el.labelFontSize) {
     el.labelFontSize.textContent = `${t('chatFontSize')}:`;
+  }
+  if (el.labelSessionId) {
+    el.labelSessionId.textContent = t('sessionId');
+  }
+  if (el.labelPhase) {
+    el.labelPhase.textContent = t('status');
+  }
+  if (el.labelQueue) {
+    el.labelQueue.textContent = t('queue');
+  }
+  if (el.labelElapsed) {
+    el.labelElapsed.textContent = t('elapsed');
+  }
+  if (el.labelMetaVersion) {
+    el.labelMetaVersion.textContent = t('codexVersionShort');
+  }
+  if (el.labelMetaModel) {
+    el.labelMetaModel.textContent = t('modelShort');
   }
   if (el.qsDetailTitle) {
     const detailKey = el.qsDetailTitle.getAttribute('data-i18n-key');

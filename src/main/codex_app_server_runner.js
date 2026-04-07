@@ -286,6 +286,10 @@ class CodexAppServerRunner extends EventEmitter {
 
     if (method === 'turn/completed') {
       const status = String(params?.turn?.status || '').toLowerCase();
+      const usage = this._extractUsagePayload(params);
+      if (usage) {
+        this._emitUsageMeta(usage);
+      }
       if (!this.pendingTurn) {
         return;
       }
@@ -316,6 +320,30 @@ class CodexAppServerRunner extends EventEmitter {
     return new Promise((resolve) => {
       this.pendingTurn = { turnId, resolve };
     });
+  }
+
+  _extractUsagePayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+    if (payload.usage && typeof payload.usage === 'object') {
+      return payload.usage;
+    }
+    if (payload.turn && typeof payload.turn === 'object' && payload.turn.usage && typeof payload.turn.usage === 'object') {
+      return payload.turn.usage;
+    }
+    return null;
+  }
+
+  _emitUsageMeta(usage) {
+    const cachedInputTokens = usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cached_tokens;
+
+    this.emit('meta', '输入Tokens', usage.input_tokens !== undefined ? String(usage.input_tokens) : '-');
+    this.emit('meta', '缓存输入Tokens', cachedInputTokens !== undefined ? String(cachedInputTokens) : '-');
+    this.emit('meta', '输出Tokens', usage.output_tokens !== undefined ? String(usage.output_tokens) : '-');
+    if (usage.total_tokens !== undefined) {
+      this.emit('meta', '总Tokens', String(usage.total_tokens));
+    }
   }
 
   _writeJson(message) {

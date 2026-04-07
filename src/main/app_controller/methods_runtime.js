@@ -35,6 +35,9 @@ const runtimeMethods = {
         'Codex版本': '-',
         '模型': '-',
         '会话ID': '-',
+        '输入Tokens': '-',
+        '缓存输入Tokens': '-',
+        '输出Tokens': '-',
       };
     }
     return this.metaByConversation[conversationId];

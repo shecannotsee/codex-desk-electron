@@ -477,6 +477,30 @@ button:hover:not(:disabled) {
   gap: 8px;
 }
 
+.usage-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.usage-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.usage-meta-label {
+  color: #6c8194;
+}
+
+.usage-meta-value {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
 .meta-link-button {
   display: inline-flex;
   align-items: center;
@@ -2412,6 +2436,10 @@ html[data-theme='dark'] .meta-chip {
   color: #dbe4f0;
   background: #0f172a;
   border-color: #334155;
+}
+
+html[data-theme='dark'] .usage-meta-label {
+  color: #9fb4c8;
 }
 
 html[data-theme='dark'] #command-input,

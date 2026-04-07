@@ -49,6 +49,9 @@ class AppController {
         'Codex版本': '-',
         '模型': '-',
         '会话ID': conv.sessionId || '-',
+        '输入Tokens': '-',
+        '缓存输入Tokens': '-',
+        '输出Tokens': '-',
       };
     }
 

@@ -567,7 +567,7 @@ class CodexRunner extends EventEmitter {
           this.emit('meta', '模型', model);
         }
 
-        const usage = event.response.usage;
+        const usage = this._extractUsagePayload(event.response);
         if (usage && typeof usage === 'object') {
           this._emitUsageMeta(usage);
         }
@@ -581,6 +581,10 @@ class CodexRunner extends EventEmitter {
     }
 
     if (eventType === 'turn.completed') {
+      const usage = this._extractUsagePayload(event);
+      if (usage && typeof usage === 'object') {
+        this._emitUsageMeta(usage);
+      }
       this.emit('status', '任务完成');
       this.emit('event', 'success', 'turn.completed');
       return;
@@ -625,15 +629,30 @@ class CodexRunner extends EventEmitter {
   }
 
   _emitUsageMeta(usage) {
-    if (usage.input_tokens !== undefined) {
-      this.emit('meta', '输入Tokens', String(usage.input_tokens));
-    }
-    if (usage.output_tokens !== undefined) {
-      this.emit('meta', '输出Tokens', String(usage.output_tokens));
-    }
+    const cachedInputTokens = usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cached_tokens;
+
+    this.emit('meta', '输入Tokens', usage.input_tokens !== undefined ? String(usage.input_tokens) : '-');
+    this.emit('meta', '缓存输入Tokens', cachedInputTokens !== undefined ? String(cachedInputTokens) : '-');
+    this.emit('meta', '输出Tokens', usage.output_tokens !== undefined ? String(usage.output_tokens) : '-');
     if (usage.total_tokens !== undefined) {
       this.emit('meta', '总Tokens', String(usage.total_tokens));
     }
+  }
+
+  _extractUsagePayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+    if (payload.usage && typeof payload.usage === 'object') {
+      return payload.usage;
+    }
+    if (payload.response && typeof payload.response === 'object' && payload.response.usage && typeof payload.response.usage === 'object') {
+      return payload.response.usage;
+    }
+    if (payload.turn && typeof payload.turn === 'object' && payload.turn.usage && typeof payload.turn.usage === 'object') {
+      return payload.turn.usage;
+    }
+    return null;
   }
 
   _extractResponseMessageText(response) {

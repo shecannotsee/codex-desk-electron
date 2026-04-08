@@ -6,6 +6,7 @@ const { newConversation, nowTs, sortedConversations } = require('./conversation_
 const { resolveRepoRoot } = require('./project_paths');
 
 const APP_ROOT = resolveRepoRoot(__dirname);
+const DEFAULT_WORKDIR = path.join(APP_ROOT, 'codex-workspace');
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
 const LEGACY_STATE_PATH = path.join(os.homedir(), '.codexdesk', 'state.electron.json');
 const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
@@ -44,12 +45,25 @@ function normalizeCommandText(raw) {
 }
 
 function normalizeWorkdir(candidate) {
-  const fallback = path.resolve(APP_ROOT);
+  const fallback = path.resolve(DEFAULT_WORKDIR);
   const raw = String(candidate || '').trim();
-  if (!raw) {
-    return fallback;
+  let nextPath = raw ? path.resolve(raw) : fallback;
+
+  // Migrate historical in-repo defaults to the dedicated workspace directory.
+  if (nextPath === path.resolve(APP_ROOT) && !raw) {
+    nextPath = fallback;
   }
-  return path.resolve(raw);
+  if (nextPath === path.resolve(APP_ROOT) && raw === path.resolve(APP_ROOT)) {
+    nextPath = fallback;
+  }
+  if (nextPath === path.resolve(path.join(APP_ROOT, 'src')) && raw === path.resolve(path.join(APP_ROOT, 'src'))) {
+    nextPath = fallback;
+  }
+
+  if (nextPath === fallback) {
+    fs.mkdirSync(nextPath, { recursive: true });
+  }
+  return nextPath;
 }
 
 function parseMessages(rawMessages) {
@@ -131,7 +145,7 @@ class StateStore {
   _defaultState() {
     return {
       commandText: DEFAULT_COMMAND_TEXT,
-      workdir: APP_ROOT,
+      workdir: normalizeWorkdir(''),
       useNativeMemory: true,
       activeConversationId: '',
       conversations: [],
@@ -188,6 +202,7 @@ class StateStore {
       conv.pinnedAt = toNumber(item.pinnedAt ?? item.pinned_at, 0);
       conv.createdAt = toNumber(item.createdAt ?? item.created_at, conv.createdAt);
       conv.updatedAt = toNumber(item.updatedAt ?? item.updated_at, conv.updatedAt);
+      conv.workdir = normalizeWorkdir(item.workdir || workdir);
       fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
       conversations.push(conv);
     }
@@ -199,6 +214,7 @@ class StateStore {
         const conv = newConversation();
         conv.messages = fallbackMessages;
         conv.sessionId = fallbackSessionId;
+        conv.workdir = workdir;
         fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
         conversations.push(conv);
       }
@@ -243,6 +259,7 @@ class StateStore {
         title: item.title,
         sessionId: item.sessionId || '',
         sessionContinuationMode: item.sessionContinuationMode || '',
+        workdir: normalizeWorkdir(item.workdir || state.workdir),
         pinnedAt: Number(item.pinnedAt || 0),
         createdAt: Number(item.createdAt || 0),
         updatedAt: Number(item.updatedAt || 0),
@@ -256,8 +273,10 @@ class StateStore {
 
 module.exports = {
   APP_ROOT,
+  DEFAULT_WORKDIR,
   APP_DATA_DIR,
   LEGACY_STATE_PATH,
   DEFAULT_STATE_PATH,
+  normalizeWorkdir,
   StateStore,
 };

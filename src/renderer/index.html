@@ -339,6 +339,64 @@
     </div>
   </div>
 
+  <div id="create-conversation-modal" class="modal-backdrop hidden">
+    <div class="modal-card create-conversation-modal-card">
+      <div id="create-conversation-title" class="modal-title" data-i18n-key="chooseWorkdirTitle">新建对话</div>
+      <div id="create-conversation-message" class="modal-message" data-i18n-key="chooseWorkdirMessage">你可以为这次新建对话单独选择工作目录；如果不选择，将使用默认工作目录。</div>
+      <div class="create-conversation-body">
+        <section class="setting-row about-setting-row">
+          <label id="create-conversation-default-label" for="create-conversation-default-input" data-i18n-key="defaultWorkdir">默认工作目录</label>
+          <input id="create-conversation-default-input" class="about-value-input" type="text" readonly />
+        </section>
+        <section class="setting-row about-setting-row">
+          <label id="create-conversation-selected-label" for="create-conversation-selected-input" data-i18n-key="selectedWorkdir">本次工作目录</label>
+          <div class="create-conversation-input-group">
+            <input id="create-conversation-selected-input" class="about-value-input" type="text" readonly />
+            <button id="create-conversation-browse" class="btn-secondary" type="button" data-i18n-key="browseWorkdir">选择目录</button>
+          </div>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button id="create-conversation-use-default" class="btn-secondary" type="button" data-i18n-key="useDefaultWorkdir">使用默认目录</button>
+        <button id="create-conversation-cancel" class="btn-secondary" type="button" data-i18n-key="cancel">取消</button>
+        <button id="create-conversation-confirm" class="btn-primary" type="button" data-i18n-key="newConversation">新建对话</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="import-workdir-modal" class="modal-backdrop hidden">
+    <div class="modal-card import-mode-modal-card">
+      <div id="import-workdir-title" class="modal-title" data-i18n-key="importWorkdirTitle">导入工作目录</div>
+      <div id="import-workdir-message" class="modal-message" data-i18n-key="importWorkdirMessage">请选择导入后的工作目录来源。</div>
+      <div class="import-mode-meta">
+        <div id="import-workdir-file" class="import-mode-meta-line">文件: -</div>
+      </div>
+      <div class="import-mode-options">
+        <button id="import-workdir-imported" class="import-mode-option" type="button" data-mode="imported">
+          <span id="import-workdir-imported-title" class="import-mode-option-title" data-i18n-key="importWorkdirImportedTitle">使用导入文件目录</span>
+          <span id="import-workdir-imported-desc" class="import-mode-option-desc">-</span>
+        </button>
+        <button id="import-workdir-default" class="import-mode-option" type="button" data-mode="default">
+          <span id="import-workdir-default-title" class="import-mode-option-title" data-i18n-key="importWorkdirDefaultTitle">使用默认目录</span>
+          <span id="import-workdir-default-desc" class="import-mode-option-desc">-</span>
+        </button>
+        <div class="import-workdir-option-group">
+          <button id="import-workdir-custom" class="import-mode-option" type="button" data-mode="custom">
+            <span id="import-workdir-custom-title" class="import-mode-option-title" data-i18n-key="importWorkdirCustomTitle">手动选择新目录</span>
+            <span id="import-workdir-custom-desc" class="import-mode-option-desc">未选择目录</span>
+          </button>
+          <div class="import-workdir-option-actions">
+            <button id="import-workdir-custom-browse" class="btn-secondary" type="button" data-i18n-key="browseWorkdir">选择目录</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="import-workdir-cancel" class="btn-secondary" type="button" data-i18n-key="cancel">取消</button>
+        <button id="import-workdir-confirm" class="btn-primary" type="button" data-i18n-key="importWorkdirConfirm">确认导入</button>
+      </div>
+    </div>
+  </div>
+
   <div id="conversation-context-menu" class="context-menu hidden">
     <button id="ctx-new-conv" type="button">新建对话</button>
     <button id="ctx-import-conv" type="button">导入会话JSONL</button>

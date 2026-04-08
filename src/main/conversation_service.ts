@@ -20,6 +20,7 @@ function newConversation(title = formatConversationTitle()) {
   return {
     id: crypto.randomUUID().replaceAll('-', ''),
     title,
+    workdir: '',
     sessionId: '',
     sessionContinuationMode: '',
     messages: [],

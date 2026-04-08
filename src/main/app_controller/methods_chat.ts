@@ -159,8 +159,9 @@ const chatMethods = {
       return { error: '消息不能为空', snapshot: this.snapshot() };
     }
 
-    if (!this.workdir || !fs.existsSync(this.workdir) || !fs.statSync(this.workdir).isDirectory()) {
-      return { error: `目录不存在:\n${this.workdir}`, snapshot: this.snapshot() };
+    const workdir = this._resolveConversationWorkdir(targetId);
+    if (!workdir || !fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) {
+      return { error: `目录不存在:\n${workdir}`, snapshot: this.snapshot() };
     }
 
     if (this._isConversationRunning(targetId)) {
@@ -224,14 +225,14 @@ const chatMethods = {
       ? new CodexAppServerRunner({
         commandText: this.commandText,
         prompt,
-        workdir: this.workdir,
+        workdir,
         sessionId: conv.sessionId || '',
         mode: 'fork',
       })
       : new CodexRunner({
         commandText: this.commandText,
         prompt,
-        workdir: this.workdir,
+        workdir,
         sessionId: conv.sessionId || '',
         useNativeMemory: this.useNativeMemory,
       });

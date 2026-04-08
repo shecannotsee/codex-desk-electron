@@ -224,14 +224,14 @@ const metaMethods = {
     return '';
   },
 
-  _probeModelFromCodex(parts) {
+  _probeModelFromCodex(parts, workdir) {
     return new Promise((resolve) => {
       const base = this._normalizeExecOptionsForProbe(parts);
       const probePrompt = '请只回复: ok';
       const cmd = [...base, '--json', probePrompt];
 
       const child = spawn(cmd[0], cmd.slice(1), {
-        cwd: this.workdir || process.cwd(),
+        cwd: workdir || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getCodexChildEnv(),
       });
@@ -356,7 +356,7 @@ const metaMethods = {
 
     if (!this._isUsableModel(model)) {
       try {
-        const probe = await this._probeModelFromCodex(parts);
+        const probe = await this._probeModelFromCodex(parts, this._resolveConversationWorkdir(targetId));
         model = this._extractModelFromJsonOutput(probe.output);
         if (!this._isUsableModel(model)) {
           model = this._extractModelFromCommand(parts);

@@ -10,6 +10,7 @@ export interface AppInfo {
 export interface SettingsState {
   commandText: string;
   workdir: string;
+  defaultWorkdir: string;
 }
 
 export interface UiState {
@@ -37,6 +38,7 @@ export interface ConversationMessage {
 export interface ConversationSummary {
   id: string;
   title: string;
+  workdir?: string;
   sessionId: string;
   sessionContinuationMode?: string;
   messages: ConversationMessage[];
@@ -124,6 +126,13 @@ export interface ConfirmDialogOptions {
 export interface ImportSessionPreview {
   filePath?: string;
   sessionId?: string;
+  cwd?: string;
+  hasImportedWorkdir?: boolean;
+}
+
+export interface ImportWorkdirChoice {
+  mode?: string;
+  workdir?: string;
 }
 
 export interface CloseGuardPayload {
@@ -200,6 +209,7 @@ export interface GenericResult {
   error?: string;
   snapshot?: AppSnapshot;
   canceled?: boolean;
+  directoryPath?: string;
   exported?: {
     filePath?: string;
     messageCount?: number;
@@ -216,10 +226,11 @@ export interface CodexDeskApi {
   getAppInfo(): Promise<Partial<AppInfo>>;
   getSnapshot(): Promise<AppSnapshot>;
   updateSettings(payload: unknown): Promise<GenericResult>;
+  pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<AppSnapshot>;
-  createConversation(): Promise<AppSnapshot>;
+  createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
   pickImportSession(): Promise<GenericResult>;
-  importSessionFromFile(filePath: string, continuationMode: string): Promise<GenericResult>;
+  importSessionFromFile(filePath: string, continuationMode: string, workdirChoice?: ImportWorkdirChoice): Promise<GenericResult>;
   exportSession(conversationId: string): Promise<GenericResult>;
   renameConversation(conversationId: string, title: string): Promise<GenericResult>;
   toggleConversationPin(conversationId: string): Promise<GenericResult>;
@@ -360,6 +371,33 @@ export interface UiElementRefs {
   btnSend: HTMLButtonElement;
   btnRetryLast: HTMLButtonElement;
   btnStop: HTMLButtonElement;
+  createConversationModal: HTMLElement;
+  createConversationTitle: HTMLElement;
+  createConversationMessage: HTMLElement;
+  createConversationDefaultLabel: HTMLElement;
+  createConversationDefaultInput: HTMLInputElement;
+  createConversationSelectedLabel: HTMLElement;
+  createConversationSelectedInput: HTMLInputElement;
+  createConversationBrowse: HTMLButtonElement;
+  createConversationUseDefault: HTMLButtonElement;
+  createConversationCancel: HTMLButtonElement;
+  createConversationConfirm: HTMLButtonElement;
+  importWorkdirModal: HTMLElement;
+  importWorkdirTitle: HTMLElement;
+  importWorkdirMessage: HTMLElement;
+  importWorkdirFile: HTMLElement;
+  importWorkdirImported: HTMLButtonElement;
+  importWorkdirImportedTitle: HTMLElement;
+  importWorkdirImportedDesc: HTMLElement;
+  importWorkdirDefault: HTMLButtonElement;
+  importWorkdirDefaultTitle: HTMLElement;
+  importWorkdirDefaultDesc: HTMLElement;
+  importWorkdirCustom: HTMLButtonElement;
+  importWorkdirCustomTitle: HTMLElement;
+  importWorkdirCustomDesc: HTMLElement;
+  importWorkdirCustomBrowse: HTMLButtonElement;
+  importWorkdirCancel: HTMLButtonElement;
+  importWorkdirConfirm: HTMLButtonElement;
   renameModal: HTMLElement;
   renameModalTitle: HTMLElement;
   renameInput: HTMLInputElement;

@@ -583,13 +583,34 @@ function registerIpc() {
   }));
 
   ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
+  ipcMain.handle('app:pick-workdir', async (_, payload) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '窗口不可用' };
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: menuLanguage === 'en-US' ? 'Choose Working Directory' : '选择工作目录',
+      defaultPath: String(payload?.defaultPath || controller?._defaultWorkdir?.() || '').trim() || undefined,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
+      return { canceled: true, snapshot: controller.snapshot() };
+    }
+
+    return {
+      ok: true,
+      snapshot: controller.snapshot(),
+      directoryPath: result.filePaths[0],
+    };
+  });
 
   ipcMain.handle('conversation:switch', async (_, payload) => {
     const id = String(payload?.conversationId || '');
     return controller.switchConversation(id);
   });
 
-  ipcMain.handle('conversation:create', async () => controller.createConversation());
+  ipcMain.handle('conversation:create', async (_, payload) => controller.createConversation(payload || {}));
 
   ipcMain.handle('conversation:pick-import-session', async () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -627,8 +648,12 @@ function registerIpc() {
   ipcMain.handle('conversation:import-session-file', async (_, payload) => {
     const filePath = String(payload?.filePath || '');
     const continuationMode = String(payload?.continuationMode || 'resume');
+    const workdirChoice = {
+      mode: String(payload?.workdirChoice?.mode || 'default'),
+      workdir: String(payload?.workdirChoice?.workdir || ''),
+    };
     try {
-      return controller.importConversationFromSessionFile(filePath, { continuationMode });
+      return controller.importConversationFromSessionFile(filePath, { continuationMode, workdirMode: workdirChoice.mode, workdir: workdirChoice.workdir });
     } catch (error) {
       return {
         error: `导入会话失败: ${error?.message || String(error)}`,

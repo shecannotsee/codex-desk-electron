@@ -218,6 +218,11 @@ function importSessionJsonl(filePath) {
   const updatedAt = [...messages].reverse().find((item) => Number(item.createdAt || 0) > 0)?.createdAt
     || createdAt;
 
+  const rawCwd = String(sessionMeta?.cwd || '').trim();
+  const cwd = rawCwd && rawCwd !== '-'
+    ? path.resolve(rawCwd)
+    : '';
+
   return {
     title: fallbackTitle(sessionMeta, messages),
     sessionId: inferSessionId(resolved, sessionMeta),
@@ -226,7 +231,7 @@ function importSessionJsonl(filePath) {
     updatedAt,
     source: String(sessionMeta?.source || '').trim() || '-',
     originator: String(sessionMeta?.originator || '').trim() || '-',
-    cwd: String(sessionMeta?.cwd || '').trim() || '-',
+    cwd,
     cliVersion: String(sessionMeta?.cli_version || '').trim() || '-',
     model: latestModel || String(sessionMeta?.model || '').trim() || '',
     filePath: resolved,

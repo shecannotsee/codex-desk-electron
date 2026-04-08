@@ -1349,6 +1349,17 @@ body.sidebar-resizing {
   line-height: 1.6;
 }
 
+.import-workdir-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import-workdir-option-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .close-guard-modal-card {
   width: min(500px, 92vw);
 }
@@ -1407,6 +1418,29 @@ body.sidebar-resizing {
 
 .about-modal-card {
   width: min(500px, 92vw);
+}
+
+.create-conversation-modal-card {
+  width: min(620px, 94vw);
+}
+
+.create-conversation-body {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8e4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.create-conversation-input-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-conversation-input-group .about-value-input {
+  min-width: 0;
 }
 
 .about-modal-body {
@@ -2746,6 +2780,11 @@ html[data-theme='dark'] .about-modal-body {
   color: #d3e1ef;
 }
 
+html[data-theme='dark'] .create-conversation-body {
+  background: #0f1a2a;
+  border-color: #334155;
+}
+
 html[data-theme='dark'] .modal-message {
   color: #a9bfd3;
 }
@@ -2780,6 +2819,12 @@ html[data-theme='dark'] .import-mode-option-title {
 
 html[data-theme='dark'] .import-mode-option-desc {
   color: #a9bfd3;
+}
+
+html[data-theme='dark'] .import-workdir-option-actions .btn-secondary {
+  background: #111c2d;
+  border-color: #334155;
+  color: #d7e3ee;
 }
 
 html[data-theme='dark'] .close-guard-icon {

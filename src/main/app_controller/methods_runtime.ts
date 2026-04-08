@@ -1,7 +1,9 @@
 const { nowTs, newConversation, getConversation, sortedConversations } = require('../conversation_service');
 const { importSessionJsonl } = require('../session_importer');
 const { buildExportFileName, exportConversationJsonl } = require('../session_exporter');
+const { normalizeWorkdir } = require('../state_store');
 const { normalizePreview, tsLabel } = require('./shared');
+const fs = require('node:fs');
 
 function isCompletedPhase(phaseText) {
   const text = String(phaseText || '').trim().toLowerCase();
@@ -27,6 +29,15 @@ const runtimeMethods = {
       activeConversationId: this.activeConversationId,
       conversations: this.conversations,
     });
+  },
+
+  _defaultWorkdir() {
+    return normalizeWorkdir('');
+  },
+
+  _resolveConversationWorkdir(conversationId) {
+    const conv = getConversation(this.conversations, conversationId);
+    return normalizeWorkdir(conv?.workdir || this._defaultWorkdir());
   },
 
   _ensureMeta(conversationId) {
@@ -396,10 +407,14 @@ const runtimeMethods = {
   },
 
   snapshot() {
+    const activeWorkdir = this.activeConversationId
+      ? this._resolveConversationWorkdir(this.activeConversationId)
+      : this._defaultWorkdir();
     return {
       settings: {
         commandText: this.commandText,
-        workdir: this.workdir,
+        workdir: activeWorkdir,
+        defaultWorkdir: this._defaultWorkdir(),
         useNativeMemory: this.useNativeMemory,
       },
       activeConversationId: this.activeConversationId,
@@ -441,7 +456,7 @@ const runtimeMethods = {
       this.commandText = input.commandText;
     }
     if (typeof input.workdir === 'string') {
-      this.workdir = input.workdir;
+      this.workdir = normalizeWorkdir(input.workdir);
     }
     this.useNativeMemory = true;
     this._persist();
@@ -465,14 +480,17 @@ const runtimeMethods = {
     return this.snapshot();
   },
 
-  createConversation() {
+  createConversation(options: { workdir?: string } = {}) {
     const conv = newConversation();
+    const selectedWorkdir = typeof options.workdir === 'string' ? options.workdir : '';
+    conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
     this.conversations.push(conv);
     this.runtimeStore.ensure(conv.id);
     this._ensureMeta(conv.id);
 
     this.activeConversationId = conv.id;
     this._appendStructuredEvent(conv.id, 'success', `已新建对话: ${conv.title}`);
+    this._appendStructuredEvent(conv.id, 'hint', `工作目录: ${conv.workdir}`);
     this._persist();
     this._autoRefreshMetaForConversation(conv.id);
     return this.snapshot();
@@ -480,21 +498,44 @@ const runtimeMethods = {
 
   previewConversationImportFromSessionFile(filePath) {
     const imported = importSessionJsonl(filePath);
+    const importedCwd = String(imported.cwd || '').trim();
     return {
       filePath: imported.filePath,
       title: imported.title,
       sessionId: imported.sessionId || '',
       source: imported.source,
       originator: imported.originator,
-      cwd: imported.cwd,
+      cwd: importedCwd,
+      hasImportedWorkdir: Boolean(importedCwd && fs.existsSync(importedCwd) && fs.statSync(importedCwd).isDirectory()),
       model: imported.model || '-',
       cliVersion: imported.cliVersion || '-',
     };
   },
 
-  importConversationFromSessionFile(filePath, { continuationMode = 'resume' } = {}) {
+  importConversationFromSessionFile(filePath, { continuationMode = 'resume', workdirMode = 'default', workdir = '' } = {}) {
     const imported = importSessionJsonl(filePath);
     const conv = newConversation(imported.title);
+    const importedCwd = String(imported.cwd || '').trim();
+    if (workdirMode === 'imported') {
+      if (!importedCwd) {
+        return { error: '导入文件未提供可用的原工作目录。', snapshot: this.snapshot() };
+      }
+      if (!fs.existsSync(importedCwd) || !fs.statSync(importedCwd).isDirectory()) {
+        return { error: `导入文件中的原工作目录不可用:\n${importedCwd}`, snapshot: this.snapshot() };
+      }
+      conv.workdir = normalizeWorkdir(importedCwd);
+    } else if (workdirMode === 'custom') {
+      const customWorkdir = normalizeWorkdir(workdir);
+      if (!customWorkdir) {
+        return { error: '请选择导入后的新工作目录。', snapshot: this.snapshot() };
+      }
+      if (!fs.existsSync(customWorkdir) || !fs.statSync(customWorkdir).isDirectory()) {
+        return { error: `手动选择的工作目录不可用:\n${customWorkdir}`, snapshot: this.snapshot() };
+      }
+      conv.workdir = customWorkdir;
+    } else {
+      conv.workdir = this._defaultWorkdir();
+    }
     conv.sessionId = imported.sessionId || '';
     conv.sessionContinuationMode = conv.sessionId
       ? (continuationMode === 'fork' ? 'fork' : 'resume')
@@ -514,7 +555,16 @@ const runtimeMethods = {
     this.activeConversationId = conv.id;
     this._appendStructuredEvent(conv.id, 'success', `已导入会话: ${conv.title}`);
     this._appendStructuredEvent(conv.id, 'hint', `来源: ${imported.source} / ${imported.originator}`);
-    this._appendStructuredEvent(conv.id, 'hint', `原工作目录: ${imported.cwd}`);
+    this._appendStructuredEvent(conv.id, 'hint', `原工作目录: ${importedCwd || '-'}`);
+    this._appendStructuredEvent(
+      conv.id,
+      'hint',
+      workdirMode === 'imported'
+        ? `导入工作目录: 使用导入文件目录 ${conv.workdir}`
+        : workdirMode === 'custom'
+          ? `导入工作目录: 使用手动选择的新目录 ${conv.workdir}`
+          : `导入工作目录: 使用默认目录 ${conv.workdir}`,
+    );
     this._appendStructuredEvent(conv.id, 'hint', `导入文件: ${imported.filePath}`);
     if (conv.sessionId) {
       this._appendStructuredEvent(
@@ -574,7 +624,7 @@ const runtimeMethods = {
           cliVersion: meta['Codex版本'],
         },
         {
-          workdir: this.workdir,
+          workdir: conv.workdir || this._defaultWorkdir(),
         },
       );
       return {

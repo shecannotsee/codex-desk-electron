@@ -4,13 +4,15 @@ contextBridge.exposeInMainWorld('codexdesk', {
   getAppInfo: () => ipcRenderer.invoke('app:get-info'),
   getSnapshot: () => ipcRenderer.invoke('app:get-snapshot'),
   updateSettings: (payload) => ipcRenderer.invoke('app:update-settings', payload),
+  pickWorkdir: (payload) => ipcRenderer.invoke('app:pick-workdir', payload),
 
   switchConversation: (conversationId) => ipcRenderer.invoke('conversation:switch', { conversationId }),
-  createConversation: () => ipcRenderer.invoke('conversation:create'),
+  createConversation: (payload) => ipcRenderer.invoke('conversation:create', payload),
   pickImportSession: () => ipcRenderer.invoke('conversation:pick-import-session'),
-  importSessionFromFile: (filePath, continuationMode) => ipcRenderer.invoke('conversation:import-session-file', {
+  importSessionFromFile: (filePath, continuationMode, workdirChoice) => ipcRenderer.invoke('conversation:import-session-file', {
     filePath,
     continuationMode,
+    workdirChoice,
   }),
   exportSession: (conversationId) => ipcRenderer.invoke('conversation:export-session', { conversationId }),
   renameConversation: (conversationId, title) => ipcRenderer.invoke('conversation:rename', { conversationId, title }),

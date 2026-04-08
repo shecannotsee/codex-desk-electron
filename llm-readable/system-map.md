@@ -2,35 +2,41 @@
 
 ## 1) Layer Map
 
-- Main process: `src/main/*`
-- Preload bridge: `src/main/preload.js`
-- Renderer process: `src/renderer/*`
-- Shared util: `src/shared/*`
-- Packaging: `src/electron-builder.yml`, `src/scripts/deb/*`
+- Main process source: `src/main/*`
+- Preload bridge source: `src/main/preload.ts`
+- Renderer process source: `src/renderer/*`
+- Build output: `src/app/*`
+- Packaging: `src/electron-builder.yml`, `src/scripts/*`
 
 ## 2) Main Ownership
 
-- `src/main/main.js`
+- `src/main/main.ts`
   - BrowserWindow lifecycle
   - menu i18n + menu actions dispatch
   - close guard
   - IPC registration
-- `src/main/app_controller/index.js`
-  - class wiring + method composition
-- `src/main/app_controller/methods_runtime.js`
+- `src/main/app_controller.ts`
+  - app controller composition root
+- `src/main/app_controller/index.ts`
+  - controller shape + shared helpers
+- `src/main/app_controller/methods_runtime.ts`
   - conversations snapshot
   - runtime logs/workflow/raw append
   - queue snapshots + queue drain start
-- `src/main/app_controller/methods_chat.js`
+- `src/main/app_controller/methods_chat.ts`
   - send/retry/stop/clear/close
   - runner lifecycle and result writeback
-- `src/main/app_controller/methods_meta.js`
+- `src/main/app_controller/methods_meta.ts`
   - codex version/model probing
-- `src/main/codex_runner.js`
+- `src/main/codex_runner.ts`
   - child process execution + stream/event parse
-- `src/main/state_store.js`
+- `src/main/codex_app_server_runner.ts`
+  - app server mode execution path
+- `src/main/conversation_service.ts`
+  - conversation mutation helpers
+- `src/main/state_store.ts`
   - durable state read/write + migration
-- `src/main/runtime_store.js`
+- `src/main/runtime_store.ts`
   - in-memory runtime data structures
 
 ## 3) Renderer Ownership
@@ -40,20 +46,27 @@
   - quick settings panes
   - runtime tabs
   - context menu container
-- `src/renderer/app/state_i18n.js`
+- `src/renderer/app/types.ts`
+  - renderer shared types
+  - app snapshot/event payloads
+  - render options and UI element refs
+- `src/renderer/app/codexdesk.ts`
+  - typed preload bridge wrapper
+- `src/renderer/app/state_i18n.ts`
   - global state
   - i18n dictionary
   - ui prefs load/save
   - theme/font/sidebar width application
-- `src/renderer/app/conversation_runtime.js`
+- `src/renderer/app/conversation_runtime.ts`
   - selectors
   - message collapse state
   - workflow collapse state (default collapsed)
   - queue status derivation
-- `src/renderer/app/renderers.js`
+- `src/renderer/app/renderers.ts`
   - list/header/chat/runtime/settings rendering
   - queued preview block rendering
-- `src/renderer/app/bootstrap.js`
+  - transient running status rendering
+- `src/renderer/app/bootstrap.ts`
   - init lifecycle
   - IPC snapshot/event handling
   - user interaction bindings
@@ -73,6 +86,7 @@
 - `conversation:create`
 - `conversation:switch`
 - `conversation:rename`
+- `conversation:toggle-pin`
 - `conversation:close-current`
 - `conversation:clear-chat`
 - `conversation:clear-runtime`
@@ -104,8 +118,10 @@
 ## 6) Data Models (minimal)
 
 - conversation:
-  - `id,title,sessionId,messages[],createdAt,updatedAt`
+  - `id,title,sessionId,messages[],createdAt,updatedAt,pinnedAt`
 - runtime:
   - `workflow[],events[],raw[],phase,startedAt`
 - ui prefs:
-  - `language,theme,chatFontSize,sidebarWidth,runtimePanelHidden,settingsPanelHidden,sidebarHidden`
+  - `language,theme,zoomFactor,chatFontSize,sidebarWidth,runtimePanelHidden,settingsPanelHidden,sidebarHidden`
+- renderer shared types:
+  - `AppState,AppSnapshot,AppEvent,RenderJobs,UiElementRefs`

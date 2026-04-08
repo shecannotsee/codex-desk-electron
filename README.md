@@ -2,6 +2,12 @@
 
 Electron desktop client for Codex CLI, focused on multi-conversation workflow and runtime observability.
 
+Source is now authored in TypeScript end-to-end:
+
+- main process: `src/main/*.ts`
+- renderer modules: `src/renderer/app/*.ts`
+- compiled output: `src/app/`
+
 ## Logo
 
 <img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
@@ -67,6 +73,13 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ```
 
 `start.sh` auto-installs missing dependencies and launches the app.
+
+For local development, the main verification command is:
+
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run check
+```
 
 ## Ubuntu DEB Build
 

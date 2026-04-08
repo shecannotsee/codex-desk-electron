@@ -3,76 +3,85 @@
 ## Task -> Files Map
 
 - Add/modify conversation behavior
-  - `src/main/app_controller/methods_chat.js`
-  - `src/main/app_controller/methods_runtime.js`
-  - `src/renderer/app/bootstrap.js`
-  - `src/renderer/app/renderers.js`
+  - `src/main/app_controller/methods_chat.ts`
+  - `src/main/app_controller/methods_runtime.ts`
+  - `src/renderer/app/bootstrap.ts`
+  - `src/renderer/app/renderers.ts`
 
 - Add/modify queue behavior
-  - `src/main/app_controller/methods_chat.js`
-  - `src/main/app_controller/methods_runtime.js`
-  - `src/renderer/app/conversation_runtime.js`
-  - `src/renderer/app/renderers.js`
+  - `src/main/app_controller/methods_chat.ts`
+  - `src/main/app_controller/methods_runtime.ts`
+  - `src/renderer/app/conversation_runtime.ts`
+  - `src/renderer/app/renderers.ts`
 
 - Add/modify runtime step rendering/collapse
-  - `src/renderer/app/conversation_runtime.js`
-  - `src/renderer/app/renderers.js`
+  - `src/renderer/app/conversation_runtime.ts`
+  - `src/renderer/app/renderers.ts`
   - `src/renderer/styles.css`
 
 - Add/modify settings menu tree/actions
   - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.js`
-  - `src/renderer/app/state_i18n.js`
-  - `src/main/main.js` (for main-process actions)
+  - `src/renderer/app/bootstrap.ts`
+  - `src/renderer/app/state_i18n.ts`
+  - `src/main/main.ts` (for main-process actions)
 
 - Add/modify menu language / i18n text
-  - `src/renderer/app/state_i18n.js`
-  - `src/main/main.js`
+  - `src/renderer/app/state_i18n.ts`
+  - `src/main/main.ts`
 
 - Add/modify sidebar layout / drag resize / context menu
   - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.js`
+  - `src/renderer/app/bootstrap.ts`
   - `src/renderer/styles.css`
 
 - Add/modify selection copy / external link behavior
-  - `src/main/main.js`
+  - `src/main/main.ts`
   - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.js`
-  - `src/renderer/app/renderers.js`
-  - `src/renderer/app/state_i18n.js`
+  - `src/renderer/app/bootstrap.ts`
+  - `src/renderer/app/renderers.ts`
+  - `src/renderer/app/state_i18n.ts`
 
 - Add/modify zoom shortcut HUD / conversation switch scroll behavior
   - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.js`
-  - `src/renderer/app/renderers.js`
-  - `src/renderer/app/state_i18n.js`
+  - `src/renderer/app/bootstrap.ts`
+  - `src/renderer/app/renderers.ts`
+  - `src/renderer/app/state_i18n.ts`
   - `src/renderer/styles.css`
 
 - Add/modify close-window behavior
-  - `src/main/main.js`
-  - optionally `src/main/app_controller/methods_runtime.js`
+  - `src/main/main.ts`
+  - optionally `src/main/app_controller/methods_runtime.ts`
 
 - Add/modify codex version/model detection
-  - `src/main/app_controller/methods_meta.js`
-  - `src/renderer/app/renderers.js` (display)
+  - `src/main/app_controller/methods_meta.ts`
+  - `src/renderer/app/renderers.ts` (display)
+
+- Add/modify renderer shared typing / module boundaries
+  - `src/renderer/app/types.ts`
+  - `src/renderer/app/codexdesk.ts`
+  - `src/renderer/app/state_i18n.ts`
+  - `src/renderer/app/renderers.ts`
+  - `src/renderer/app/bootstrap.ts`
 
 - Add/modify packaging / icon
-  - `src/scripts/sync-logo.js`
+  - `src/scripts/sync-logo.ts`
+  - `src/scripts/postbuild-copy.ts`
   - `src/electron-builder.yml`
   - `resource/logo.png`
   - `start.sh`
 
 - Add/modify docs screenshot automation
-  - `src/main/main.js`
-  - `src/main/preload.js`
-  - `src/renderer/app/bootstrap.js`
+  - `src/main/main.ts`
+  - `src/main/preload.ts`
+  - `src/renderer/app/bootstrap.ts`
   - `src/package.json`
   - `docs/assets/*`
 
 ## Required Validation after code change
 
 1. `cd src && npm run check`
-2. run app and verify manually:
+2. if source/build boundary changed, also run `cd src && npm run build`
+3. run app and verify manually:
    - create/switch conversation
    - send + queue send
    - workflow default collapsed
@@ -89,7 +98,8 @@
 ## Regression Risks
 
 - IPC action name drift between renderer and main
-- i18n key mismatch causing mixed-language UI
+- type drift between preload contract and renderer assumptions
 - queue counter mismatch between snapshot and event updates
 - collapse-state memory leak after conversation removal
 - theme vars not applied to newly introduced nodes
+- compiled `src/app/` output stale relative to `.ts` sources

@@ -2,12 +2,12 @@
 
 ## A. Send Message -> Assistant Output
 
-1. Renderer click `btn-send` (`bootstrap.js`)
+1. Renderer click `btn-send` (`bootstrap.ts`)
 2. IPC call `chat:send`
 3. `methods_chat.sendMessage` validates + starts runner
 4. `codex_runner` parses stdout/stderr/json lines
 5. Main emits runtime/workflow/raw events
-6. Renderer `applyEvent` mutates state + `renderAll`
+6. Renderer `applyEvent` mutates state + schedules partial render
 7. On finish, assistant message persisted to conversation
 
 ## B. Send While Running -> Queue
@@ -28,10 +28,11 @@
 ## D. Runtime Panel Rendering
 
 1. renderer receives runtime/workflow/raw events
-2. `renderers.renderRuntime`
-3. workflow tab prepends queued preview panel
-4. each workflow step uses collapse toggle
-5. default collapse from `conversation_runtime.isWorkflowStepCollapsed` => `true`
+2. `bootstrap.ts` updates local state and render jobs
+3. `renderers.renderRuntime`
+4. workflow tab prepends queued preview panel
+5. each workflow step uses collapse toggle
+6. default collapse from `conversation_runtime.isWorkflowStepCollapsed` => `true`
 
 ## E. Settings Multi-level Menu
 
@@ -57,7 +58,7 @@
    - stop then close (wait up to ~3s)
    - force close (send stop then close)
 
-## H. Theme / Language / Font / Width Persistence
+## H. Theme / Language / Font / Width / Zoom Persistence
 
 1. update UI value in renderer state
 2. apply CSS variable / data-theme / document lang
@@ -95,3 +96,10 @@
 2. renderer applies stepped zoom factor
 3. zoom controls sync to current percent
 4. temporary HUD shows percentage then auto-hides
+
+## M. TypeScript Renderer Build
+
+1. author source in `src/renderer/app/*.ts`
+2. `tsc -p tsconfig.renderer.json` emits `src/app/renderer/*`
+3. `index.html` loads compiled module entrypoints
+4. preload bridge remains typed through `codexdesk.ts` + `types.ts`

@@ -22,9 +22,9 @@
 
 ## Project Layout
 
-- `src/main/`: main process, orchestration, runtime control
-- `src/renderer/`: renderer UI and interactions
-- `src/shared/`: shared modules
+- `src/main/`: TypeScript main-process sources, orchestration, runtime control
+- `src/renderer/`: TypeScript renderer sources and HTML shell
+- `src/app/`: compiled output from `npm run build`
 - `llm-readable/`: model-first code map and flow index
 - `docs/`: project docs
 - `start.sh`: one-command launcher
@@ -71,6 +71,9 @@ npm run capture:docs
 
 ## Current Interaction Notes
 
+- Main and renderer sources are now fully authored in `TypeScript`; local verification is `cd src && npm run check`.
+- The renderer no longer depends on ordered global scripts and is loaded as `ES modules`.
+- `src/renderer/app/types.ts` centralizes renderer-side state, event, and render option types.
 - App zoom in the settings drawer now uses a `10%` stepped slider.
 - Dragging the zoom slider applies zoom immediately and keeps the settings drawer open.
 - Keyboard zoom shortcuts show a temporary percentage HUD near the top of the window.

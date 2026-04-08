@@ -22,9 +22,9 @@
 
 ## 目录结构
 
-- `src/main/`：主进程、状态编排、运行控制
-- `src/renderer/`：渲染进程 UI 与交互逻辑
-- `src/shared/`：共享模块
+- `src/main/`：TypeScript 主进程源码、状态编排、运行控制
+- `src/renderer/`：TypeScript 渲染进程源码与页面骨架
+- `src/app/`：`npm run build` 生成的编译产物
 - `llm-readable/`：面向任意大模型的快速阅读索引
 - `docs/`：项目文档
 - `start.sh`：一键启动脚本
@@ -71,6 +71,9 @@ npm run capture:docs
 
 ## 当前交互补充
 
+- 主进程与渲染层源码已迁移到 `TypeScript`，开发校验统一走 `cd src && npm run check`。
+- Renderer 不再依赖按顺序注入的全局脚本，改为 `ES Module` 方式加载。
+- `src/renderer/app/types.ts` 集中定义 Renderer 共享状态、事件和渲染选项类型。
 - 设置抽屉中的“界面缩放”已改为 `10%` 一档的滑杆。
 - 拖动缩放时会即时生效，并在设置中同步显示当前百分比。
 - 使用主键区快捷键缩放时，顶部会弹出百分比提示并自动消失。

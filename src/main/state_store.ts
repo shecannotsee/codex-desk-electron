@@ -3,8 +3,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { newConversation, nowTs, sortedConversations } = require('./conversation_service');
+const { resolveRepoRoot } = require('./project_paths');
 
-const APP_ROOT = path.resolve(__dirname, '..', '..');
+const APP_ROOT = resolveRepoRoot(__dirname);
 const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
 const LEGACY_STATE_PATH = path.join(os.homedir(), '.codexdesk', 'state.electron.json');
 const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
@@ -63,7 +64,7 @@ function parseMessages(rawMessages) {
     const role = String(item.role || '').trim();
     const text = String(item.text || '');
     if ((role === 'user' || role === 'assistant') && text) {
-      const message = { role, text };
+      const message: any = { role, text };
       const createdAt = toNumber(item.createdAt ?? item.created_at ?? item.timestamp ?? item.time, 0);
       if (createdAt > 0) {
         message.createdAt = createdAt;
@@ -121,6 +122,8 @@ function toNumber(value, fallback) {
 }
 
 class StateStore {
+  [key: string]: any;
+
   constructor(statePath = DEFAULT_STATE_PATH) {
     this.path = statePath;
   }

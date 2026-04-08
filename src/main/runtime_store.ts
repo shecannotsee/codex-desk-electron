@@ -1,4 +1,6 @@
 class RuntimeStore {
+  [key: string]: any;
+
   constructor() {
     this.states = new Map();
     this.roundCounter = new Map();

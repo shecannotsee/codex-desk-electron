@@ -3,17 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "description": "Electron implementation of CodexDesk",
-  "main": "main/main.js",
+  "main": "app/main/main.js",
   "scripts": {
-    "sync:logo": "node scripts/sync-logo.js",
-    "start:app": "electron .",
-    "start": "npm run sync:logo && npm run start:app",
+    "clean": "rm -rf app",
+    "build": "npm run clean && tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node app/scripts/postbuild-copy.js",
+    "sync:logo": "npm run build && node app/scripts/sync-logo.js",
+    "start:app": "npm run build && electron .",
+    "start": "npm run sync:logo && electron .",
     "capture:docs": "npm run sync:logo && CODEX_DESK_DOC_CAPTURE=1 electron . --docs-capture",
-    "check": "node --check main/main.js && node --check main/app_controller.js && node --check main/codex_runner.js && node --check main/shell_env.js && node --check main/app_controller/methods_meta.js && node --check main/state_store.js && node --check renderer/app/state_i18n.js && node --check renderer/app/conversation_runtime.js && node --check renderer/app/renderers.js && node --check renderer/app/bootstrap.js",
+    "check": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "pack:dir": "npm run sync:logo && npx electron-builder@26.0.12 --dir --config electron-builder.yml",
     "dist:deb": "npm run sync:logo && npx electron-builder@26.0.12 --linux deb --config electron-builder.yml"
   },
   "devDependencies": {
-    "electron": "^37.2.0"
+    "@types/node": "^25.5.2",
+    "electron": "^37.2.0",
+    "typescript": "^6.0.2"
   }
 }

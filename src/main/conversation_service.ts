@@ -40,7 +40,7 @@ function sortedConversations(conversations) {
     const aPinned = ap > 0;
     const bPinned = bp > 0;
     if (aPinned !== bPinned) {
-      return bPinned - aPinned;
+      return Number(bPinned) - Number(aPinned);
     }
     if (aPinned && bPinned && bp !== ap) {
       return bp - ap;

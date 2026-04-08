@@ -1,12 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { resolvePackageRoot, resolveRepoRoot } = require('../main/project_paths');
 
+const packageRoot = resolvePackageRoot(__dirname);
+const repoRoot = resolveRepoRoot(__dirname);
 const sourceCandidates = [
-  path.resolve(__dirname, '..', '..', 'resource', 'logo.png'),
-  path.resolve(__dirname, '..', '..', 'resource', 'logo_with_white_border.png'),
+  path.resolve(repoRoot, 'resource', 'logo.png'),
+  path.resolve(repoRoot, 'resource', 'logo_with_white_border.png'),
 ];
-const targetDir = path.resolve(__dirname, '..', 'build');
+const targetDir = path.resolve(packageRoot, 'build');
 const target = path.resolve(targetDir, 'icon.png');
 const tempPrepared = path.resolve(targetDir, 'icon.prepared.png');
 const ICON_SIZE = 1024;

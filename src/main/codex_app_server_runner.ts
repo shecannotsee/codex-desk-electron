@@ -74,7 +74,7 @@ class CodexAppServerRunner extends EventEmitter {
       const threadResponse = await this._sendRequest(
         this.mode === 'fork' ? 'thread/fork' : 'thread/resume',
         { threadId: this.sessionId },
-      );
+      ) as any;
 
       const thread = threadResponse?.thread || {};
       const threadId = String(thread.id || '').trim();
@@ -99,14 +99,14 @@ class CodexAppServerRunner extends EventEmitter {
         approvalPolicy: settings.approvalPolicy,
         sandboxPolicy: settings.sandboxPolicy,
         ...(settings.model ? { model: settings.model } : {}),
-      });
+      }) as any;
 
       const turnId = String(turnResponse?.turn?.id || '').trim();
       if (!turnId) {
         throw new Error('app-server 未返回 turn id');
       }
 
-      const result = await this._waitForTurnCompleted(turnId);
+      const result = await this._waitForTurnCompleted(turnId) as any;
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
       this._emitFinished({
         exitCode: result.exitCode,
@@ -463,7 +463,7 @@ class CodexAppServerRunner extends EventEmitter {
       resolvedSandbox = resolvedSandbox || 'danger-full-access';
     }
 
-    let sandboxPolicy = { type: 'dangerFullAccess' };
+    let sandboxPolicy: any = { type: 'dangerFullAccess' };
     if (resolvedSandbox === 'read-only') {
       sandboxPolicy = { type: 'readOnly', networkAccess: false };
     } else if (resolvedSandbox === 'workspace-write') {

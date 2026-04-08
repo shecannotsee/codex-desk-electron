@@ -7,6 +7,8 @@ const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
 
 class AppController {
+  [key: string]: any;
+
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
     this.stateStore = new StateStore();

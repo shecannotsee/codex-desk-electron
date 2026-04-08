@@ -199,7 +199,7 @@ class CodexRunner extends EventEmitter {
     return [codexBin, 'exec', ...execOpts, this.prompt];
   }
 
-  _normalizeBaseOptions(baseCmd) {
+  _normalizeBaseOptions(baseCmd): [string[], boolean] {
     if (baseCmd.length >= 2 && baseCmd[0] === 'codex' && baseCmd[1] === 'exec') {
       const args = baseCmd.slice(2);
       const opts = [];

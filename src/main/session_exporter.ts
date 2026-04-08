@@ -49,7 +49,7 @@ function buildMessageRecord(message) {
   };
 }
 
-function exportConversationJsonl(filePath, conversation, meta = {}, options = {}) {
+function exportConversationJsonl(filePath, conversation, meta: any = {}, options: any = {}) {
   const rawPath = String(filePath || '').trim();
   const normalizedPath = rawPath && path.extname(rawPath) ? rawPath : `${rawPath}.jsonl`;
   const resolved = path.resolve(normalizedPath);
@@ -72,7 +72,7 @@ function exportConversationJsonl(filePath, conversation, meta = {}, options = {}
   const cliVersion = String(meta.cliVersion || '').trim();
   const cwd = String(options.workdir || '').trim();
 
-  const records = [
+  const records: any[] = [
     {
       type: 'session_meta',
       payload: {

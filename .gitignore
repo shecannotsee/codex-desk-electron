@@ -6,6 +6,8 @@ src/node_modules/
 
 # Build artifacts
 src/dist/
+src/app/
+src/*.tsbuildinfo
 src/build/icon.png
 
 # OS/editor noise

@@ -7,13 +7,12 @@ directories:
   buildResources: build
 
 files:
-  - "main/**/*"
-  - "renderer/**/*"
-  - "scripts/**/*"
+  - "app/**/*"
+  - "scripts/deb/**/*"
   - "package.json"
 
 extraMetadata:
-  main: "main/main.js"
+  main: "app/main/main.js"
 
 asar: true
 

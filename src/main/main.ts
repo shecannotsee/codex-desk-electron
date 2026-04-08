@@ -5,6 +5,7 @@ const path = require('node:path');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 
 const { AppController } = require('./app_controller');
+const { resolvePackageRoot, resolveRepoRoot } = require('./project_paths');
 
 app.setName('Codex Desk');
 
@@ -20,7 +21,7 @@ const DOCS_CAPTURE_MODE = process.argv.includes('--docs-capture')
   || ['1', 'true', 'yes', 'on'].includes(String(process.env.CODEX_DESK_DOC_CAPTURE || '').trim().toLowerCase());
 
 function docsAssetsDir() {
-  return path.join(__dirname, '..', '..', 'docs', 'assets');
+  return path.join(resolveRepoRoot(__dirname), 'docs', 'assets');
 }
 
 function normalizeCaptureFileName(input) {
@@ -42,9 +43,11 @@ function normalizeCaptureFileName(input) {
 }
 
 function resolveAppIconPath() {
+  const packageRoot = resolvePackageRoot(__dirname);
+  const repoRoot = resolveRepoRoot(__dirname);
   const candidates = [
-    path.join(__dirname, '..', 'build', 'icon.png'),
-    path.join(__dirname, '..', '..', 'resource', 'logo.png'),
+    path.join(packageRoot, 'build', 'icon.png'),
+    path.join(repoRoot, 'resource', 'logo.png'),
     path.join(process.resourcesPath || '', 'resource', 'logo.png'),
   ];
 
@@ -527,7 +530,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow.loadFile(path.join(resolvePackageRoot(__dirname), 'app', 'renderer', 'index.html'));
 
   mainWindow.on('close', (event) => {
     handleWindowCloseGuard(event).catch(() => {});

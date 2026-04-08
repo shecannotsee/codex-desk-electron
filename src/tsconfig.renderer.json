@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "rootDir": "renderer",
+    "outDir": "app/renderer",
+    "moduleDetection": "force"
+  },
+  "include": [
+    "renderer/**/*.ts"
+  ],
+  "exclude": [
+    "app",
+    "dist",
+    "node_modules"
+  ]
+}

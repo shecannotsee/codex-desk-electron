@@ -47,6 +47,7 @@ class AppController {
 
     for (const conv of this.conversations) {
       this.runtimeStore.ensure(conv.id);
+      const restoredMeta = loaded.metaByConversation?.[conv.id];
       this.metaByConversation[conv.id] = {
         'Codex版本': '-',
         '模型': '-',
@@ -54,7 +55,11 @@ class AppController {
         '输入Tokens': '-',
         '缓存输入Tokens': '-',
         '输出Tokens': '-',
+        ...(restoredMeta && typeof restoredMeta === 'object' ? restoredMeta : {}),
       };
+      if (!String(this.metaByConversation[conv.id]['会话ID'] || '').trim() || this.metaByConversation[conv.id]['会话ID'] === '-') {
+        this.metaByConversation[conv.id]['会话ID'] = conv.sessionId || '-';
+      }
     }
 
     if (renamedFromTest) {

@@ -135,6 +135,35 @@ function toNumber(value, fallback) {
   return fallback;
 }
 
+function defaultMeta(sessionId = '') {
+  return {
+    'Codex版本': '-',
+    '模型': '-',
+    '会话ID': String(sessionId || '').trim() || '-',
+    '输入Tokens': '-',
+    '缓存输入Tokens': '-',
+    '输出Tokens': '-',
+  };
+}
+
+function normalizeMeta(rawMeta, sessionId = '') {
+  const base = defaultMeta(sessionId);
+  if (!rawMeta || typeof rawMeta !== 'object') {
+    return base;
+  }
+  for (const [key, value] of Object.entries(rawMeta)) {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey) {
+      continue;
+    }
+    base[normalizedKey] = String(value ?? '').trim() || '-';
+  }
+  if (!String(base['会话ID'] || '').trim() || String(base['会话ID']) === '-') {
+    base['会话ID'] = String(sessionId || '').trim() || '-';
+  }
+  return base;
+}
+
 class StateStore {
   [key: string]: any;
 
@@ -185,6 +214,7 @@ class StateStore {
     const useNativeMemory = true;
 
     const conversations = [];
+    const metaByConversation = {};
     const rawConversations = Array.isArray(data.conversations) ? data.conversations : [];
     for (let index = 0; index < rawConversations.length; index += 1) {
       const item = rawConversations[index];
@@ -205,6 +235,8 @@ class StateStore {
       conv.workdir = normalizeWorkdir(item.workdir || workdir);
       fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
       conversations.push(conv);
+      const rawMeta = data.metaByConversation?.[conv.id] || data.meta_by_conversation?.[conv.id];
+      metaByConversation[conv.id] = normalizeMeta(rawMeta, conv.sessionId);
     }
 
     if (!conversations.length) {
@@ -217,6 +249,7 @@ class StateStore {
         conv.workdir = workdir;
         fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
         conversations.push(conv);
+        metaByConversation[conv.id] = normalizeMeta(null, conv.sessionId);
       }
     }
 
@@ -233,6 +266,7 @@ class StateStore {
       useNativeMemory,
       activeConversationId,
       conversations,
+      metaByConversation,
     };
   }
 
@@ -265,6 +299,10 @@ class StateStore {
         updatedAt: Number(item.updatedAt || 0),
         messages: Array.isArray(item.messages) ? item.messages.slice(-MAX_PERSISTED_MESSAGES) : [],
       })),
+      metaByConversation: conversations.reduce((acc, item) => {
+        acc[item.id] = normalizeMeta(state.metaByConversation?.[item.id], item.sessionId);
+        return acc;
+      }, {}),
     };
 
     fs.writeFileSync(this.path, JSON.stringify(payload, null, 2), 'utf-8');

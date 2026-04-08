@@ -28,6 +28,7 @@ const runtimeMethods = {
       useNativeMemory: this.useNativeMemory,
       activeConversationId: this.activeConversationId,
       conversations: this.conversations,
+      metaByConversation: this.metaByConversation,
     });
   },
 

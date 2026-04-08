@@ -155,29 +155,9 @@
       <section id="focus-row" class="focus-row">
         <div id="chat-title" class="chat-title">-</div>
         <div id="model-meta-chip" class="meta-chip model-meta-chip">
-          <button id="btn-meta-version" class="meta-link-button" type="button">
-            <span id="label-meta-version">Codex版本</span>: <span id="meta-version-value">-</span>
-          </button>
-          <span class="meta-separator">|</span>
           <button id="btn-meta-model" class="meta-link-button" type="button">
             <span id="label-meta-model">模型</span>: <span id="meta-model-value">-</span>
           </button>
-        </div>
-        <div id="usage-meta-chip" class="meta-chip usage-meta-chip">
-          <span class="usage-meta-item">
-            <span id="label-meta-input" class="usage-meta-label" data-i18n-key="usageInputShort">输入</span>
-            <span id="meta-input-value" class="usage-meta-value">-</span>
-          </span>
-          <span class="meta-separator">|</span>
-          <span class="usage-meta-item">
-            <span id="label-meta-cached-input" class="usage-meta-label" data-i18n-key="usageCachedShort">缓存</span>
-            <span id="meta-cached-input-value" class="usage-meta-value">-</span>
-          </span>
-          <span class="meta-separator">|</span>
-          <span class="usage-meta-item">
-            <span id="label-meta-output" class="usage-meta-label" data-i18n-key="usageOutputShort">输出</span>
-            <span id="meta-output-value" class="usage-meta-value">-</span>
-          </span>
         </div>
         <div class="meta-chip">
           <span id="label-session-id">ID</span>:
@@ -187,8 +167,6 @@
         </div>
         <div id="phase-chip" class="meta-chip phase-chip"><span id="label-phase">状态</span>: <span id="phase">空闲</span></div>
         <div id="queue-chip" class="meta-chip queue-chip"><span id="label-queue">排队</span>: <span id="queue-count">0</span></div>
-        <div class="meta-chip"><span id="label-elapsed">耗时</span>: <span id="elapsed">00:00</span></div>
-        <div id="busy-indicator" class="busy-indicator hidden">● 正在生成回复...</div>
         <div class="focus-spacer"></div>
       </section>
 
@@ -202,7 +180,7 @@
         </div>
       </section>
 
-      <section id="row-model-meta" class="setting-row">
+      <section id="row-model-meta" class="setting-row hidden" hidden>
         <button id="btn-refresh-version" class="btn-secondary menu-moved">获取Codex版本</button>
         <button id="btn-refresh-model" class="btn-secondary menu-moved">获取模型</button>
       </section>
@@ -320,6 +298,10 @@
       <div id="about-modal-body" class="about-modal-body">
         <div id="about-summary" class="about-summary" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
         <div id="about-config-title" class="about-section-title" data-i18n-key="aboutSessionConfig">当前会话配置</div>
+        <section class="setting-row about-setting-row">
+          <label id="label-about-codex-version" for="about-codex-version-input" data-i18n-key="codexVersionShort">Codex版本</label>
+          <input id="about-codex-version-input" class="about-value-input" type="text" readonly />
+        </section>
         <section class="setting-row about-setting-row">
           <label id="label-command" for="command-input">Codex命令:</label>
           <input id="command-input" class="about-value-input" type="text" readonly />

@@ -9,7 +9,6 @@ import type {
   RuntimeState,
 } from './types.js';
 import {
-  formatElapsed,
   APP_ZOOM_DEFAULT,
   clampAppZoom,
   currentLang,
@@ -108,16 +107,11 @@ function renderConversationList() {
 
 function renderHeader() {
   const conv = currentConversation();
-  const runtime = conv ? ensureRuntime(state.activeConversationId) : { startedAt: null };
   const meta = conv
     ? ensureMeta(state.activeConversationId)
     : {
-      Codex版本: '-',
       模型: '-',
       会话ID: '-',
-      输入Tokens: '-',
-      缓存输入Tokens: '-',
-      输出Tokens: '-',
     };
 
   el.chatTitle.textContent = conv ? conv.title : '-';
@@ -141,37 +135,19 @@ function renderHeader() {
   el.queueCount.textContent = String(queue);
   el.queueChip.classList.toggle('queue-chip-active', queue > 0);
 
-  const runningCurrent = conv && isConversationRunning(state.activeConversationId);
-  if (runningCurrent) {
-    el.busyIndicator.classList.remove('hidden');
-    el.busyIndicator.textContent = queue > 0
-      ? t('busyGeneratingWithQueue', { count: queue })
-      : t('busyGenerating');
-  } else {
-    el.busyIndicator.classList.add('hidden');
-    el.busyIndicator.textContent = t('busyGenerating');
-  }
-
-  if (runtime.startedAt && isConversationRunning(state.activeConversationId)) {
-    el.elapsed.textContent = formatElapsed(Date.now() - Number(runtime.startedAt));
-  } else {
-    el.elapsed.textContent = '00:00';
-  }
-
-  if (el.metaVersionValue) {
-    el.metaVersionValue.textContent = meta['Codex版本'] || '-';
-    el.metaVersionValue.title = meta['Codex版本'] || '-';
-  }
   if (el.metaModelValue) {
     el.metaModelValue.textContent = meta['模型'] || '-';
     el.metaModelValue.title = meta['模型'] || '-';
   }
-  updateUsageMetaValue(el.metaInputValue, meta['输入Tokens'], 'usageInputTitle');
-  updateUsageMetaValue(el.metaCachedInputValue, meta['缓存输入Tokens'], 'usageCachedTitle');
-  updateUsageMetaValue(el.metaOutputValue, meta['输出Tokens'], 'usageOutputTitle');
 }
 
 function renderSettings() {
+  const meta = ensureMeta(state.activeConversationId);
+  if (el.aboutCodexVersionInput) {
+    const version = String(meta['Codex版本'] || '-').trim() || '-';
+    el.aboutCodexVersionInput.value = version;
+    el.aboutCodexVersionInput.title = version;
+  }
   if (el.commandInput) {
     el.commandInput.value = state.settings.commandText || '';
     el.commandInput.title = state.settings.commandText || '-';
@@ -272,6 +248,28 @@ function formatUsageCount(value: unknown): string {
   return parsed.toLocaleString(currentLang());
 }
 
+function formatUsageCompact(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '-') {
+    return '-';
+  }
+  const normalized = raw.replace(/,/g, '');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return raw;
+  }
+  if (parsed >= 1_000_000_000) {
+    return `${(parsed / 1_000_000_000).toFixed(parsed >= 10_000_000_000 ? 0 : 1).replace(/\.0$/, '')}B`;
+  }
+  if (parsed >= 1_000_000) {
+    return `${(parsed / 1_000_000).toFixed(parsed >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  }
+  if (parsed >= 1_000) {
+    return `${(parsed / 1_000).toFixed(parsed >= 10_000 ? 0 : 1).replace(/\.0$/, '')}K`;
+  }
+  return String(parsed);
+}
+
 function updateUsageMetaValue(node: HTMLElement | null | undefined, rawValue: unknown, titleKey: string) {
   if (!node) {
     return;
@@ -291,6 +289,41 @@ function resolveMessageTime(item: ConversationMessage | null | undefined, conver
     return formatMessageTime(conversation?.updatedAt);
   }
   return formatMessageTime(conversation?.createdAt);
+}
+
+function findLatestAssistantMessageIndex(conversation: ConversationSummary | null | undefined): number {
+  const items = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index]?.role === 'assistant') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function renderMessageUsageFooter(conversation: ConversationSummary, latestAssistantIndex: number, index: number, item: ConversationMessage): string {
+  if (item.role !== 'assistant' || index !== latestAssistantIndex) {
+    return '';
+  }
+  const meta = ensureMeta(conversation.id);
+  const usageItems = [
+    { key: '输入Tokens', labelKey: 'usageInputShort', titleKey: 'usageInputTitle' },
+    { key: '缓存输入Tokens', labelKey: 'usageCachedShort', titleKey: 'usageCachedTitle' },
+    { key: '输出Tokens', labelKey: 'usageOutputShort', titleKey: 'usageOutputTitle' },
+  ].map(({ key, labelKey, titleKey }) => {
+    const formatted = formatUsageCompact(meta[key]);
+    if (formatted === '-') {
+      return '';
+    }
+    const title = `${t(titleKey)}: ${formatUsageCount(meta[key])}`;
+    const label = t(labelKey);
+    return `<span class="msg-usage-item" title="${escapeHtml(title)}"><span class="msg-usage-key">${label}</span><span class="msg-usage-value">${escapeHtml(formatted)}</span></span>`;
+  }).filter(Boolean);
+
+  if (!usageItems.length) {
+    return '';
+  }
+  return `<div class="msg-usage">${usageItems.join('')}</div>`;
 }
 
 function runningStepMarkdown(conversationId: string): string {
@@ -403,7 +436,12 @@ function renderChatTransientStack(conversationId: string): string {
   ].join('');
 }
 
-function renderChatMessageBlock(item: ConversationMessage, index: number, conversation: ConversationSummary): string {
+function renderChatMessageBlock(
+  item: ConversationMessage,
+  index: number,
+  conversation: ConversationSummary,
+  latestAssistantIndex: number,
+): string {
   const role = item.role === 'user' ? t('roleYou') : t('roleCodex');
   const bubbleClass = item.role === 'user'
     ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
@@ -420,6 +458,7 @@ function renderChatMessageBlock(item: ConversationMessage, index: number, conver
   const preview = messagePreview(item.text);
   const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
   const timeText = resolveMessageTime(item, conversation, index);
+  const usageFooter = renderMessageUsageFooter(conversation, latestAssistantIndex, index, item);
   const expandedHtml = markdownEnabled
     ? renderMarkdownLike(item.text)
     : `<div class="msg-plain-text">${escapeHtml(String(item.text || ''))}</div>`;
@@ -436,7 +475,10 @@ function renderChatMessageBlock(item: ConversationMessage, index: number, conver
     `<div class="msg-bubble ${bubbleClass}${collapsed ? ' collapsed' : ''}" data-msg-index="${escapeHtml(index)}">`,
     `<div class="msg-expanded">${expandedHtml}</div>`,
     `<div class="msg-collapsed-line">${escapeHtml(preview)}</div>`,
+    '<div class="msg-footer">',
+    usageFooter || '<span></span>',
     `<div class="msg-time">${escapeHtml(timeText)}</div>`,
+    '</div>',
     '</div>',
     '</div>',
   ].join('');
@@ -485,9 +527,10 @@ function renderChat(stickToBottom = true) {
   const totalCount = conv.messages.length;
   const visibleCount = ensureChatVisibleCount(state.activeConversationId, totalCount);
   const startIndex = Math.max(0, totalCount - visibleCount);
+  const latestAssistantIndex = findLatestAssistantMessageIndex(conv);
   const blocks = conv.messages
     .slice(startIndex)
-    .map((item, offset) => renderChatMessageBlock(item, startIndex + offset, conv));
+    .map((item, offset) => renderChatMessageBlock(item, startIndex + offset, conv, latestAssistantIndex));
 
   el.chatView.innerHTML = [
     renderChatPaginationBar(totalCount, visibleCount),
@@ -748,9 +791,6 @@ function renderRunButtons() {
   el.btnExportSession.disabled = !hasConv;
   el.btnClearChat.disabled = !hasConv;
   el.btnClearRuntime.disabled = !hasConv;
-  if (el.btnMetaVersion) {
-    el.btnMetaVersion.disabled = !hasConv;
-  }
   if (el.btnMetaModel) {
     el.btnMetaModel.disabled = !hasConv;
   }
@@ -799,10 +839,6 @@ function renderLocaleTexts() {
   el.labelSessionId.textContent = t('sessionId');
   el.labelPhase.textContent = t('status');
   el.labelQueue.textContent = t('queue');
-  el.labelElapsed.textContent = t('elapsed');
-  if (el.labelMetaVersion) {
-    el.labelMetaVersion.textContent = t('codexVersionShort');
-  }
   if (el.labelMetaModel) {
     el.labelMetaModel.textContent = t('modelShort');
   }
@@ -907,14 +943,11 @@ function renderLocaleTexts() {
   if (el.labelQueue) {
     el.labelQueue.textContent = t('queue');
   }
-  if (el.labelElapsed) {
-    el.labelElapsed.textContent = t('elapsed');
-  }
-  if (el.labelMetaVersion) {
-    el.labelMetaVersion.textContent = t('codexVersionShort');
-  }
   if (el.labelMetaModel) {
     el.labelMetaModel.textContent = t('modelShort');
+  }
+  if (el.labelAboutCodexVersion) {
+    el.labelAboutCodexVersion.textContent = `${t('codexVersionShort')}:`;
   }
   if (el.qsDetailTitle) {
     const detailKey = el.qsDetailTitle.getAttribute('data-i18n-key');

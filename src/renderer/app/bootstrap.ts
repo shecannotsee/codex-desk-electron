@@ -2156,12 +2156,6 @@ async function init() {
     renderAll();
   });
 
-  if (el.btnMetaVersion) {
-    el.btnMetaVersion.addEventListener('click', () => {
-      el.btnRefreshVersion.click();
-    });
-  }
-
   if (el.btnMetaModel) {
     el.btnMetaModel.addEventListener('click', () => {
       el.btnRefreshModel.click();

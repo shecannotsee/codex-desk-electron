@@ -1,9 +1,11 @@
+import type { CodexDeskApi } from './types.js';
+
 declare global {
   interface Window {
-    codexdesk: any;
+    codexdesk: CodexDeskApi;
   }
 }
 
-const codexdesk: any = window.codexdesk;
+const codexdesk = window.codexdesk;
 
 export { codexdesk };

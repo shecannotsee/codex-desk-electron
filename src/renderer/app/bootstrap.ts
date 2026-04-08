@@ -1,5 +1,18 @@
 
 import { codexdesk } from './codexdesk.js';
+import type {
+  AppEvent,
+  AppSnapshot,
+  CloseGuardPayload,
+  ConfirmDialogOptions,
+  ImportSessionPreview,
+  RenderJobs,
+  RuntimeEventItem,
+  RuntimeState,
+  ScheduleRenderOptions,
+  WorkflowItem,
+  ZoomOptions,
+} from './types.js';
 import {
   APP_ZOOM_DEFAULT,
   APP_ZOOM_STEP,
@@ -64,13 +77,21 @@ import {
   setRendererCallbacks,
 } from './renderers.js';
 
-function sleepMs(ms) {
+function sleepMs(ms: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, Math.max(0, Number(ms) || 0));
   });
 }
 
-function isDuplicateRuntimeEvent(runtime, item) {
+function getEventElementTarget(event: Event): Element | null {
+  return event.target instanceof Element ? event.target : null;
+}
+
+function getEventNodeTarget(event: Event): Node | null {
+  return event.target instanceof Node ? event.target : null;
+}
+
+function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item: RuntimeEventItem | null | undefined) {
   if (!runtime || !Array.isArray(runtime.events) || !item || typeof item !== 'object') {
     return false;
   }
@@ -88,7 +109,7 @@ function isDuplicateRuntimeEvent(runtime, item) {
   );
 }
 
-function applySnapshot(snapshot: any) {
+function applySnapshot(snapshot: AppSnapshot | null | undefined) {
   if (!snapshot || typeof snapshot !== 'object') {
     return;
   }
@@ -137,7 +158,7 @@ function applySnapshot(snapshot: any) {
   });
 }
 
-function createRenderJobs() {
+function createRenderJobs(): RenderJobs {
   return {
     full: false,
     locale: false,
@@ -161,11 +182,11 @@ let pendingRenderJobs = createRenderJobs();
 let renderFlushScheduled = false;
 let pendingStickChatToBottom = false;
 
-function mergeRenderJobs(target, source) {
+function mergeRenderJobs(target: RenderJobs, source?: Partial<RenderJobs>) {
   if (!target || !source) {
     return;
   }
-  Object.keys(target).forEach((key) => {
+  (Object.keys(target) as Array<keyof RenderJobs>).forEach((key) => {
     if (source[key]) {
       target[key] = true;
     }
@@ -232,7 +253,7 @@ function flushScheduledRender() {
   }
 }
 
-function scheduleRender(jobs: any, options: any = {}) {
+function scheduleRender(jobs: Partial<RenderJobs>, options: ScheduleRenderOptions = {}) {
   mergeRenderJobs(pendingRenderJobs, jobs);
   if (options.stickChatToBottom) {
     pendingStickChatToBottom = true;
@@ -244,7 +265,7 @@ function scheduleRender(jobs: any, options: any = {}) {
   window.requestAnimationFrame(flushScheduledRender);
 }
 
-function applyEvent(event: any) {
+function applyEvent(event: AppEvent | null | undefined) {
   if (!event || typeof event !== 'object') {
     return;
   }
@@ -258,8 +279,9 @@ function applyEvent(event: any) {
   switch (event.type) {
     case 'runtime-event-append': {
       const runtime = ensureRuntime(id);
-      if (!isDuplicateRuntimeEvent(runtime, event.item)) {
-        runtime.events.push(event.item);
+      const runtimeItem = (event.item || {}) as RuntimeEventItem;
+      if (!isDuplicateRuntimeEvent(runtime, runtimeItem)) {
+        runtime.events.push(runtimeItem);
       }
       if (isActiveConversation && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
@@ -280,7 +302,7 @@ function applyEvent(event: any) {
       break;
     }
     case 'runtime-workflow-append':
-      ensureRuntime(id).workflow.push(event.item);
+      ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
         if (state.activeTab === 'workflow') {
@@ -305,13 +327,13 @@ function applyEvent(event: any) {
       break;
     }
     case 'runtime-raw-append':
-      ensureRuntime(id).raw.push(event.line);
+      ensureRuntime(id).raw.push(String(event.line || ''));
       if (isActiveConversation && state.activeTab === 'raw') {
         renderJobs.runtimeRaw = true;
       }
       break;
     case 'runtime-phase':
-      ensureRuntime(id).phase = event.phase;
+      ensureRuntime(id).phase = String(event.phase || '');
       renderJobs.conversationList = true;
       if (isActiveConversation) {
         renderJobs.header = true;
@@ -320,7 +342,7 @@ function applyEvent(event: any) {
       }
       break;
     case 'runtime-started-at':
-      ensureRuntime(id).startedAt = event.startedAt;
+      ensureRuntime(id).startedAt = typeof event.startedAt === 'number' ? event.startedAt : null;
       if (isActiveConversation) {
         renderJobs.header = true;
       }
@@ -378,7 +400,7 @@ function applyEvent(event: any) {
       renderJobs.full = true;
       break;
     case 'meta-updated':
-      ensureMeta(id)[event.key] = event.value;
+      ensureMeta(id)[String(event.key || '')] = String(event.value || '');
       if (isActiveConversation) {
         renderJobs.header = true;
       }
@@ -475,7 +497,7 @@ function askRenameTitle(initialValue): Promise<string | null> {
   });
 }
 
-function askConfirmDialog(options: any = {}) {
+function askConfirmDialog(options: ConfirmDialogOptions = {}): Promise<boolean> {
   return new Promise((resolve) => {
     const modal = el.confirmModal;
     const titleEl = el.confirmModalTitle;
@@ -535,7 +557,7 @@ function askConfirmDialog(options: any = {}) {
   });
 }
 
-function askImportSessionMode(importInfo: any = {}): Promise<string | null> {
+function askImportSessionMode(importInfo: ImportSessionPreview = {}): Promise<string | null> {
   return new Promise((resolve) => {
     const modal = el.importModeModal;
     const cancelBtn = el.importModeCancel;
@@ -645,7 +667,7 @@ function hideCloseGuardModal() {
   }
 }
 
-function showCloseGuardModal(payload: any = {}) {
+function showCloseGuardModal(payload: CloseGuardPayload = {}) {
   if (!el.closeGuardModal) {
     return;
   }
@@ -700,7 +722,7 @@ async function resolveCloseGuardAction(action) {
   }
 }
 
-async function setAppZoomFactor(input, options: any = {}) {
+async function setAppZoomFactor(input: number | string, options: ZoomOptions = {}) {
   const persist = options.persist !== false;
   const rerenderControls = options.rerenderControls !== false;
   const next = clampAppZoom(input, state.ui.zoomFactor);
@@ -950,7 +972,7 @@ async function init() {
 
   el.conversationList.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    const row = event.target.closest('.conversation-item');
+    const row = getEventElementTarget(event)?.closest('.conversation-item');
     const id = row ? String(row.getAttribute('data-id') || '').trim() : '';
     hideChatContextMenu();
     showConversationContextMenu(event.clientX, event.clientY, id);
@@ -1015,10 +1037,11 @@ async function init() {
     });
 
     el.chatView.addEventListener('contextmenu', (event) => {
-      if (event.target.closest('button')) {
+      const target = getEventElementTarget(event);
+      if (target?.closest('button')) {
         return;
       }
-      const clickedMessage = event.target.closest('.msg-block');
+      const clickedMessage = target?.closest('.msg-block');
       if (!hasSelectionText() && clickedMessage) {
         return;
       }
@@ -1030,7 +1053,7 @@ async function init() {
 
   if (el.runtimePanel) {
     el.runtimePanel.addEventListener('contextmenu', (event) => {
-      if (event.target.closest('button')) {
+      if (getEventElementTarget(event)?.closest('button')) {
         return;
       }
       event.preventDefault();
@@ -1049,7 +1072,7 @@ async function init() {
 
   if (el.sendRow) {
     el.sendRow.addEventListener('contextmenu', (event) => {
-      if (event.target.closest('button')) {
+      if (getEventElementTarget(event)?.closest('button')) {
         return;
       }
       event.preventDefault();
@@ -1151,8 +1174,8 @@ async function init() {
     const root = el.quickSettingsRoot;
     const detail = el.quickSettingsDetail;
     const detailTitle = el.qsDetailTitle;
-    const categoryButtons: any[] = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-category[data-pane]'));
-    const panes: any[] = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-pane[data-pane]'));
+    const categoryButtons = Array.from(el.quickSettingsMenu.querySelectorAll<HTMLElement>('.quick-settings-category[data-pane]'));
+    const panes = Array.from(el.quickSettingsMenu.querySelectorAll<HTMLElement>('.quick-settings-pane[data-pane]'));
     if (!panes.length) {
       return;
     }
@@ -1566,21 +1589,22 @@ async function init() {
 
   if (el.quickSettingsMenu) {
     el.quickSettingsMenu.addEventListener('click', (event) => {
-      const category = event.target.closest('.quick-settings-category[data-pane]');
+      const target = getEventElementTarget(event);
+      const category = target?.closest('.quick-settings-category[data-pane]');
       if (category) {
         event.preventDefault();
         event.stopPropagation();
         setQuickSettingsPane(category.getAttribute('data-pane'));
         return;
       }
-      const backBtn = event.target.closest('#qs-back');
+      const backBtn = target?.closest('#qs-back');
       if (backBtn) {
         event.preventDefault();
         event.stopPropagation();
         setQuickSettingsPane('root');
         return;
       }
-      const button = event.target.closest('button[data-action]');
+      const button = target?.closest('button[data-action]');
       if (!button) {
         return;
       }
@@ -1612,19 +1636,20 @@ async function init() {
       resolveCloseGuardAction('cancel');
       return;
     }
-    if (el.chatContextMenu && !el.chatContextMenu.classList.contains('hidden') && !el.chatContextMenu.contains(event.target)) {
+    const targetNode = getEventNodeTarget(event);
+    if (el.chatContextMenu && !el.chatContextMenu.classList.contains('hidden') && (!targetNode || !el.chatContextMenu.contains(targetNode))) {
       hideChatContextMenu();
     }
-    if (el.contextMenu && !el.contextMenu.classList.contains('hidden') && !el.contextMenu.contains(event.target)) {
+    if (el.contextMenu && !el.contextMenu.classList.contains('hidden') && (!targetNode || !el.contextMenu.contains(targetNode))) {
       hideConversationContextMenu();
     }
     if (!el.quickSettingsMenu || el.quickSettingsMenu.classList.contains('hidden')) {
       return;
     }
-    if (el.quickSettingsMenu.contains(event.target)) {
+    if (targetNode && el.quickSettingsMenu.contains(targetNode)) {
       return;
     }
-    if (el.btnQuickSettings && el.btnQuickSettings.contains(event.target)) {
+    if (targetNode && el.btnQuickSettings && el.btnQuickSettings.contains(targetNode)) {
       return;
     }
     hideQuickSettingsMenu();
@@ -2022,7 +2047,10 @@ async function init() {
 
   el.tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      state.activeTab = btn.getAttribute('data-tab') || 'structured';
+      const nextTab = btn.getAttribute('data-tab');
+      state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
+        ? nextTab
+        : 'structured';
       renderRuntime();
       renderTabs();
       window.requestAnimationFrame(() => {

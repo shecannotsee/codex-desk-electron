@@ -1,4 +1,13 @@
 import { codexdesk } from './codexdesk.js';
+import type {
+  ComposerRenderOptions,
+  ConversationMessage,
+  ConversationSummary,
+  RenderAllOptions,
+  RenderTransientOptions,
+  RendererCallbacks,
+  RuntimeState,
+} from './types.js';
 import {
   formatElapsed,
   APP_ZOOM_DEFAULT,
@@ -43,11 +52,11 @@ import {
   updatePhaseClass,
 } from './conversation_runtime.js';
 
-let rendererCallbacks: any = {
+let rendererCallbacks: RendererCallbacks = {
   onConversationSelected: async () => {},
 };
 
-function setRendererCallbacks(nextCallbacks: any = {}) {
+function setRendererCallbacks(nextCallbacks: Partial<RendererCallbacks> = {}) {
   rendererCallbacks = {
     ...rendererCallbacks,
     ...nextCallbacks,
@@ -89,7 +98,7 @@ function renderConversationList() {
     .join('');
   el.conversationList.innerHTML = html;
 
-  Array.from(el.conversationList.querySelectorAll('.conversation-item')).forEach((node: any) => {
+  Array.from(el.conversationList.querySelectorAll<HTMLElement>('.conversation-item')).forEach((node) => {
     node.addEventListener('click', async () => {
       const id = node.getAttribute('data-id') || '';
       await rendererCallbacks.onConversationSelected(id);
@@ -194,7 +203,7 @@ function renderSettings() {
   }
 }
 
-function renderComposerDraft(options: any = {}) {
+function renderComposerDraft(options: ComposerRenderOptions = {}) {
   if (!el.inputBox) {
     return;
   }
@@ -208,7 +217,7 @@ function renderComposerDraft(options: any = {}) {
   state.inputBindingConversationId = draftKey;
 }
 
-function toMessageTimeMs(input) {
+function toMessageTimeMs(input: unknown): number {
   const raw = Number(input);
   if (!Number.isFinite(raw) || raw <= 0) {
     return 0;
@@ -219,7 +228,7 @@ function toMessageTimeMs(input) {
   return Math.round(raw);
 }
 
-function formatMessageTime(input) {
+function formatMessageTime(input: unknown): string {
   const timeMs = toMessageTimeMs(input);
   if (!timeMs) {
     return '';
@@ -250,7 +259,7 @@ function formatMessageTime(input) {
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
-function formatUsageCount(value) {
+function formatUsageCount(value: unknown): string {
   const raw = String(value ?? '').trim();
   if (!raw || raw === '-') {
     return '-';
@@ -263,7 +272,7 @@ function formatUsageCount(value) {
   return parsed.toLocaleString(currentLang());
 }
 
-function updateUsageMetaValue(node, rawValue, titleKey) {
+function updateUsageMetaValue(node: HTMLElement | null | undefined, rawValue: unknown, titleKey: string) {
   if (!node) {
     return;
   }
@@ -272,7 +281,7 @@ function updateUsageMetaValue(node, rawValue, titleKey) {
   node.title = formatted === '-' ? t(titleKey) : `${t(titleKey)}: ${formatted}`;
 }
 
-function resolveMessageTime(item, conversation, index) {
+function resolveMessageTime(item: ConversationMessage | null | undefined, conversation: ConversationSummary | null | undefined, index: number): string {
   const messageTs = toMessageTimeMs(item?.createdAt ?? item?.timestamp ?? item?.time);
   if (messageTs) {
     return formatMessageTime(messageTs);
@@ -284,7 +293,7 @@ function resolveMessageTime(item, conversation, index) {
   return formatMessageTime(conversation?.createdAt);
 }
 
-function runningStepMarkdown(conversationId) {
+function runningStepMarkdown(conversationId: string): string {
   if (!conversationId) {
     return localizeKnownText(phaseLabel('运行中'));
   }
@@ -318,7 +327,7 @@ function runningStepMarkdown(conversationId) {
   return phaseText || localizeKnownText(phaseLabel('运行中'));
 }
 
-function renderRunningHintBlock(conversationId) {
+function renderRunningHintBlock(conversationId: string): string {
   if (!isConversationRunning(conversationId)) {
     return '';
   }
@@ -338,7 +347,7 @@ function renderRunningHintBlock(conversationId) {
   ].join('');
 }
 
-function renderQueuedQuestionBlocks(conversationId) {
+function renderQueuedQuestionBlocks(conversationId: string): string {
   const items = queuedMessages(conversationId);
   if (!items.length) {
     return '';
@@ -370,7 +379,7 @@ function renderQueuedQuestionBlocks(conversationId) {
   ].join('');
 }
 
-function renderChatPaginationBar(totalCount, visibleCount) {
+function renderChatPaginationBar(totalCount: number, visibleCount: number): string {
   const total = Math.max(0, Number(totalCount) || 0);
   const visible = Math.max(0, Math.min(total, Number(visibleCount) || 0));
   const remaining = Math.max(0, total - visible);
@@ -385,7 +394,7 @@ function renderChatPaginationBar(totalCount, visibleCount) {
   ].join('');
 }
 
-function renderChatTransientStack(conversationId) {
+function renderChatTransientStack(conversationId: string): string {
   return [
     '<div class="chat-transient-stack">',
     renderQueuedQuestionBlocks(conversationId),
@@ -394,7 +403,7 @@ function renderChatTransientStack(conversationId) {
   ].join('');
 }
 
-function renderChatMessageBlock(item, index, conversation) {
+function renderChatMessageBlock(item: ConversationMessage, index: number, conversation: ConversationSummary): string {
   const role = item.role === 'user' ? t('roleYou') : t('roleCodex');
   const bubbleClass = item.role === 'user'
     ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
@@ -433,7 +442,7 @@ function renderChatMessageBlock(item, index, conversation) {
   ].join('');
 }
 
-function renderChatTransientPanels(options: any = {}) {
+function renderChatTransientPanels(options: RenderTransientOptions = {}) {
   if (!el.chatView) {
     return;
   }
@@ -492,7 +501,7 @@ function renderChat(stickToBottom = true) {
   }
 }
 
-function renderStructuredTab(runtime) {
+function renderStructuredTab(runtime: RuntimeState) {
   const html = runtime.events.map((item) => {
     const level = escapeHtml(item.level || 'info');
     const message = escapeHtml(localizeKnownText(item.message || ''));
@@ -509,7 +518,7 @@ function renderStructuredTab(runtime) {
   el.tabStructured.scrollTop = el.tabStructured.scrollHeight;
 }
 
-function formatQueuedAt(input) {
+function formatQueuedAt(input: unknown): string {
   const ts = Number(input);
   if (!Number.isFinite(ts) || ts <= 0) {
     return '--:--:--';
@@ -524,7 +533,7 @@ function formatQueuedAt(input) {
   return `${hh}:${mm}:${ss}`;
 }
 
-function renderQueuedMessagesPanel(conversationId) {
+function renderQueuedMessagesPanel(conversationId: string): string {
   const items = queuedMessages(conversationId);
   if (!items.length) {
     return '';
@@ -553,8 +562,8 @@ function renderQueuedMessagesPanel(conversationId) {
   ].join('');
 }
 
-function renderWorkflowTab(runtime, stickToBottom = true) {
-  const toggleWorkflowItem = (index) => {
+function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
+  const toggleWorkflowItem = (index: number) => {
     if (!Number.isInteger(index) || index < 0) {
       return;
     }
@@ -716,7 +725,7 @@ function renderRunButtons() {
       'meta:refresh-codex-version',
       'meta:refresh-model',
     ]);
-    Array.from(el.quickSettingsMenu.querySelectorAll('button[data-action]')).forEach((node: any) => {
+    Array.from(el.quickSettingsMenu.querySelectorAll<HTMLButtonElement>('button[data-action]')).forEach((node) => {
       const action = String(node.getAttribute('data-action') || '');
       if (action === 'conversation:retry-last') {
         node.disabled = !canRetryLastMessage();
@@ -920,7 +929,7 @@ function renderLocaleTexts() {
   }
 }
 
-function renderAll(options: any = {}) {
+function renderAll(options: RenderAllOptions = {}) {
   const stickChatToBottom = options.stickChatToBottom ?? isChatViewNearBottom();
   renderLocaleTexts();
   renderLayout();

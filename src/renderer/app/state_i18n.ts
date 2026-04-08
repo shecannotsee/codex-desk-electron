@@ -1,6 +1,18 @@
 import { codexdesk } from './codexdesk.js';
+import type {
+  AppState,
+  FontSizeOptions,
+  Language,
+  PersistOptions,
+  RenderAllOptions,
+  RenderHooks,
+  ThemeOptions,
+  Theme,
+  UiElementRefs,
+  UiState,
+} from './types.js';
 
-const state: any = {
+const state: AppState = {
   appInfo: {
     name: 'Codex Desk',
     version: '',
@@ -52,11 +64,6 @@ const SIDEBAR_WIDTH_MAX = 520;
 const SIDEBAR_WIDTH_DEFAULT = 320;
 const MARKDOWN_CACHE_LIMIT = 400;
 const markdownRenderCache = new Map<string, string>();
-
-type RenderHooks = {
-  renderAll: (options?: any) => void;
-  renderSettings: () => void;
-};
 
 const renderHooks: RenderHooks = {
   renderAll: () => {},
@@ -372,154 +379,157 @@ const I18N: Record<string, Record<string, string>> = {
   },
 };
 
-const el: any = {
-  appRoot: document.getElementById('app-root'),
-  sidebarResizer: document.getElementById('sidebar-resizer'),
-  workspace: document.getElementById('workspace'),
+const queryById = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+const queryAll = <T extends Element>(selector: string): T[] => Array.from(document.querySelectorAll(selector)) as T[];
+
+const el: UiElementRefs = {
+  appRoot: queryById<HTMLElement>('app-root'),
+  sidebarResizer: queryById<HTMLElement>('sidebar-resizer'),
+  workspace: queryById<HTMLElement>('workspace'),
   sidebarTitle: document.getElementById('sidebar-title'),
-  conversationList: document.getElementById('conversation-list'),
-  focusRow: document.getElementById('focus-row'),
-  btnNewConv: document.getElementById('btn-new-conv'),
-  btnImportSession: document.getElementById('btn-import-session'),
-  btnExportSession: document.getElementById('btn-export-session'),
-  btnRenameConv: document.getElementById('btn-rename-conv'),
-  btnCloseConv: document.getElementById('btn-close-conv'),
+  conversationList: queryById<HTMLElement>('conversation-list'),
+  focusRow: queryById<HTMLElement>('focus-row'),
+  btnNewConv: queryById<HTMLButtonElement>('btn-new-conv'),
+  btnImportSession: queryById<HTMLButtonElement>('btn-import-session'),
+  btnExportSession: queryById<HTMLButtonElement>('btn-export-session'),
+  btnRenameConv: queryById<HTMLButtonElement>('btn-rename-conv'),
+  btnCloseConv: queryById<HTMLButtonElement>('btn-close-conv'),
 
-  chatTitle: document.getElementById('chat-title'),
-  labelSessionId: document.getElementById('label-session-id'),
-  labelPhase: document.getElementById('label-phase'),
-  labelQueue: document.getElementById('label-queue'),
-  labelElapsed: document.getElementById('label-elapsed'),
-  labelMetaVersion: document.getElementById('label-meta-version'),
-  labelMetaModel: document.getElementById('label-meta-model'),
-  labelMetaInput: document.getElementById('label-meta-input'),
-  labelMetaCachedInput: document.getElementById('label-meta-cached-input'),
-  labelMetaOutput: document.getElementById('label-meta-output'),
-  sessionId: document.getElementById('session-id'),
-  btnSessionId: document.getElementById('btn-session-id'),
-  btnMetaVersion: document.getElementById('btn-meta-version'),
-  btnMetaModel: document.getElementById('btn-meta-model'),
-  metaVersionValue: document.getElementById('meta-version-value'),
-  metaModelValue: document.getElementById('meta-model-value'),
-  usageMetaChip: document.getElementById('usage-meta-chip'),
-  metaInputValue: document.getElementById('meta-input-value'),
-  metaCachedInputValue: document.getElementById('meta-cached-input-value'),
-  metaOutputValue: document.getElementById('meta-output-value'),
-  phase: document.getElementById('phase'),
-  phaseChip: document.getElementById('phase-chip'),
-  queueChip: document.getElementById('queue-chip'),
-  queueCount: document.getElementById('queue-count'),
-  elapsed: document.getElementById('elapsed'),
-  busyIndicator: document.getElementById('busy-indicator'),
-  btnQuickSettings: document.getElementById('btn-quick-settings'),
-  labelQuickSettings: document.getElementById('label-quick-settings'),
-  quickSettingsMenu: document.getElementById('quick-settings-menu'),
-  quickSettingsScrim: document.getElementById('quick-settings-scrim'),
-  quickSettingsRoot: document.getElementById('quick-settings-root'),
-  quickSettingsDetail: document.getElementById('quick-settings-detail'),
-  qsBack: document.getElementById('qs-back'),
-  qsDetailTitle: document.getElementById('qs-detail-title'),
-  qsAppName: document.getElementById('qs-app-name'),
-  qsAppVersion: document.getElementById('qs-app-version'),
-  qsAppDesc: document.getElementById('qs-app-desc'),
-  zoomHud: document.getElementById('zoom-hud'),
-  qsToggleSettings: document.getElementById('qs-toggle-settings'),
-  qsToggleRuntime: document.getElementById('qs-toggle-runtime'),
-  qsToggleSidebar: document.getElementById('qs-toggle-sidebar'),
-  labelZoomFactor: document.getElementById('label-zoom-factor'),
-  zoomFactorRange: document.getElementById('zoom-factor-range'),
-  zoomFactorValue: document.getElementById('zoom-factor-value'),
-  btnZoomResetInline: document.getElementById('btn-zoom-reset-inline'),
-  qsLangZh: document.getElementById('qs-lang-zh'),
-  qsLangEn: document.getElementById('qs-lang-en'),
-  qsThemeLight: document.getElementById('qs-theme-light'),
-  qsThemeDark: document.getElementById('qs-theme-dark'),
-  i18nNodes: Array.from(document.querySelectorAll('[data-i18n-key]')),
+  chatTitle: queryById<HTMLElement>('chat-title'),
+  labelSessionId: queryById<HTMLElement>('label-session-id'),
+  labelPhase: queryById<HTMLElement>('label-phase'),
+  labelQueue: queryById<HTMLElement>('label-queue'),
+  labelElapsed: queryById<HTMLElement>('label-elapsed'),
+  labelMetaVersion: queryById<HTMLElement>('label-meta-version'),
+  labelMetaModel: queryById<HTMLElement>('label-meta-model'),
+  labelMetaInput: queryById<HTMLElement>('label-meta-input'),
+  labelMetaCachedInput: queryById<HTMLElement>('label-meta-cached-input'),
+  labelMetaOutput: queryById<HTMLElement>('label-meta-output'),
+  sessionId: queryById<HTMLElement>('session-id'),
+  btnSessionId: queryById<HTMLButtonElement>('btn-session-id'),
+  btnMetaVersion: queryById<HTMLButtonElement>('btn-meta-version'),
+  btnMetaModel: queryById<HTMLButtonElement>('btn-meta-model'),
+  metaVersionValue: queryById<HTMLElement>('meta-version-value'),
+  metaModelValue: queryById<HTMLElement>('meta-model-value'),
+  usageMetaChip: queryById<HTMLElement>('usage-meta-chip'),
+  metaInputValue: queryById<HTMLElement>('meta-input-value'),
+  metaCachedInputValue: queryById<HTMLElement>('meta-cached-input-value'),
+  metaOutputValue: queryById<HTMLElement>('meta-output-value'),
+  phase: queryById<HTMLElement>('phase'),
+  phaseChip: queryById<HTMLElement>('phase-chip'),
+  queueChip: queryById<HTMLElement>('queue-chip'),
+  queueCount: queryById<HTMLElement>('queue-count'),
+  elapsed: queryById<HTMLElement>('elapsed'),
+  busyIndicator: queryById<HTMLElement>('busy-indicator'),
+  btnQuickSettings: queryById<HTMLButtonElement>('btn-quick-settings'),
+  labelQuickSettings: queryById<HTMLElement>('label-quick-settings'),
+  quickSettingsMenu: queryById<HTMLElement>('quick-settings-menu'),
+  quickSettingsScrim: queryById<HTMLElement>('quick-settings-scrim'),
+  quickSettingsRoot: queryById<HTMLElement>('quick-settings-root'),
+  quickSettingsDetail: queryById<HTMLElement>('quick-settings-detail'),
+  qsBack: queryById<HTMLButtonElement>('qs-back'),
+  qsDetailTitle: queryById<HTMLElement>('qs-detail-title'),
+  qsAppName: queryById<HTMLElement>('qs-app-name'),
+  qsAppVersion: queryById<HTMLElement>('qs-app-version'),
+  qsAppDesc: queryById<HTMLElement>('qs-app-desc'),
+  zoomHud: queryById<HTMLElement>('zoom-hud'),
+  qsToggleSettings: queryById<HTMLButtonElement>('qs-toggle-settings'),
+  qsToggleRuntime: queryById<HTMLButtonElement>('qs-toggle-runtime'),
+  qsToggleSidebar: queryById<HTMLButtonElement>('qs-toggle-sidebar'),
+  labelZoomFactor: queryById<HTMLElement>('label-zoom-factor'),
+  zoomFactorRange: queryById<HTMLInputElement>('zoom-factor-range'),
+  zoomFactorValue: queryById<HTMLElement>('zoom-factor-value'),
+  btnZoomResetInline: queryById<HTMLButtonElement>('btn-zoom-reset-inline'),
+  qsLangZh: queryById<HTMLButtonElement>('qs-lang-zh'),
+  qsLangEn: queryById<HTMLButtonElement>('qs-lang-en'),
+  qsThemeLight: queryById<HTMLButtonElement>('qs-theme-light'),
+  qsThemeDark: queryById<HTMLButtonElement>('qs-theme-dark'),
+  i18nNodes: queryAll<HTMLElement>('[data-i18n-key]'),
 
-  commandInput: document.getElementById('command-input'),
-  workdirInput: document.getElementById('workdir-input'),
-  permissionInput: document.getElementById('permission-input'),
-  labelCommand: document.getElementById('label-command'),
-  labelWorkdir: document.getElementById('label-workdir'),
-  labelPermission: document.getElementById('label-permission'),
-  languageSelect: document.getElementById('language-select'),
-  labelLanguage: document.getElementById('label-language'),
-  fontSizeRange: document.getElementById('font-size-range'),
-  labelFontSize: document.getElementById('label-font-size'),
-  fontSizeValue: document.getElementById('font-size-value'),
-  btnRefreshVersion: document.getElementById('btn-refresh-version'),
-  btnRefreshModel: document.getElementById('btn-refresh-model'),
+  commandInput: queryById<HTMLInputElement>('command-input'),
+  workdirInput: queryById<HTMLInputElement>('workdir-input'),
+  permissionInput: queryById<HTMLInputElement>('permission-input'),
+  labelCommand: queryById<HTMLElement>('label-command'),
+  labelWorkdir: queryById<HTMLElement>('label-workdir'),
+  labelPermission: queryById<HTMLElement>('label-permission'),
+  languageSelect: queryById<HTMLSelectElement>('language-select'),
+  labelLanguage: queryById<HTMLElement>('label-language'),
+  fontSizeRange: queryById<HTMLInputElement>('font-size-range'),
+  labelFontSize: queryById<HTMLElement>('label-font-size'),
+  fontSizeValue: queryById<HTMLInputElement>('font-size-value'),
+  btnRefreshVersion: queryById<HTMLButtonElement>('btn-refresh-version'),
+  btnRefreshModel: queryById<HTMLButtonElement>('btn-refresh-model'),
 
-  btnClearChat: document.getElementById('btn-clear-chat'),
-  btnClearRuntime: document.getElementById('btn-clear-runtime'),
-  btnToggleSettings: document.getElementById('btn-toggle-settings'),
-  btnToggleRuntime: document.getElementById('btn-toggle-runtime'),
-  btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
+  btnClearChat: queryById<HTMLButtonElement>('btn-clear-chat'),
+  btnClearRuntime: queryById<HTMLButtonElement>('btn-clear-runtime'),
+  btnToggleSettings: queryById<HTMLButtonElement>('btn-toggle-settings'),
+  btnToggleRuntime: queryById<HTMLButtonElement>('btn-toggle-runtime'),
+  btnToggleSidebar: queryById<HTMLButtonElement>('btn-toggle-sidebar'),
 
-  contentRow: document.getElementById('content-row'),
-  chatView: document.getElementById('chat-view'),
-  runtimePanel: document.getElementById('runtime-panel'),
-  tabStructured: document.getElementById('tab-structured'),
-  tabWorkflow: document.getElementById('tab-workflow'),
-  tabRaw: document.getElementById('tab-raw'),
-  tabBtnStructured: document.getElementById('tab-btn-structured'),
-  tabBtnWorkflow: document.getElementById('tab-btn-workflow'),
-  tabBtnRaw: document.getElementById('tab-btn-raw'),
-  tabButtons: Array.from(document.querySelectorAll('.tab-btn')),
+  contentRow: queryById<HTMLElement>('content-row'),
+  chatView: queryById<HTMLElement>('chat-view'),
+  runtimePanel: queryById<HTMLElement>('runtime-panel'),
+  tabStructured: queryById<HTMLElement>('tab-structured'),
+  tabWorkflow: queryById<HTMLElement>('tab-workflow'),
+  tabRaw: queryById<HTMLElement>('tab-raw'),
+  tabBtnStructured: queryById<HTMLButtonElement>('tab-btn-structured'),
+  tabBtnWorkflow: queryById<HTMLButtonElement>('tab-btn-workflow'),
+  tabBtnRaw: queryById<HTMLButtonElement>('tab-btn-raw'),
+  tabButtons: queryAll<HTMLButtonElement>('.tab-btn'),
 
-  inputBox: document.getElementById('input-box'),
-  sendRow: document.getElementById('send-row'),
-  btnSend: document.getElementById('btn-send'),
-  btnRetryLast: document.getElementById('btn-retry-last'),
-  btnStop: document.getElementById('btn-stop'),
+  inputBox: queryById<HTMLTextAreaElement>('input-box'),
+  sendRow: queryById<HTMLElement>('send-row'),
+  btnSend: queryById<HTMLButtonElement>('btn-send'),
+  btnRetryLast: queryById<HTMLButtonElement>('btn-retry-last'),
+  btnStop: queryById<HTMLButtonElement>('btn-stop'),
 
-  renameModal: document.getElementById('rename-modal'),
-  renameModalTitle: document.getElementById('rename-modal-title'),
-  renameInput: document.getElementById('rename-input'),
-  renameCancel: document.getElementById('rename-cancel'),
-  renameConfirm: document.getElementById('rename-confirm'),
-  importModeModal: document.getElementById('import-mode-modal'),
-  importModeTitle: document.getElementById('import-mode-title'),
-  importModeMessage: document.getElementById('import-mode-message'),
-  importModeFile: document.getElementById('import-mode-file'),
-  importModeSession: document.getElementById('import-mode-session'),
-  importModeResume: document.getElementById('import-mode-resume'),
-  importModeResumeTitle: document.getElementById('import-mode-resume-title'),
-  importModeResumeDesc: document.getElementById('import-mode-resume-desc'),
-  importModeFork: document.getElementById('import-mode-fork'),
-  importModeForkTitle: document.getElementById('import-mode-fork-title'),
-  importModeForkDesc: document.getElementById('import-mode-fork-desc'),
-  importModeCancel: document.getElementById('import-mode-cancel'),
-  importModeConfirm: document.getElementById('import-mode-confirm'),
-  confirmModal: document.getElementById('confirm-modal'),
-  confirmModalTitle: document.getElementById('confirm-modal-title'),
-  confirmModalBody: document.getElementById('confirm-modal-body'),
-  confirmCancel: document.getElementById('confirm-cancel'),
-  confirmAccept: document.getElementById('confirm-accept'),
-  closeGuardModal: document.getElementById('close-guard-modal'),
-  closeGuardTitle: document.getElementById('close-guard-title'),
-  closeGuardMessage: document.getElementById('close-guard-message'),
-  closeGuardDetail: document.getElementById('close-guard-detail'),
-  closeGuardCancel: document.getElementById('close-guard-cancel'),
-  closeGuardStop: document.getElementById('close-guard-stop'),
-  closeGuardForce: document.getElementById('close-guard-force'),
-  aboutModal: document.getElementById('about-modal'),
-  aboutClose: document.getElementById('about-close'),
+  renameModal: queryById<HTMLElement>('rename-modal'),
+  renameModalTitle: queryById<HTMLElement>('rename-modal-title'),
+  renameInput: queryById<HTMLInputElement>('rename-input'),
+  renameCancel: queryById<HTMLButtonElement>('rename-cancel'),
+  renameConfirm: queryById<HTMLButtonElement>('rename-confirm'),
+  importModeModal: queryById<HTMLElement>('import-mode-modal'),
+  importModeTitle: queryById<HTMLElement>('import-mode-title'),
+  importModeMessage: queryById<HTMLElement>('import-mode-message'),
+  importModeFile: queryById<HTMLElement>('import-mode-file'),
+  importModeSession: queryById<HTMLElement>('import-mode-session'),
+  importModeResume: queryById<HTMLButtonElement>('import-mode-resume'),
+  importModeResumeTitle: queryById<HTMLElement>('import-mode-resume-title'),
+  importModeResumeDesc: queryById<HTMLElement>('import-mode-resume-desc'),
+  importModeFork: queryById<HTMLButtonElement>('import-mode-fork'),
+  importModeForkTitle: queryById<HTMLElement>('import-mode-fork-title'),
+  importModeForkDesc: queryById<HTMLElement>('import-mode-fork-desc'),
+  importModeCancel: queryById<HTMLButtonElement>('import-mode-cancel'),
+  importModeConfirm: queryById<HTMLButtonElement>('import-mode-confirm'),
+  confirmModal: queryById<HTMLElement>('confirm-modal'),
+  confirmModalTitle: queryById<HTMLElement>('confirm-modal-title'),
+  confirmModalBody: queryById<HTMLElement>('confirm-modal-body'),
+  confirmCancel: queryById<HTMLButtonElement>('confirm-cancel'),
+  confirmAccept: queryById<HTMLButtonElement>('confirm-accept'),
+  closeGuardModal: queryById<HTMLElement>('close-guard-modal'),
+  closeGuardTitle: queryById<HTMLElement>('close-guard-title'),
+  closeGuardMessage: queryById<HTMLElement>('close-guard-message'),
+  closeGuardDetail: queryById<HTMLElement>('close-guard-detail'),
+  closeGuardCancel: queryById<HTMLButtonElement>('close-guard-cancel'),
+  closeGuardStop: queryById<HTMLButtonElement>('close-guard-stop'),
+  closeGuardForce: queryById<HTMLButtonElement>('close-guard-force'),
+  aboutModal: queryById<HTMLElement>('about-modal'),
+  aboutClose: queryById<HTMLButtonElement>('about-close'),
 
-  contextMenu: document.getElementById('conversation-context-menu'),
-  ctxNewConv: document.getElementById('ctx-new-conv'),
-  ctxImportConv: document.getElementById('ctx-import-conv'),
-  ctxExportConv: document.getElementById('ctx-export-conv'),
-  ctxRenameConv: document.getElementById('ctx-rename-conv'),
-  ctxPinConv: document.getElementById('ctx-pin-conv'),
-  ctxCloseConv: document.getElementById('ctx-close-conv'),
-  chatContextMenu: document.getElementById('chat-context-menu'),
-  ctxCopySelection: document.getElementById('ctx-copy-selection'),
-  ctxToggleRuntime: document.getElementById('ctx-toggle-runtime'),
-  ctxToggleSidebar: document.getElementById('ctx-toggle-sidebar'),
+  contextMenu: queryById<HTMLElement>('conversation-context-menu'),
+  ctxNewConv: queryById<HTMLButtonElement>('ctx-new-conv'),
+  ctxImportConv: queryById<HTMLButtonElement>('ctx-import-conv'),
+  ctxExportConv: queryById<HTMLButtonElement>('ctx-export-conv'),
+  ctxRenameConv: queryById<HTMLButtonElement>('ctx-rename-conv'),
+  ctxPinConv: queryById<HTMLButtonElement>('ctx-pin-conv'),
+  ctxCloseConv: queryById<HTMLButtonElement>('ctx-close-conv'),
+  chatContextMenu: queryById<HTMLElement>('chat-context-menu'),
+  ctxCopySelection: queryById<HTMLButtonElement>('ctx-copy-selection'),
+  ctxToggleRuntime: queryById<HTMLButtonElement>('ctx-toggle-runtime'),
+  ctxToggleSidebar: queryById<HTMLButtonElement>('ctx-toggle-sidebar'),
 };
 
-function currentLang() {
+function currentLang(): Language {
   return state.ui.language === 'en-US' ? 'en-US' : 'zh-CN';
 }
 
@@ -554,14 +564,14 @@ function clampSidebarWidth(input, fallback = SIDEBAR_WIDTH_DEFAULT) {
   return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(value)));
 }
 
-function normalizeTheme(input) {
+function normalizeTheme(input: unknown): Theme {
   return String(input || '').trim().toLowerCase() === 'dark' ? 'dark' : 'light';
 }
 
-function parseUiPrefs(rawText) {
+function parseUiPrefs(rawText: string | null): UiState {
   try {
     const data = JSON.parse(String(rawText || '{}'));
-    const language = data.language === 'en-US' ? 'en-US' : 'zh-CN';
+    const language: Language = data.language === 'en-US' ? 'en-US' : 'zh-CN';
     const theme = normalizeTheme(data.theme);
     const zoomFactor = clampAppZoom(data.zoomFactor, APP_ZOOM_DEFAULT);
     const sidebarWidth = clampSidebarWidth(data.sidebarWidth, SIDEBAR_WIDTH_DEFAULT);
@@ -645,7 +655,7 @@ function getConversationDraft(conversationId) {
   return String(state.draftsByConversation[draftStorageKey(conversationId)] || '');
 }
 
-function setConversationDraft(conversationId, text, options: any = {}) {
+function setConversationDraft(conversationId, text, options: PersistOptions = {}) {
   const persist = options.persist !== false;
   const key = draftStorageKey(conversationId);
   const nextValue = String(text || '');
@@ -759,7 +769,7 @@ function applySidebarWidth() {
   document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
 }
 
-function setSidebarWidth(input, options: any = {}) {
+function setSidebarWidth(input, options: PersistOptions = {}) {
   const persist = options.persist !== false;
   const next = clampSidebarWidth(input, state.ui.sidebarWidth);
   const changed = next !== state.ui.sidebarWidth;
@@ -784,7 +794,7 @@ function syncWindowTheme() {
   codexdesk.setWindowTheme(normalizeTheme(state.ui.theme)).catch(() => {});
 }
 
-function setTheme(input, options: any = {}) {
+function setTheme(input, options: ThemeOptions = {}) {
   const persist = options.persist !== false;
   const rerender = options.rerender !== false;
   const next = normalizeTheme(input);
@@ -801,7 +811,7 @@ function setTheme(input, options: any = {}) {
   }
 }
 
-function setChatFontSize(input, options: any = {}) {
+function setChatFontSize(input, options: FontSizeOptions = {}) {
   const persist = options.persist !== false;
   const rerenderControls = options.rerenderControls !== false;
   const next = clampChatFontSize(input, state.ui.chatFontSize);

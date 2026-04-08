@@ -1,3 +1,59 @@
+import { codexdesk } from './codexdesk.js';
+import {
+  formatElapsed,
+  APP_ZOOM_DEFAULT,
+  clampAppZoom,
+  currentLang,
+  draftStorageKey,
+  el,
+  escapeHtml,
+  ensureChatVisibleCount,
+  getConversationDraft,
+  localizeKnownText,
+  renderMarkdownLike,
+  resolvePermissionSummary,
+  state,
+  t,
+} from './state_i18n.js';
+import {
+  anyConversationRunning,
+  canRetryLastMessage,
+  cleanupCollapsed,
+  cleanupMessageMarkdown,
+  cleanupWorkflowCollapsed,
+  currentConversation,
+  effectivePhaseRaw,
+  ensureMeta,
+  ensureRuntime,
+  getConversationState,
+  hasActiveConversation,
+  isConversationRunning,
+  isMessageCollapsed,
+  isWorkflowStepCollapsed,
+  messagePreview,
+  phaseKind,
+  phaseLabel,
+  queuedCount,
+  queuedMessages,
+  resolveMessageMarkdownEnabled,
+  setMessageCollapsed,
+  setMessageMarkdownEnabled,
+  setWorkflowStepCollapsed,
+  sortedConversations,
+  updatePhaseClass,
+} from './conversation_runtime.js';
+
+let rendererCallbacks: any = {
+  onConversationSelected: async () => {},
+};
+
+function setRendererCallbacks(nextCallbacks: any = {}) {
+  rendererCallbacks = {
+    ...rendererCallbacks,
+    ...nextCallbacks,
+  };
+}
+
 function renderConversationList() {
   const activeId = state.activeConversationId;
   if (!state.conversations.length) {
@@ -33,12 +89,10 @@ function renderConversationList() {
     .join('');
   el.conversationList.innerHTML = html;
 
-  Array.from(el.conversationList.querySelectorAll('.conversation-item')).forEach((node) => {
+  Array.from(el.conversationList.querySelectorAll('.conversation-item')).forEach((node: any) => {
     node.addEventListener('click', async () => {
       const id = node.getAttribute('data-id') || '';
-      const snapshot = await codexdesk.switchConversation(id);
-      applySnapshot(snapshot);
-      renderAll({ stickChatToBottom: true });
+      await rendererCallbacks.onConversationSelected(id);
     });
   });
 }
@@ -140,7 +194,7 @@ function renderSettings() {
   }
 }
 
-function renderComposerDraft(options = {}) {
+function renderComposerDraft(options: any = {}) {
   if (!el.inputBox) {
     return;
   }
@@ -379,7 +433,7 @@ function renderChatMessageBlock(item, index, conversation) {
   ].join('');
 }
 
-function renderChatTransientPanels(options = {}) {
+function renderChatTransientPanels(options: any = {}) {
   if (!el.chatView) {
     return;
   }
@@ -662,7 +716,7 @@ function renderRunButtons() {
       'meta:refresh-codex-version',
       'meta:refresh-model',
     ]);
-    Array.from(el.quickSettingsMenu.querySelectorAll('button[data-action]')).forEach((node) => {
+    Array.from(el.quickSettingsMenu.querySelectorAll('button[data-action]')).forEach((node: any) => {
       const action = String(node.getAttribute('data-action') || '');
       if (action === 'conversation:retry-last') {
         node.disabled = !canRetryLastMessage();
@@ -866,7 +920,7 @@ function renderLocaleTexts() {
   }
 }
 
-function renderAll(options = {}) {
+function renderAll(options: any = {}) {
   const stickChatToBottom = options.stickChatToBottom ?? isChatViewNearBottom();
   renderLocaleTexts();
   renderLayout();
@@ -879,3 +933,36 @@ function renderAll(options = {}) {
   renderComposerDraft();
   renderTabs();
 }
+
+export {
+  setRendererCallbacks,
+  renderConversationList,
+  renderHeader,
+  renderSettings,
+  renderComposerDraft,
+  toMessageTimeMs,
+  formatMessageTime,
+  formatUsageCount,
+  updateUsageMetaValue,
+  resolveMessageTime,
+  runningStepMarkdown,
+  renderRunningHintBlock,
+  renderQueuedQuestionBlocks,
+  renderChatPaginationBar,
+  renderChatTransientStack,
+  renderChatMessageBlock,
+  renderChatTransientPanels,
+  renderChat,
+  renderStructuredTab,
+  formatQueuedAt,
+  renderQueuedMessagesPanel,
+  renderWorkflowTab,
+  renderRawTab,
+  renderRuntime,
+  renderRunButtons,
+  isChatViewNearBottom,
+  renderTabs,
+  renderLayout,
+  renderLocaleTexts,
+  renderAll,
+};

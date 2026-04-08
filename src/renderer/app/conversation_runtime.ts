@@ -1,3 +1,5 @@
+import { currentLang, el, state, t } from './state_i18n.js';
+
 function sortedConversations() {
   return [...state.conversations].sort((a, b) => {
     const bp = Number(b.pinnedAt || 0);
@@ -5,7 +7,7 @@ function sortedConversations() {
     const aPinned = ap > 0;
     const bPinned = bp > 0;
     if (aPinned !== bPinned) {
-      return bPinned - aPinned;
+      return Number(bPinned) - Number(aPinned);
     }
     if (aPinned && bPinned && bp !== ap) {
       return bp - ap;
@@ -343,3 +345,34 @@ function getConversationState(conversationId) {
   }
   return { key: 'idle', label: t('stateIdle') };
 }
+
+export {
+  sortedConversations,
+  currentConversation,
+  hasActiveConversation,
+  ensureCollapsed,
+  isMessageCollapsed,
+  setMessageCollapsed,
+  cleanupCollapsed,
+  ensureMessageMarkdown,
+  resolveMessageMarkdownEnabled,
+  setMessageMarkdownEnabled,
+  cleanupMessageMarkdown,
+  ensureWorkflowCollapsed,
+  isWorkflowStepCollapsed,
+  setWorkflowStepCollapsed,
+  cleanupWorkflowCollapsed,
+  messagePreview,
+  ensureRuntime,
+  ensureMeta,
+  isConversationRunning,
+  anyConversationRunning,
+  canRetryLastMessage,
+  phaseKind,
+  phaseLabel,
+  effectivePhaseRaw,
+  updatePhaseClass,
+  queuedCount,
+  queuedMessages,
+  getConversationState,
+};

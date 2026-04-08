@@ -1,4 +1,69 @@
 
+import { codexdesk } from './codexdesk.js';
+import {
+  APP_ZOOM_DEFAULT,
+  APP_ZOOM_STEP,
+  CHAT_FONT_SIZE_MAX,
+  CHAT_FONT_SIZE_MIN,
+  applyChatFontSize,
+  applySidebarWidth,
+  applyTheme,
+  clampAppZoom,
+  currentLang,
+  draftStorageKey,
+  el,
+  ensureChatVisibleCount,
+  increaseChatVisibleCount,
+  loadDraftPrefs,
+  loadUiPrefs,
+  localizeKnownText,
+  syncChatVisibleCount,
+  saveUiPrefs,
+  setChatFontSize,
+  setConversationDraft,
+  setRenderHooks,
+  setSidebarWidth,
+  setTheme,
+  state,
+  syncMenuLanguage,
+  t,
+  pruneChatVisibleCounts,
+  pruneConversationDrafts,
+} from './state_i18n.js';
+import {
+  currentConversation,
+  ensureMeta,
+  ensureRuntime,
+  hasActiveConversation,
+  isConversationRunning,
+  isMessageCollapsed,
+  isWorkflowStepCollapsed,
+  queuedMessages,
+  resolveMessageMarkdownEnabled,
+  setMessageCollapsed,
+  setMessageMarkdownEnabled,
+  setWorkflowStepCollapsed,
+} from './conversation_runtime.js';
+import {
+  isChatViewNearBottom,
+  renderAll,
+  renderChat,
+  renderComposerDraft,
+  renderChatTransientPanels,
+  renderHeader,
+  renderLayout,
+  renderLocaleTexts,
+  renderConversationList,
+  renderRawTab,
+  renderRunButtons,
+  renderRuntime,
+  renderSettings,
+  renderStructuredTab,
+  renderTabs,
+  renderWorkflowTab,
+  setRendererCallbacks,
+} from './renderers.js';
+
 function sleepMs(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, Math.max(0, Number(ms) || 0));
@@ -23,7 +88,7 @@ function isDuplicateRuntimeEvent(runtime, item) {
   );
 }
 
-function applySnapshot(snapshot) {
+function applySnapshot(snapshot: any) {
   if (!snapshot || typeof snapshot !== 'object') {
     return;
   }
@@ -167,7 +232,7 @@ function flushScheduledRender() {
   }
 }
 
-function scheduleRender(jobs, options = {}) {
+function scheduleRender(jobs: any, options: any = {}) {
   mergeRenderJobs(pendingRenderJobs, jobs);
   if (options.stickChatToBottom) {
     pendingStickChatToBottom = true;
@@ -179,7 +244,7 @@ function scheduleRender(jobs, options = {}) {
   window.requestAnimationFrame(flushScheduledRender);
 }
 
-function applyEvent(event) {
+function applyEvent(event: any) {
   if (!event || typeof event !== 'object') {
     return;
   }
@@ -354,7 +419,7 @@ function applyEvent(event) {
   scheduleRender(renderJobs, { stickChatToBottom });
 }
 
-function askRenameTitle(initialValue) {
+function askRenameTitle(initialValue): Promise<string | null> {
   return new Promise((resolve) => {
     const modal = el.renameModal;
     const input = el.renameInput;
@@ -410,7 +475,7 @@ function askRenameTitle(initialValue) {
   });
 }
 
-function askConfirmDialog(options = {}) {
+function askConfirmDialog(options: any = {}) {
   return new Promise((resolve) => {
     const modal = el.confirmModal;
     const titleEl = el.confirmModalTitle;
@@ -470,7 +535,7 @@ function askConfirmDialog(options = {}) {
   });
 }
 
-function askImportSessionMode(importInfo = {}) {
+function askImportSessionMode(importInfo: any = {}): Promise<string | null> {
   return new Promise((resolve) => {
     const modal = el.importModeModal;
     const cancelBtn = el.importModeCancel;
@@ -580,7 +645,7 @@ function hideCloseGuardModal() {
   }
 }
 
-function showCloseGuardModal(payload = {}) {
+function showCloseGuardModal(payload: any = {}) {
   if (!el.closeGuardModal) {
     return;
   }
@@ -635,7 +700,7 @@ async function resolveCloseGuardAction(action) {
   }
 }
 
-async function setAppZoomFactor(input, options = {}) {
+async function setAppZoomFactor(input, options: any = {}) {
   const persist = options.persist !== false;
   const rerenderControls = options.rerenderControls !== false;
   const next = clampAppZoom(input, state.ui.zoomFactor);
@@ -698,6 +763,18 @@ function shouldKeepQuickSettingsOpen() {
 }
 
 async function init() {
+  setRenderHooks({
+    renderAll,
+    renderSettings,
+  });
+  setRendererCallbacks({
+    onConversationSelected: async (id: string) => {
+      const snapshot = await codexdesk.switchConversation(id);
+      applySnapshot(snapshot);
+      renderAll({ stickChatToBottom: true });
+    },
+  });
+
   loadUiPrefs();
   loadDraftPrefs();
   applyTheme();
@@ -1074,8 +1151,8 @@ async function init() {
     const root = el.quickSettingsRoot;
     const detail = el.quickSettingsDetail;
     const detailTitle = el.qsDetailTitle;
-    const categoryButtons = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-category[data-pane]'));
-    const panes = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-pane[data-pane]'));
+    const categoryButtons: any[] = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-category[data-pane]'));
+    const panes: any[] = Array.from(el.quickSettingsMenu.querySelectorAll('.quick-settings-pane[data-pane]'));
     if (!panes.length) {
       return;
     }

@@ -1,6 +1,6 @@
-/* global codexdesk */
+import { codexdesk } from './codexdesk.js';
 
-const state = {
+const state: any = {
   appInfo: {
     name: 'Codex Desk',
     version: '',
@@ -51,9 +51,19 @@ const SIDEBAR_WIDTH_MIN = 220;
 const SIDEBAR_WIDTH_MAX = 520;
 const SIDEBAR_WIDTH_DEFAULT = 320;
 const MARKDOWN_CACHE_LIMIT = 400;
-const markdownRenderCache = new Map();
+const markdownRenderCache = new Map<string, string>();
 
-const I18N = {
+type RenderHooks = {
+  renderAll: (options?: any) => void;
+  renderSettings: () => void;
+};
+
+const renderHooks: RenderHooks = {
+  renderAll: () => {},
+  renderSettings: () => {},
+};
+
+const I18N: Record<string, Record<string, string>> = {
   'zh-CN': {
     sidebarTitle: '会话列表',
     newConversation: '新建对话',
@@ -362,7 +372,7 @@ const I18N = {
   },
 };
 
-const el = {
+const el: any = {
   appRoot: document.getElementById('app-root'),
   sidebarResizer: document.getElementById('sidebar-resizer'),
   workspace: document.getElementById('workspace'),
@@ -635,7 +645,7 @@ function getConversationDraft(conversationId) {
   return String(state.draftsByConversation[draftStorageKey(conversationId)] || '');
 }
 
-function setConversationDraft(conversationId, text, options = {}) {
+function setConversationDraft(conversationId, text, options: any = {}) {
   const persist = options.persist !== false;
   const key = draftStorageKey(conversationId);
   const nextValue = String(text || '');
@@ -749,7 +759,7 @@ function applySidebarWidth() {
   document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
 }
 
-function setSidebarWidth(input, options = {}) {
+function setSidebarWidth(input, options: any = {}) {
   const persist = options.persist !== false;
   const next = clampSidebarWidth(input, state.ui.sidebarWidth);
   const changed = next !== state.ui.sidebarWidth;
@@ -774,7 +784,7 @@ function syncWindowTheme() {
   codexdesk.setWindowTheme(normalizeTheme(state.ui.theme)).catch(() => {});
 }
 
-function setTheme(input, options = {}) {
+function setTheme(input, options: any = {}) {
   const persist = options.persist !== false;
   const rerender = options.rerender !== false;
   const next = normalizeTheme(input);
@@ -787,11 +797,11 @@ function setTheme(input, options = {}) {
     }
   }
   if (rerender) {
-    renderAll();
+    renderHooks.renderAll();
   }
 }
 
-function setChatFontSize(input, options = {}) {
+function setChatFontSize(input, options: any = {}) {
   const persist = options.persist !== false;
   const rerenderControls = options.rerenderControls !== false;
   const next = clampChatFontSize(input, state.ui.chatFontSize);
@@ -804,7 +814,16 @@ function setChatFontSize(input, options = {}) {
     }
   }
   if (rerenderControls) {
-    renderSettings();
+    renderHooks.renderSettings();
+  }
+}
+
+function setRenderHooks(nextHooks: Partial<RenderHooks>) {
+  if (typeof nextHooks.renderAll === 'function') {
+    renderHooks.renderAll = nextHooks.renderAll;
+  }
+  if (typeof nextHooks.renderSettings === 'function') {
+    renderHooks.renderSettings = nextHooks.renderSettings;
   }
 }
 
@@ -1130,3 +1149,50 @@ function resolvePermissionSummary() {
     title: t('permissionTitleLimited', { paths: writableLabelUi }),
   };
 }
+
+export {
+  APP_ZOOM_DEFAULT,
+  APP_ZOOM_STEP,
+  CHAT_FONT_SIZE_MAX,
+  CHAT_FONT_SIZE_MIN,
+  currentLang,
+  t,
+  state,
+  el,
+  clampChatFontSize,
+  clampAppZoom,
+  clampSidebarWidth,
+  normalizeTheme,
+  parseUiPrefs,
+  loadUiPrefs,
+  saveUiPrefs,
+  draftStorageKey,
+  parseDraftPrefs,
+  loadDraftPrefs,
+  saveDraftPrefs,
+  getConversationDraft,
+  setConversationDraft,
+  pruneConversationDrafts,
+  defaultChatVisibleCount,
+  ensureChatVisibleCount,
+  syncChatVisibleCount,
+  increaseChatVisibleCount,
+  pruneChatVisibleCounts,
+  syncMenuLanguage,
+  applyChatFontSize,
+  applySidebarWidth,
+  setSidebarWidth,
+  applyTheme,
+  syncWindowTheme,
+  setTheme,
+  setChatFontSize,
+  localizeKnownText,
+  escapeHtml,
+  renderInline,
+  renderMarkdownFallback,
+  renderMarkdownLike,
+  formatElapsed,
+  splitCommandArgs,
+  resolvePermissionSummary,
+  setRenderHooks,
+};

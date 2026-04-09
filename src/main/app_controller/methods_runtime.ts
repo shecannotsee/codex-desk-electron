@@ -231,6 +231,9 @@ const runtimeMethods = {
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
       type: 'round',
+      channel: 'progress',
+      importance: 'high',
+      sourceKind: 'request',
       roundIndex,
       preview: normalizePreview(userText),
       timestamp: tsLabel(),
@@ -266,14 +269,37 @@ const runtimeMethods = {
     }
 
     let tag = 'INFO';
+    let channel = 'progress';
+    let importance = 'normal';
+    let sourceKind = 'task';
     if (body.startsWith('思考:')) {
       tag = 'THINK';
+      importance = 'high';
+      sourceKind = 'reasoning';
     } else if (body.includes('执行命令:')) {
       tag = 'RUN';
+      channel = 'detail';
+      importance = 'low';
+      sourceKind = 'command';
     } else if (body.includes('命令执行完成')) {
       tag = 'DONE';
+      channel = 'detail';
+      importance = 'low';
+      sourceKind = 'command';
+    } else if (body.startsWith('开始处理 ')) {
+      tag = 'START';
+      channel = 'detail';
+      importance = 'low';
+      sourceKind = 'item';
+    } else if (body.startsWith('处理完成 ')) {
+      tag = 'DONE';
+      channel = 'detail';
+      importance = 'low';
+      sourceKind = 'item';
     } else if (body.startsWith('请求')) {
       tag = 'ROUND';
+      importance = 'high';
+      sourceKind = 'request';
     }
 
     const runtime = this.runtimeStore.ensure(conversationId);
@@ -283,6 +309,9 @@ const runtimeMethods = {
       stepIndex,
       title,
       tag,
+      channel,
+      importance,
+      sourceKind,
       body,
       timestamp: tsLabel(),
     };
@@ -302,6 +331,9 @@ const runtimeMethods = {
       stepIndex: 999,
       title: status === 'running' ? 'assistant-update' : 'assistant-reply',
       tag: 'REPLY',
+      channel: status === 'running' ? 'status' : 'progress',
+      importance: 'high',
+      sourceKind: 'assistant',
       body,
       status,
       timestamp: tsLabel(),

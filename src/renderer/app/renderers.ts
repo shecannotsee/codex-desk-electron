@@ -7,6 +7,7 @@ import type {
   RenderTransientOptions,
   RendererCallbacks,
   RuntimeState,
+  WorkflowItem,
 } from './types.js';
 import {
   APP_ZOOM_DEFAULT,
@@ -331,33 +332,160 @@ function runningStepMarkdown(conversationId: string): string {
     return localizeKnownText(phaseLabel('运行中'));
   }
   const runtime = ensureRuntime(conversationId);
-  const items = Array.isArray(runtime.workflow) ? runtime.workflow : [];
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (!item || typeof item !== 'object') {
-      continue;
-    }
-    if (item.type === 'round') {
-      const preview = String(localizeKnownText(item.preview || '')).trim();
-      if (preview) {
-        return preview;
-      }
-      continue;
-    }
-    const title = String(localizeKnownText(item.title || item.tag || '')).trim();
-    const body = String(localizeKnownText(item.body || '')).trim();
-    if (title && body) {
-      return `**${title}**\n\n${body}`;
-    }
-    if (title) {
-      return `**${title}**`;
-    }
+  const assistantItem = findLatestWorkflowItem(runtime, (item) => item.type === 'assistant' && item.status === 'running');
+  if (assistantItem) {
+    const body = String(localizeKnownText(assistantItem.body || '')).trim();
     if (body) {
       return body;
     }
   }
+
+  const stepItem = findLatestCurrentStepItem(runtime);
+  if (stepItem) {
+    return formatWorkflowItemMarkdown(stepItem);
+  }
   const phaseText = String(localizeKnownText(phaseLabel(runtime.phase || ''))).trim();
   return phaseText || localizeKnownText(phaseLabel('运行中'));
+}
+
+function workflowChannel(item: WorkflowItem | null | undefined): string {
+  return String(item?.channel || '').trim().toLowerCase();
+}
+
+function isWorkflowDetailItem(item: WorkflowItem | null | undefined): boolean {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+  const channel = workflowChannel(item);
+  if (channel === 'detail') {
+    return true;
+  }
+  const tag = String(item.tag || '').trim().toUpperCase();
+  return tag === 'RUN' || tag === 'DONE';
+}
+
+function isWorkflowProgressItem(item: WorkflowItem | null | undefined): boolean {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+  return !isWorkflowDetailItem(item);
+}
+
+function findLatestWorkflowItem(
+  runtime: RuntimeState | null | undefined,
+  predicate: (item: WorkflowItem) => boolean,
+): WorkflowItem | null {
+  const items = Array.isArray(runtime?.workflow) ? runtime.workflow : [];
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item && typeof item === 'object' && predicate(item)) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function findLatestAssistantWorkflowItem(
+  runtime: RuntimeState | null | undefined,
+  statuses: string[] = [],
+): WorkflowItem | null {
+  const normalizedStatuses = statuses
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter(Boolean);
+  return findLatestWorkflowItem(runtime, (item) => {
+    if (item.type !== 'assistant') {
+      return false;
+    }
+    if (!normalizedStatuses.length) {
+      return true;
+    }
+    return normalizedStatuses.includes(String(item.status || '').trim().toLowerCase());
+  });
+}
+
+function findLatestCurrentStepItem(runtime: RuntimeState | null | undefined): WorkflowItem | null {
+  return findLatestWorkflowItem(
+    runtime,
+    (item) => isWorkflowProgressItem(item) && item.type !== 'assistant' && item.type !== 'round',
+  ) || findLatestWorkflowItem(
+    runtime,
+    (item) => isWorkflowProgressItem(item) && item.type !== 'assistant',
+  );
+}
+
+function formatWorkflowItemMarkdown(item: WorkflowItem | null | undefined): string {
+  if (!item || typeof item !== 'object') {
+    return '';
+  }
+  if (item.type === 'round') {
+    return String(localizeKnownText(item.preview || '')).trim();
+  }
+  const title = String(localizeKnownText(item.title || item.tag || '')).trim();
+  const body = String(localizeKnownText(item.body || '')).trim();
+  if (title && body) {
+    return `**${title}**\n\n${body}`;
+  }
+  if (body) {
+    return body;
+  }
+  return title;
+}
+
+function workflowItemPreview(item: WorkflowItem | null | undefined): string {
+  if (!item || typeof item !== 'object') {
+    return '';
+  }
+  if (item.type === 'round') {
+    return String(localizeKnownText(item.preview || '')).trim();
+  }
+  return String(localizeKnownText(item.body || item.title || '')).trim();
+}
+
+function workflowItemLabel(item: WorkflowItem | null | undefined): string {
+  if (!item || typeof item !== 'object') {
+    return t('runtimeStatusNone');
+  }
+  if (item.type === 'round') {
+    return `${t('question')} #${String(item.roundIndex || '-')}`;
+  }
+  if (item.type === 'assistant') {
+    return item.status === 'running'
+      ? `${t('roleCodex')} | ${t('stateRunning')}`
+      : `${t('roleCodex')} | ${t('stateSuccess')}`;
+  }
+  return String(item.title || item.tag || '').trim() || t('runtimeStatusNone');
+}
+
+function formatElapsedDuration(startedAt: unknown): string {
+  const startMs = Number(startedAt);
+  if (!Number.isFinite(startMs) || startMs <= 0) {
+    return '-';
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function runtimeStateLabel(runtime: RuntimeState, conversationId: string): string {
+  if (isConversationRunning(conversationId)) {
+    return t('stateRunning');
+  }
+  const kind = phaseKind(runtime.phase || '');
+  if (kind === 'success') {
+    return t('stateSuccess');
+  }
+  if (kind === 'error') {
+    return t('stateError');
+  }
+  if (queuedCount(conversationId) > 0) {
+    return t('stateQueued');
+  }
+  return t('stateIdle');
 }
 
 function renderRunningHintBlock(conversationId: string): string {
@@ -367,6 +495,26 @@ function renderRunningHintBlock(conversationId: string): string {
   const stepMarkdown = runningStepMarkdown(conversationId);
   return [
     '<div class="msg-block msg-assistant-row msg-running-row">',
+    '<div class="msg-running-panel">',
+    '<div class="msg-running-status">',
+    '<div class="msg-running-dots" aria-hidden="true"><span></span><span></span><span></span></div>',
+    `<div class="msg-running-status-text">${escapeHtml(t('runningInProgress'))}</div>`,
+    '</div>',
+    '<div class="msg-running-step-panel">',
+    `<div class="msg-running-step">${renderMarkdownLike(stepMarkdown)}</div>`,
+    '</div>',
+    '</div>',
+    '</div>',
+  ].join('');
+}
+
+function renderWorkflowRunningPanel(conversationId: string): string {
+  if (!isConversationRunning(conversationId)) {
+    return '';
+  }
+  const stepMarkdown = runningStepMarkdown(conversationId);
+  return [
+    '<div class="runtime-workflow-running-panel">',
     '<div class="msg-running-panel">',
     '<div class="msg-running-status">',
     '<div class="msg-running-dots" aria-hidden="true"><span></span><span></span><span></span></div>',
@@ -605,7 +753,77 @@ function renderQueuedMessagesPanel(conversationId: string): string {
   ].join('');
 }
 
+function renderRuntimeStatusTab(runtime: RuntimeState, stickToBottom = true) {
+  const conversationId = state.activeConversationId;
+  const progressItems = (Array.isArray(runtime.workflow) ? runtime.workflow : []).filter((item) => isWorkflowProgressItem(item));
+  const currentStep = findLatestCurrentStepItem(runtime);
+  const assistantUpdate = isConversationRunning(conversationId)
+    ? findLatestAssistantWorkflowItem(runtime, ['running'])
+    : null;
+  const recentProgress = progressItems
+    .filter((item) => item.type === 'step')
+    .slice(-5)
+    .reverse();
+  const queue = queuedMessages(conversationId);
+  const summaryMetrics = [
+    { label: t('runtimeStatusCurrent'), value: runtimeStateLabel(runtime, conversationId) },
+    { label: t('runtimeStatusPhase'), value: localizeKnownText(phaseLabel(runtime.phase || '空闲')) },
+    { label: t('runtimeStatusElapsed'), value: formatElapsedDuration(runtime.startedAt) },
+    { label: t('runtimeStatusQueue'), value: String(queue.length) },
+  ].map(({ label, value }) => [
+    '<div class="runtime-status-metric">',
+    `<div class="runtime-status-metric-label">${escapeHtml(label)}</div>`,
+    `<div class="runtime-status-metric-value">${escapeHtml(String(value || '-'))}</div>`,
+    '</div>',
+  ].join('')).join('');
+
+  const currentStepMarkdown = currentStep ? formatWorkflowItemMarkdown(currentStep) : '';
+  const assistantMarkdown = assistantUpdate ? formatWorkflowItemMarkdown(assistantUpdate) : '';
+  const recentHtml = recentProgress.length
+    ? recentProgress.map((item) => [
+      '<div class="runtime-status-progress-item">',
+      '<div class="runtime-status-progress-head">',
+      `<span class="title">${escapeHtml(workflowItemLabel(item))}</span>`,
+      `<span class="time">${escapeHtml(String(item.timestamp || '--:--:--'))}</span>`,
+      '</div>',
+      `<div class="runtime-status-progress-body">${renderMarkdownLike(workflowItemPreview(item) || t('runtimeStatusNone'))}</div>`,
+      '</div>',
+    ].join('')).join('')
+    : `<div class="tip">${escapeHtml(t('runtimeStatusNoProgress'))}</div>`;
+
+  el.tabStatus.innerHTML = [
+    '<div class="runtime-status-shell">',
+    `<div class="runtime-status-metrics">${summaryMetrics}</div>`,
+    '<div class="runtime-status-sections">',
+    '<section class="runtime-status-card">',
+    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusCurrentStep'))}</div>`,
+    currentStepMarkdown
+      ? `<div class="runtime-status-card-body">${renderMarkdownLike(currentStepMarkdown)}</div>`
+      : `<div class="tip">${escapeHtml(t('runtimeStatusNone'))}</div>`,
+    '</section>',
+    '<section class="runtime-status-card">',
+    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusAssistant'))}</div>`,
+    assistantMarkdown
+      ? `<div class="runtime-status-card-body">${renderMarkdownLike(assistantMarkdown)}</div>`
+      : `<div class="tip">${escapeHtml(t('runtimeStatusNoAssistant'))}</div>`,
+    '</section>',
+    '</div>',
+    queue.length ? renderQueuedMessagesPanel(conversationId) : '',
+    '<section class="runtime-status-card runtime-status-progress-card">',
+    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusRecent'))}</div>`,
+    `<div class="runtime-status-progress-list">${recentHtml}</div>`,
+    '</section>',
+    '</div>',
+  ].join('');
+
+  if (stickToBottom) {
+    el.tabStatus.scrollTop = el.tabStatus.scrollHeight;
+  }
+}
+
 function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
+  const visibleItems = runtime.workflow.filter((item) => isWorkflowProgressItem(item));
+
   const toggleWorkflowItem = (index: number) => {
     if (!Number.isInteger(index) || index < 0) {
       return;
@@ -615,8 +833,8 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
     renderWorkflowTab(runtime, false);
   };
 
-  cleanupWorkflowCollapsed(state.activeConversationId, runtime.workflow.length);
-  const workflowHtml = runtime.workflow.map((item, index) => {
+  cleanupWorkflowCollapsed(state.activeConversationId, visibleItems.length);
+  const workflowHtml = visibleItems.map((item, index) => {
     const collapsed = isWorkflowStepCollapsed(state.activeConversationId, index);
     const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
     if (item.type === 'round') {
@@ -669,7 +887,9 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
     ].join('');
   }).join('');
   const queueHtml = renderQueuedMessagesPanel(state.activeConversationId);
-  const html = `${queueHtml}${workflowHtml}`;
+  const emptyHtml = workflowHtml ? '' : `<div class="tip">${escapeHtml(t('runtimeWorkflowEmpty'))}</div>`;
+  const runningHtml = renderWorkflowRunningPanel(state.activeConversationId);
+  const html = `${queueHtml}${emptyHtml}${workflowHtml}${runningHtml}`;
 
   el.tabWorkflow.innerHTML = html;
   el.tabWorkflow.onclick = (event) => {
@@ -711,12 +931,14 @@ function renderRawTab(runtime) {
 function renderRuntime() {
   if (!hasActiveConversation()) {
     el.tabStructured.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStructured'))}</div>`;
+    el.tabStatus.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStatus'))}</div>`;
     el.tabWorkflow.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipWorkflow'))}</div>`;
     el.tabRaw.textContent = t('runtimeTipRaw');
     return;
   }
   const runtime = ensureRuntime(state.activeConversationId);
   renderStructuredTab(runtime);
+  renderRuntimeStatusTab(runtime);
   renderWorkflowTab(runtime);
   renderRawTab(runtime);
 }
@@ -820,6 +1042,7 @@ function renderTabs() {
   });
 
   document.getElementById('tab-structured').classList.toggle('active', state.activeTab === 'structured');
+  document.getElementById('tab-status').classList.toggle('active', state.activeTab === 'status');
   document.getElementById('tab-workflow').classList.toggle('active', state.activeTab === 'workflow');
   document.getElementById('tab-raw').classList.toggle('active', state.activeTab === 'raw');
 }
@@ -862,6 +1085,7 @@ function renderLocaleTexts() {
   }
   el.labelFontSize.textContent = `${t('chatFontSize')}:`;
   el.tabBtnStructured.textContent = t('tabStructured');
+  el.tabBtnStatus.textContent = t('tabStatus');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
   el.tabBtnRaw.textContent = t('tabRaw');
   el.renameModalTitle.textContent = t('renameModalTitle');
@@ -998,6 +1222,7 @@ export {
   renderStructuredTab,
   formatQueuedAt,
   renderQueuedMessagesPanel,
+  renderRuntimeStatusTab,
   renderWorkflowTab,
   renderRawTab,
   renderRuntime,

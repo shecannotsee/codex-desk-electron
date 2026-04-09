@@ -935,6 +935,112 @@ body.sidebar-resizing {
   color: #64748b;
 }
 
+.runtime-status-shell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--chat-font-scale));
+}
+
+.runtime-status-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(10px * var(--chat-font-scale));
+}
+
+.runtime-status-metric {
+  padding: calc(12px * var(--chat-font-scale));
+  border: 1px solid #cfe0ee;
+  border-radius: calc(14px * var(--chat-font-scale));
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fc 100%);
+  box-shadow: 0 10px 24px rgba(54, 88, 120, 0.08);
+}
+
+.runtime-status-metric-label {
+  font-size: calc(11px * var(--chat-font-scale));
+  color: #6b8196;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.runtime-status-metric-value {
+  margin-top: calc(6px * var(--chat-font-scale));
+  color: #183247;
+  font-size: calc(18px * var(--chat-font-scale));
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.runtime-status-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(12px * var(--chat-font-scale));
+}
+
+.runtime-status-card {
+  border: 1px solid #d7e5f0;
+  border-radius: calc(16px * var(--chat-font-scale));
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  box-shadow: 0 12px 30px rgba(38, 77, 112, 0.08);
+  overflow: hidden;
+}
+
+.runtime-status-card-title {
+  padding: calc(10px * var(--chat-font-scale)) calc(14px * var(--chat-font-scale));
+  border-bottom: 1px solid #dbe7f1;
+  color: #24527d;
+  font-size: calc(12px * var(--chat-font-scale));
+  font-weight: 800;
+}
+
+.runtime-status-card-body {
+  padding: calc(12px * var(--chat-font-scale)) calc(14px * var(--chat-font-scale));
+  color: #26435a;
+  font-size: var(--chat-font-size);
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.runtime-status-progress-card {
+  margin-top: calc(2px * var(--chat-font-scale));
+}
+
+.runtime-status-progress-list {
+  padding: calc(12px * var(--chat-font-scale)) calc(14px * var(--chat-font-scale));
+}
+
+.runtime-status-progress-item + .runtime-status-progress-item {
+  margin-top: calc(12px * var(--chat-font-scale));
+  padding-top: calc(12px * var(--chat-font-scale));
+  border-top: 1px dashed #d4e1eb;
+}
+
+.runtime-status-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: calc(8px * var(--chat-font-scale));
+}
+
+.runtime-status-progress-head .title {
+  color: #16334a;
+  font-size: calc(12px * var(--chat-font-scale));
+  font-weight: 700;
+}
+
+.runtime-status-progress-head .time {
+  color: #72879a;
+  font-size: calc(11px * var(--chat-font-scale));
+  flex-shrink: 0;
+}
+
+.runtime-status-progress-body {
+  margin-top: calc(6px * var(--chat-font-scale));
+  color: #37536a;
+  font-size: var(--chat-font-size);
+  line-height: 1.55;
+}
+
 .queued-preview-panel {
   margin: calc(8px * var(--chat-font-scale)) 0 calc(14px * var(--chat-font-scale));
   padding: calc(10px * var(--chat-font-scale)) calc(12px * var(--chat-font-scale));
@@ -1125,6 +1231,15 @@ body.sidebar-resizing {
 
 .runtime-step.collapsed .runtime-step-collapsed-line {
   display: block;
+}
+
+.runtime-workflow-running-panel {
+  margin: calc(12px * var(--chat-font-scale)) 0;
+}
+
+.runtime-workflow-running-panel .msg-running-panel {
+  width: 100%;
+  max-width: 100%;
 }
 
 .runtime-step-round.collapsed .preview,
@@ -3223,4 +3338,42 @@ html[data-theme='dark'] .chat-pagination-bar {
 
 html[data-theme='dark'] .chat-pagination-summary {
   color: #8aa6c2;
+}
+
+html[data-theme='dark'] .runtime-status-metric,
+html[data-theme='dark'] .runtime-status-card {
+  border-color: #223247;
+  background: linear-gradient(180deg, #0f1927 0%, #142233 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+html[data-theme='dark'] .runtime-status-card-title {
+  border-bottom-color: #243549;
+  color: #8fc5ff;
+}
+
+html[data-theme='dark'] .runtime-status-metric-label,
+html[data-theme='dark'] .runtime-status-progress-head .time {
+  color: #7b92a7;
+}
+
+html[data-theme='dark'] .runtime-status-metric-value,
+html[data-theme='dark'] .runtime-status-progress-head .title {
+  color: #e5f0fb;
+}
+
+html[data-theme='dark'] .runtime-status-card-body,
+html[data-theme='dark'] .runtime-status-progress-body {
+  color: #c7d8e8;
+}
+
+html[data-theme='dark'] .runtime-status-progress-item + .runtime-status-progress-item {
+  border-top-color: #284058;
+}
+
+@media (max-width: 1100px) {
+  .runtime-status-metrics,
+  .runtime-status-sections {
+    grid-template-columns: 1fr;
+  }
 }

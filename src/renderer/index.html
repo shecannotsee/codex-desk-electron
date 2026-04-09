@@ -200,13 +200,15 @@
 
         <div id="runtime-panel" class="runtime-panel">
           <div class="tabs">
-            <button id="tab-btn-structured" class="tab-btn active" data-tab="structured">结构化事件</button>
+            <button id="tab-btn-status" class="tab-btn active" data-tab="status">运行状态</button>
+            <button id="tab-btn-structured" class="tab-btn" data-tab="structured">结构化事件</button>
             <button id="tab-btn-workflow" class="tab-btn" data-tab="workflow">运行步骤</button>
             <button id="tab-btn-raw" class="tab-btn" data-tab="raw">事件原文(JSON)</button>
           </div>
 
           <div class="tab-content">
-            <div id="tab-structured" class="tab-pane active"></div>
+            <div id="tab-status" class="tab-pane active"></div>
+            <div id="tab-structured" class="tab-pane"></div>
             <div id="tab-workflow" class="tab-pane"></div>
             <pre id="tab-raw" class="tab-pane raw-pane"></pre>
           </div>

@@ -1,6 +1,6 @@
 export type Language = 'zh-CN' | 'en-US';
 export type Theme = 'light' | 'dark';
-export type ActiveTab = 'structured' | 'workflow' | 'raw';
+export type ActiveTab = 'structured' | 'status' | 'workflow' | 'raw';
 
 export interface AppInfo {
   name: string;
@@ -64,6 +64,9 @@ export interface WorkflowItem {
   roundIndex?: number;
   preview?: string;
   status?: string;
+  channel?: string;
+  importance?: string;
+  sourceKind?: string;
   [key: string]: unknown;
 }
 
@@ -198,6 +201,7 @@ export interface RenderJobs {
   chatTransient: boolean;
   runtime: boolean;
   runtimeStructured: boolean;
+  runtimeStatus: boolean;
   runtimeWorkflow: boolean;
   runtimeRaw: boolean;
   runButtons: boolean;
@@ -347,9 +351,11 @@ export interface UiElementRefs {
   chatView: HTMLElement;
   runtimePanel: HTMLElement;
   tabStructured: HTMLElement;
+  tabStatus: HTMLElement;
   tabWorkflow: HTMLElement;
   tabRaw: HTMLElement;
   tabBtnStructured: HTMLButtonElement;
+  tabBtnStatus: HTMLButtonElement;
   tabBtnWorkflow: HTMLButtonElement;
   tabBtnRaw: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];

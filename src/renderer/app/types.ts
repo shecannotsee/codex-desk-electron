@@ -1,6 +1,6 @@
 export type Language = 'zh-CN' | 'en-US';
 export type Theme = 'light' | 'dark';
-export type ActiveTab = 'structured' | 'status' | 'workflow' | 'raw';
+export type ActiveTab = 'structured' | 'workflow' | 'raw';
 
 export interface AppInfo {
   name: string;
@@ -55,6 +55,13 @@ export interface RuntimeEventItem {
   [key: string]: unknown;
 }
 
+export interface RawEventEntry {
+  direction?: string;
+  line?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
 export interface WorkflowItem {
   type?: string;
   tag?: string;
@@ -73,7 +80,7 @@ export interface WorkflowItem {
 export interface RuntimeState {
   workflow: WorkflowItem[];
   events: RuntimeEventItem[];
-  raw: string[];
+  raw: Array<string | RawEventEntry>;
   phase: string;
   startedAt: number | null;
 }
@@ -108,7 +115,7 @@ export interface AppEvent {
   type: string;
   conversationId?: string;
   item?: unknown;
-  line?: string;
+  line?: unknown;
   phase?: string;
   startedAt?: number | null;
   conversation?: ConversationSummary;
@@ -201,7 +208,6 @@ export interface RenderJobs {
   chatTransient: boolean;
   runtime: boolean;
   runtimeStructured: boolean;
-  runtimeStatus: boolean;
   runtimeWorkflow: boolean;
   runtimeRaw: boolean;
   runButtons: boolean;
@@ -285,8 +291,10 @@ export interface UiElementRefs {
   sidebarResizer: HTMLElement;
   workspace: HTMLElement;
   sidebarTitle: HTMLElement | null;
+  sidebarSearchInput: HTMLInputElement;
   conversationList: HTMLElement;
   focusRow: HTMLElement;
+  btnSidebarNewConv: HTMLButtonElement;
   btnNewConv: HTMLButtonElement;
   btnImportSession: HTMLButtonElement;
   btnExportSession: HTMLButtonElement;
@@ -351,11 +359,9 @@ export interface UiElementRefs {
   chatView: HTMLElement;
   runtimePanel: HTMLElement;
   tabStructured: HTMLElement;
-  tabStatus: HTMLElement;
   tabWorkflow: HTMLElement;
   tabRaw: HTMLElement;
   tabBtnStructured: HTMLButtonElement;
-  tabBtnStatus: HTMLButtonElement;
   tabBtnWorkflow: HTMLButtonElement;
   tabBtnRaw: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];

@@ -3,6 +3,7 @@ import type {
   ComposerRenderOptions,
   ConversationMessage,
   ConversationSummary,
+  RawEventEntry,
   RenderAllOptions,
   RenderTransientOptions,
   RendererCallbacks,
@@ -40,7 +41,6 @@ import {
   isMessageCollapsed,
   isWorkflowStepCollapsed,
   messagePreview,
-  phaseKind,
   phaseLabel,
   queuedCount,
   queuedMessages,
@@ -63,6 +63,25 @@ function setRendererCallbacks(nextCallbacks: Partial<RendererCallbacks> = {}) {
   };
 }
 
+function conversationAvatarTone(id: string, title: string): string {
+  const seed = `${id}:${title}`;
+  let total = 0;
+  for (const ch of seed) {
+    total += ch.codePointAt(0) || 0;
+  }
+  return `tone-${(total % 6) + 1}`;
+}
+
+function conversationPreviewText(item: ConversationSummary): string {
+  const messages = Array.isArray(item.messages) ? item.messages : [];
+  const latest = messages[messages.length - 1];
+  if (!latest) {
+    return t('sidebarEmptyPreview');
+  }
+  const prefix = latest.role === 'user' ? `${t('roleYou')}: ` : '';
+  return messagePreview(`${prefix}${String(latest.text || '')}`);
+}
+
 function renderConversationList() {
   const activeId = state.activeConversationId;
   if (!state.conversations.length) {
@@ -72,31 +91,54 @@ function renderConversationList() {
     ].join('');
     return;
   }
+  const keyword = String(el.sidebarSearchInput?.value || '').trim().toLowerCase();
   const html = sortedConversations()
+    .filter((item) => {
+      if (!keyword) {
+        return true;
+      }
+      const title = String(item.title || '').toLowerCase();
+      const preview = conversationPreviewText(item).toLowerCase();
+      const sessionId = String(item.sessionId || '').toLowerCase();
+      return title.includes(keyword) || preview.includes(keyword) || sessionId.includes(keyword);
+    })
     .map((item) => {
       const active = item.id === activeId ? ' active' : '';
       const pinned = Number(item.pinnedAt || 0) > 0;
       const status = getConversationState(item.id);
       const queue = queuedCount(item.id);
-      const queueBadge = queue > 0 ? ` <span class="queue-badge">${escapeHtml(t('queueBadge', { count: queue }))}</span>` : '';
-      const pinBadge = pinned ? ` <span class="conversation-pin-badge">${escapeHtml(t('pinnedConversation'))}</span>` : '';
+      const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
+      const pinBadge = pinned ? `<span class="conversation-pin-badge">${escapeHtml(t('pinnedConversation'))}</span>` : '';
       const titleText = String(item.title || '-').trim();
       const avatarChar = titleText ? Array.from(titleText)[0] : '•';
+      const avatarTone = conversationAvatarTone(item.id, titleText);
+      const timeText = formatMessageTime(item.updatedAt || item.createdAt);
+      const previewText = conversationPreviewText(item);
       return [
         `<div class="conversation-item${active}" data-id="${escapeHtml(item.id)}">`,
-        `<div class="conversation-avatar">${escapeHtml(avatarChar)}</div>`,
+        `<div class="conversation-avatar ${escapeHtml(avatarTone)}">${escapeHtml(avatarChar)}</div>`,
         '<div class="conversation-main">',
-        `<div class="conversation-title-row">${escapeHtml(item.title || '-')}${pinBadge}</div>`,
-        '<div class="conversation-meta-row">',
+        '<div class="conversation-top-row">',
+        '<div class="conversation-title-row">',
+        `<span class="conversation-title-text">${escapeHtml(item.title || '-')}</span>`,
+        pinBadge,
+        '</div>',
+        `<div class="conversation-time">${escapeHtml(timeText || '')}</div>`,
+        '</div>',
+        '<div class="conversation-bottom-row">',
+        '<div class="conversation-preview-row">',
         `<span class="conv-state-pill state-${escapeHtml(status.key)}">${escapeHtml(status.label)}</span>`,
-        queueBadge,
+        `<span class="conversation-preview">${escapeHtml(previewText)}</span>`,
+        '</div>',
+        `<div class="conversation-side-badges">${queueBadge}</div>`,
         '</div>',
         '</div>',
         '</div>',
       ].join('');
     })
     .join('');
-  el.conversationList.innerHTML = html;
+  const emptyText = keyword ? t('sidebarSearchEmpty') : t('noConversation');
+  el.conversationList.innerHTML = html || `<div class="tip" style="padding:16px;">${escapeHtml(emptyText)}</div>`;
 
   Array.from(el.conversationList.querySelectorAll<HTMLElement>('.conversation-item')).forEach((node) => {
     node.addEventListener('click', async () => {
@@ -114,9 +156,16 @@ function renderHeader() {
       模型: '-',
       会话ID: '-',
     };
+  const normalizeMetaValue = (value: unknown): string => {
+    const text = String(value ?? '').trim();
+    if (!text || text === '-') {
+      return '';
+    }
+    return text;
+  };
 
   el.chatTitle.textContent = conv ? conv.title : '-';
-  const sid = String(meta['会话ID'] || conv?.sessionId || '-').trim() || '-';
+  const sid = normalizeMetaValue(meta['会话ID']) || normalizeMetaValue(conv?.sessionId) || '-';
   if (sid && sid !== '-' && sid.length > 16) {
     el.sessionId.textContent = `${sid.slice(0, 8)}...${sid.slice(-6)}`;
   } else {
@@ -125,7 +174,8 @@ function renderHeader() {
   if (el.btnSessionId) {
     el.btnSessionId.disabled = !sid || sid === '-';
     el.btnSessionId.dataset.fullValue = sid;
-    el.btnSessionId.title = sid && sid !== '-' ? sid : '';
+    el.btnSessionId.title = sid && sid !== '-' ? t('clickToCopy') : '';
+    el.btnSessionId.setAttribute('aria-label', sid && sid !== '-' ? `${t('clickToCopy')}: ${sid}` : t('sessionId'));
   }
 
   const phaseRaw = effectivePhaseRaw();
@@ -135,10 +185,17 @@ function renderHeader() {
   const queue = conv ? queuedCount(state.activeConversationId) : 0;
   el.queueCount.textContent = String(queue);
   el.queueChip.classList.toggle('queue-chip-active', queue > 0);
+  el.queueChip.classList.toggle('hidden', queue <= 0);
 
   if (el.metaModelValue) {
-    el.metaModelValue.textContent = meta['模型'] || '-';
-    el.metaModelValue.title = meta['模型'] || '-';
+    const modelText = normalizeMetaValue(meta['模型']);
+    const fallbackText = t('clickToFetch');
+    el.metaModelValue.textContent = modelText || fallbackText;
+    el.metaModelValue.title = modelText || fallbackText;
+  }
+  if (el.btnMetaModel) {
+    const modelText = normalizeMetaValue(meta['模型']);
+    el.btnMetaModel.title = modelText || t('refreshModel');
   }
 }
 
@@ -385,24 +442,6 @@ function findLatestWorkflowItem(
   return null;
 }
 
-function findLatestAssistantWorkflowItem(
-  runtime: RuntimeState | null | undefined,
-  statuses: string[] = [],
-): WorkflowItem | null {
-  const normalizedStatuses = statuses
-    .map((item) => String(item || '').trim().toLowerCase())
-    .filter(Boolean);
-  return findLatestWorkflowItem(runtime, (item) => {
-    if (item.type !== 'assistant') {
-      return false;
-    }
-    if (!normalizedStatuses.length) {
-      return true;
-    }
-    return normalizedStatuses.includes(String(item.status || '').trim().toLowerCase());
-  });
-}
-
 function findLatestCurrentStepItem(runtime: RuntimeState | null | undefined): WorkflowItem | null {
   return findLatestWorkflowItem(
     runtime,
@@ -429,63 +468,6 @@ function formatWorkflowItemMarkdown(item: WorkflowItem | null | undefined): stri
     return body;
   }
   return title;
-}
-
-function workflowItemPreview(item: WorkflowItem | null | undefined): string {
-  if (!item || typeof item !== 'object') {
-    return '';
-  }
-  if (item.type === 'round') {
-    return String(localizeKnownText(item.preview || '')).trim();
-  }
-  return String(localizeKnownText(item.body || item.title || '')).trim();
-}
-
-function workflowItemLabel(item: WorkflowItem | null | undefined): string {
-  if (!item || typeof item !== 'object') {
-    return t('runtimeStatusNone');
-  }
-  if (item.type === 'round') {
-    return `${t('question')} #${String(item.roundIndex || '-')}`;
-  }
-  if (item.type === 'assistant') {
-    return item.status === 'running'
-      ? `${t('roleCodex')} | ${t('stateRunning')}`
-      : `${t('roleCodex')} | ${t('stateSuccess')}`;
-  }
-  return String(item.title || item.tag || '').trim() || t('runtimeStatusNone');
-}
-
-function formatElapsedDuration(startedAt: unknown): string {
-  const startMs = Number(startedAt);
-  if (!Number.isFinite(startMs) || startMs <= 0) {
-    return '-';
-  }
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-  const hours = Math.floor(elapsedSeconds / 3600);
-  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-  const seconds = elapsedSeconds % 60;
-  if (hours > 0) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function runtimeStateLabel(runtime: RuntimeState, conversationId: string): string {
-  if (isConversationRunning(conversationId)) {
-    return t('stateRunning');
-  }
-  const kind = phaseKind(runtime.phase || '');
-  if (kind === 'success') {
-    return t('stateSuccess');
-  }
-  if (kind === 'error') {
-    return t('stateError');
-  }
-  if (queuedCount(conversationId) > 0) {
-    return t('stateQueued');
-  }
-  return t('stateIdle');
 }
 
 function renderRunningHintBlock(conversationId: string): string {
@@ -753,74 +735,6 @@ function renderQueuedMessagesPanel(conversationId: string): string {
   ].join('');
 }
 
-function renderRuntimeStatusTab(runtime: RuntimeState, stickToBottom = true) {
-  const conversationId = state.activeConversationId;
-  const progressItems = (Array.isArray(runtime.workflow) ? runtime.workflow : []).filter((item) => isWorkflowProgressItem(item));
-  const currentStep = findLatestCurrentStepItem(runtime);
-  const assistantUpdate = isConversationRunning(conversationId)
-    ? findLatestAssistantWorkflowItem(runtime, ['running'])
-    : null;
-  const recentProgress = progressItems
-    .filter((item) => item.type === 'step')
-    .slice(-5)
-    .reverse();
-  const queue = queuedMessages(conversationId);
-  const summaryMetrics = [
-    { label: t('runtimeStatusCurrent'), value: runtimeStateLabel(runtime, conversationId) },
-    { label: t('runtimeStatusPhase'), value: localizeKnownText(phaseLabel(runtime.phase || '空闲')) },
-    { label: t('runtimeStatusElapsed'), value: formatElapsedDuration(runtime.startedAt) },
-    { label: t('runtimeStatusQueue'), value: String(queue.length) },
-  ].map(({ label, value }) => [
-    '<div class="runtime-status-metric">',
-    `<div class="runtime-status-metric-label">${escapeHtml(label)}</div>`,
-    `<div class="runtime-status-metric-value">${escapeHtml(String(value || '-'))}</div>`,
-    '</div>',
-  ].join('')).join('');
-
-  const currentStepMarkdown = currentStep ? formatWorkflowItemMarkdown(currentStep) : '';
-  const assistantMarkdown = assistantUpdate ? formatWorkflowItemMarkdown(assistantUpdate) : '';
-  const recentHtml = recentProgress.length
-    ? recentProgress.map((item) => [
-      '<div class="runtime-status-progress-item">',
-      '<div class="runtime-status-progress-head">',
-      `<span class="title">${escapeHtml(workflowItemLabel(item))}</span>`,
-      `<span class="time">${escapeHtml(String(item.timestamp || '--:--:--'))}</span>`,
-      '</div>',
-      `<div class="runtime-status-progress-body">${renderMarkdownLike(workflowItemPreview(item) || t('runtimeStatusNone'))}</div>`,
-      '</div>',
-    ].join('')).join('')
-    : `<div class="tip">${escapeHtml(t('runtimeStatusNoProgress'))}</div>`;
-
-  el.tabStatus.innerHTML = [
-    '<div class="runtime-status-shell">',
-    `<div class="runtime-status-metrics">${summaryMetrics}</div>`,
-    '<div class="runtime-status-sections">',
-    '<section class="runtime-status-card">',
-    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusCurrentStep'))}</div>`,
-    currentStepMarkdown
-      ? `<div class="runtime-status-card-body">${renderMarkdownLike(currentStepMarkdown)}</div>`
-      : `<div class="tip">${escapeHtml(t('runtimeStatusNone'))}</div>`,
-    '</section>',
-    '<section class="runtime-status-card">',
-    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusAssistant'))}</div>`,
-    assistantMarkdown
-      ? `<div class="runtime-status-card-body">${renderMarkdownLike(assistantMarkdown)}</div>`
-      : `<div class="tip">${escapeHtml(t('runtimeStatusNoAssistant'))}</div>`,
-    '</section>',
-    '</div>',
-    queue.length ? renderQueuedMessagesPanel(conversationId) : '',
-    '<section class="runtime-status-card runtime-status-progress-card">',
-    `<div class="runtime-status-card-title">${escapeHtml(t('runtimeStatusRecent'))}</div>`,
-    `<div class="runtime-status-progress-list">${recentHtml}</div>`,
-    '</section>',
-    '</div>',
-  ].join('');
-
-  if (stickToBottom) {
-    el.tabStatus.scrollTop = el.tabStatus.scrollHeight;
-  }
-}
-
 function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
   const visibleItems = runtime.workflow.filter((item) => isWorkflowProgressItem(item));
 
@@ -923,22 +837,68 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
   }
 }
 
+function formatRawEventLine(line: unknown): string {
+  const text = typeof line === 'string'
+    ? String(line || '').trim()
+    : String((line as RawEventEntry | null | undefined)?.line || '').trim();
+  if (!text) {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return text;
+  }
+}
+
+function rawEventDirectionLabel(entry: string | RawEventEntry | null | undefined): string {
+  const direction = typeof entry === 'object' && entry
+    ? String(entry.direction || '').trim().toLowerCase()
+    : '';
+  return direction === 'sent' ? t('rawEventSent') : t('rawEventReceived');
+}
+
+function rawEventDirectionClass(entry: string | RawEventEntry | null | undefined): string {
+  const direction = typeof entry === 'object' && entry
+    ? String(entry.direction || '').trim().toLowerCase()
+    : '';
+  return direction === 'sent' ? 'sent' : 'received';
+}
+
 function renderRawTab(runtime) {
-  el.tabRaw.textContent = (runtime.raw || []).join('\n');
+  const html = (runtime.raw || [])
+    .map((entry) => {
+      const formatted = formatRawEventLine(entry);
+      if (!formatted) {
+        return '';
+      }
+      const direction = rawEventDirectionClass(entry);
+      const label = rawEventDirectionLabel(entry);
+      return [
+        '<div class="raw-event-inline-entry">',
+        '<div class="raw-event-inline-head">',
+        `<span class="raw-event-inline-badge raw-event-inline-badge-${escapeHtml(direction)}">${escapeHtml(label)}</span>`,
+        '</div>',
+        `<pre class="raw-event-json">${escapeHtml(formatted)}</pre>`,
+        '</div>',
+      ].join('');
+    })
+    .filter(Boolean)
+    .join('');
+  el.tabRaw.innerHTML = html || `<div class="tip">${escapeHtml(t('runtimeTipRaw'))}</div>`;
   el.tabRaw.scrollTop = el.tabRaw.scrollHeight;
 }
 
 function renderRuntime() {
   if (!hasActiveConversation()) {
     el.tabStructured.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStructured'))}</div>`;
-    el.tabStatus.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStatus'))}</div>`;
     el.tabWorkflow.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipWorkflow'))}</div>`;
     el.tabRaw.textContent = t('runtimeTipRaw');
     return;
   }
   const runtime = ensureRuntime(state.activeConversationId);
   renderStructuredTab(runtime);
-  renderRuntimeStatusTab(runtime);
   renderWorkflowTab(runtime);
   renderRawTab(runtime);
 }
@@ -1042,7 +1002,6 @@ function renderTabs() {
   });
 
   document.getElementById('tab-structured').classList.toggle('active', state.activeTab === 'structured');
-  document.getElementById('tab-status').classList.toggle('active', state.activeTab === 'status');
   document.getElementById('tab-workflow').classList.toggle('active', state.activeTab === 'workflow');
   document.getElementById('tab-raw').classList.toggle('active', state.activeTab === 'raw');
 }
@@ -1059,7 +1018,18 @@ function renderLocaleTexts() {
   if (el.sidebarTitle) {
     el.sidebarTitle.textContent = t('sidebarTitle');
   }
+  if (el.sidebarSearchInput) {
+    el.sidebarSearchInput.placeholder = t('sidebarSearchPlaceholder');
+    el.sidebarSearchInput.setAttribute('aria-label', t('sidebarSearchPlaceholder'));
+  }
+  if (el.btnSidebarNewConv) {
+    el.btnSidebarNewConv.title = t('newConversation');
+    el.btnSidebarNewConv.setAttribute('aria-label', t('newConversation'));
+  }
   el.labelSessionId.textContent = t('sessionId');
+  if (el.btnSessionId) {
+    el.btnSessionId.dataset.copiedLabel = t('copySuccess');
+  }
   el.labelPhase.textContent = t('status');
   el.labelQueue.textContent = t('queue');
   if (el.labelMetaModel) {
@@ -1085,7 +1055,6 @@ function renderLocaleTexts() {
   }
   el.labelFontSize.textContent = `${t('chatFontSize')}:`;
   el.tabBtnStructured.textContent = t('tabStructured');
-  el.tabBtnStatus.textContent = t('tabStatus');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
   el.tabBtnRaw.textContent = t('tabRaw');
   el.renameModalTitle.textContent = t('renameModalTitle');
@@ -1222,7 +1191,6 @@ export {
   renderStructuredTab,
   formatQueuedAt,
   renderQueuedMessagesPanel,
-  renderRuntimeStatusTab,
   renderWorkflowTab,
   renderRawTab,
   renderRuntime,

@@ -9,135 +9,155 @@
 <body>
   <div id="app-root" class="app-root">
     <aside class="sidebar">
-      <div class="sidebar-topbar">
-        <div class="quick-settings-wrap sidebar-quick-settings-wrap">
-          <button id="btn-quick-settings" class="quick-settings-btn" type="button" aria-haspopup="true" aria-expanded="false">
-            <span class="quick-settings-icon">⚙</span>
-            <span id="label-quick-settings">设置</span>
-          </button>
-          <div id="quick-settings-menu" class="quick-settings-menu hidden">
-            <div id="quick-settings-root" class="quick-settings-detail quick-settings-root">
-              <div class="quick-settings-detail-head quick-settings-root-head">
-                <div class="quick-settings-detail-title quick-settings-root-title" data-i18n-key="quickSettings">设置</div>
-              </div>
-              <div class="quick-settings-detail-body quick-settings-root-body">
-                <button type="button" class="quick-settings-category" data-pane="conversation">
-                  <span data-i18n-key="menuConversation">对话</span>
-                  <span class="quick-settings-chevron">›</span>
-                </button>
-                <button type="button" class="quick-settings-category" data-pane="runtime">
-                  <span data-i18n-key="menuRuntime">运行</span>
-                  <span class="quick-settings-chevron">›</span>
-                </button>
-                <button type="button" class="quick-settings-category" data-pane="view">
-                  <span data-i18n-key="menuInterface">界面</span>
-                  <span class="quick-settings-chevron">›</span>
-                </button>
-                <button type="button" class="quick-settings-category" data-pane="window">
-                  <span data-i18n-key="menuWindow">窗口</span>
-                  <span class="quick-settings-chevron">›</span>
-                </button>
-                <button type="button" class="quick-settings-category" data-pane="help">
-                  <span data-i18n-key="menuHelp">帮助</span>
-                  <span class="quick-settings-chevron">›</span>
-                </button>
-              </div>
-              <div class="quick-settings-detail-footer quick-settings-root-footer">
-                <div class="quick-settings-app-info" aria-label="application info">
-                  <div id="qs-app-name" class="quick-settings-app-name">Codex Desk</div>
-                  <div id="qs-app-version" class="quick-settings-app-version">v-</div>
-                  <div id="qs-app-desc" class="quick-settings-app-desc" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
+      <div class="sidebar-header">
+        <div class="sidebar-topbar">
+          <div class="quick-settings-wrap sidebar-quick-settings-wrap">
+            <button id="btn-quick-settings" class="quick-settings-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <span class="quick-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M4 7h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 17h16" />
+                </svg>
+              </span>
+              <span id="label-quick-settings">设置</span>
+            </button>
+            <div id="quick-settings-menu" class="quick-settings-menu hidden">
+              <div id="quick-settings-root" class="quick-settings-detail quick-settings-root">
+                <div class="quick-settings-detail-head quick-settings-root-head">
+                  <div class="quick-settings-detail-title quick-settings-root-title" data-i18n-key="quickSettings">设置</div>
+                </div>
+                <div class="quick-settings-detail-body quick-settings-root-body">
+                  <button type="button" class="quick-settings-category" data-pane="conversation">
+                    <span data-i18n-key="menuConversation">对话</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
+                  <button type="button" class="quick-settings-category" data-pane="runtime">
+                    <span data-i18n-key="menuRuntime">运行</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
+                  <button type="button" class="quick-settings-category" data-pane="view">
+                    <span data-i18n-key="menuInterface">界面</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
+                  <button type="button" class="quick-settings-category" data-pane="window">
+                    <span data-i18n-key="menuWindow">窗口</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
+                  <button type="button" class="quick-settings-category" data-pane="help">
+                    <span data-i18n-key="menuHelp">帮助</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
+                </div>
+                <div class="quick-settings-detail-footer quick-settings-root-footer">
+                  <div class="quick-settings-app-info" aria-label="application info">
+                    <div id="qs-app-name" class="quick-settings-app-name">Codex Desk</div>
+                    <div id="qs-app-version" class="quick-settings-app-version">v-</div>
+                    <div id="qs-app-desc" class="quick-settings-app-desc" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div id="quick-settings-detail" class="quick-settings-detail hidden">
-              <div class="quick-settings-detail-head">
-                <div id="qs-detail-title" class="quick-settings-detail-title">-</div>
-              </div>
-              <div class="quick-settings-detail-body">
-                <section class="quick-settings-pane" data-pane="conversation">
-                  <button type="button" class="quick-settings-item" data-action="conversation:new" data-i18n-key="newConversation">新建对话</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:import-session" data-i18n-key="importSession">导入会话JSONL</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:export-session" data-i18n-key="exportSession">导出当前会话JSONL</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:rename" data-i18n-key="renameConversation">重命名</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:close-current" data-i18n-key="closeCurrentConversation">关闭当前会话</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:clear-chat" data-i18n-key="clearChat">清空当前对话内容</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:retry-last" data-i18n-key="retryLast">重试上一条</button>
-                  <button type="button" class="quick-settings-item" data-action="conversation:stop" data-i18n-key="stop">停止</button>
-                </section>
+              <div id="quick-settings-detail" class="quick-settings-detail hidden">
+                <div class="quick-settings-detail-head">
+                  <div id="qs-detail-title" class="quick-settings-detail-title">-</div>
+                </div>
+                <div class="quick-settings-detail-body">
+                  <section class="quick-settings-pane" data-pane="conversation">
+                    <button type="button" class="quick-settings-item" data-action="conversation:new" data-i18n-key="newConversation">新建对话</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:import-session" data-i18n-key="importSession">导入会话JSONL</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:export-session" data-i18n-key="exportSession">导出当前会话JSONL</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:rename" data-i18n-key="renameConversation">重命名</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:close-current" data-i18n-key="closeCurrentConversation">关闭当前会话</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:clear-chat" data-i18n-key="clearChat">清空当前对话内容</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:retry-last" data-i18n-key="retryLast">重试上一条</button>
+                    <button type="button" class="quick-settings-item" data-action="conversation:stop" data-i18n-key="stop">停止</button>
+                  </section>
 
-                <section class="quick-settings-pane" data-pane="runtime">
-                  <button type="button" class="quick-settings-item" data-action="conversation:clear-runtime" data-i18n-key="clearRuntime">清空右侧运行日志</button>
-                </section>
+                  <section class="quick-settings-pane" data-pane="runtime">
+                    <button type="button" class="quick-settings-item" data-action="conversation:clear-runtime" data-i18n-key="clearRuntime">清空右侧运行日志</button>
+                  </section>
 
-                <section class="quick-settings-pane" data-pane="view">
-                  <button id="qs-toggle-settings" type="button" class="quick-settings-item" data-action="ui:toggle-settings">隐藏配置信息</button>
-                  <button id="qs-toggle-runtime" type="button" class="quick-settings-item" data-action="ui:toggle-runtime">隐藏右侧面板</button>
-                  <button id="qs-toggle-sidebar" type="button" class="quick-settings-item" data-action="ui:toggle-sidebar">隐藏左侧会话</button>
-                  <div class="quick-settings-toggle-row">
-                    <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
-                    <div class="quick-settings-font-row">
-                      <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
-                      <div class="quick-settings-number-wrap">
-                        <span id="zoom-factor-value" class="quick-settings-static-value" aria-live="polite">100%</span>
-                      </div>
-                      <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
-                    </div>
-                  </div>
-                  <div class="quick-settings-toggle-row">
-                    <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
-                    <div class="quick-settings-font-row">
-                      <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="15" />
-                      <div class="quick-settings-number-wrap">
-                        <input
-                          id="font-size-value"
-                          class="font-size-value quick-settings-font-value"
-                          type="number"
-                          min="12"
-                          max="24"
-                          step="1"
-                          value="15"
-                          inputmode="numeric"
-                          aria-label="chat font size"
-                        />
-                        <span class="quick-settings-number-suffix">px</span>
+                  <section class="quick-settings-pane" data-pane="view">
+                    <button id="qs-toggle-settings" type="button" class="quick-settings-item" data-action="ui:toggle-settings">隐藏配置信息</button>
+                    <button id="qs-toggle-runtime" type="button" class="quick-settings-item" data-action="ui:toggle-runtime">隐藏右侧面板</button>
+                    <button id="qs-toggle-sidebar" type="button" class="quick-settings-item" data-action="ui:toggle-sidebar">隐藏左侧会话</button>
+                    <div class="quick-settings-toggle-row">
+                      <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
+                      <div class="quick-settings-font-row">
+                        <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
+                        <div class="quick-settings-number-wrap">
+                          <span id="zoom-factor-value" class="quick-settings-static-value" aria-live="polite">100%</span>
+                        </div>
+                        <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
                       </div>
                     </div>
-                  </div>
-                  <div class="quick-settings-toggle-row">
-                    <span class="quick-settings-inline-label" data-i18n-key="language">语言</span>
-                    <div class="quick-settings-segmented">
-                      <button id="qs-lang-zh" type="button" class="quick-settings-pill" data-action="ui:language:zh-CN" data-i18n-key="languageZh">中文</button>
-                      <button id="qs-lang-en" type="button" class="quick-settings-pill" data-action="ui:language:en-US" data-i18n-key="languageEn">English</button>
+                    <div class="quick-settings-toggle-row">
+                      <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
+                      <div class="quick-settings-font-row">
+                        <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="15" />
+                        <div class="quick-settings-number-wrap">
+                          <input
+                            id="font-size-value"
+                            class="font-size-value quick-settings-font-value"
+                            type="number"
+                            min="12"
+                            max="24"
+                            step="1"
+                            value="15"
+                            inputmode="numeric"
+                            aria-label="chat font size"
+                          />
+                          <span class="quick-settings-number-suffix">px</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div class="quick-settings-toggle-row">
-                    <span class="quick-settings-inline-label" data-i18n-key="theme">主题</span>
-                    <div class="quick-settings-segmented">
-                      <button id="qs-theme-light" type="button" class="quick-settings-pill" data-action="ui:theme:light" data-i18n-key="themeLight">浅色</button>
-                      <button id="qs-theme-dark" type="button" class="quick-settings-pill" data-action="ui:theme:dark" data-i18n-key="themeDark">深色</button>
+                    <div class="quick-settings-toggle-row">
+                      <span class="quick-settings-inline-label" data-i18n-key="language">语言</span>
+                      <div class="quick-settings-segmented">
+                        <button id="qs-lang-zh" type="button" class="quick-settings-pill" data-action="ui:language:zh-CN" data-i18n-key="languageZh">中文</button>
+                        <button id="qs-lang-en" type="button" class="quick-settings-pill" data-action="ui:language:en-US" data-i18n-key="languageEn">English</button>
+                      </div>
                     </div>
+                    <div class="quick-settings-toggle-row">
+                      <span class="quick-settings-inline-label" data-i18n-key="theme">主题</span>
+                      <div class="quick-settings-segmented">
+                        <button id="qs-theme-light" type="button" class="quick-settings-pill" data-action="ui:theme:light" data-i18n-key="themeLight">浅色</button>
+                        <button id="qs-theme-dark" type="button" class="quick-settings-pill" data-action="ui:theme:dark" data-i18n-key="themeDark">深色</button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="window">
+                    <button type="button" class="quick-settings-item" data-action="window:minimize" data-i18n-key="minimize">最小化</button>
+                    <button type="button" class="quick-settings-item" data-action="window:toggle-fullscreen" data-i18n-key="fullscreen">全屏</button>
+                    <button type="button" class="quick-settings-item" data-action="window:exit-fullscreen" data-i18n-key="exitFullscreen">退出全屏</button>
+                    <button type="button" class="quick-settings-item" data-action="app:close-window" data-i18n-key="closeWindow">关闭窗口</button>
+                    <button type="button" class="quick-settings-item" data-action="app:quit" data-i18n-key="quit">退出</button>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="help">
+                    <button type="button" class="quick-settings-item" data-action="help:about" data-i18n-key="about">关于 Codex Desk</button>
+                  </section>
+                  <div class="quick-settings-detail-footer">
+                    <button id="qs-back" type="button" class="quick-settings-item quick-settings-back-row" data-i18n-key="settingsBack">返回</button>
                   </div>
-                </section>
-
-                <section class="quick-settings-pane" data-pane="window">
-                  <button type="button" class="quick-settings-item" data-action="window:minimize" data-i18n-key="minimize">最小化</button>
-                  <button type="button" class="quick-settings-item" data-action="window:toggle-fullscreen" data-i18n-key="fullscreen">全屏</button>
-                  <button type="button" class="quick-settings-item" data-action="window:exit-fullscreen" data-i18n-key="exitFullscreen">退出全屏</button>
-                  <button type="button" class="quick-settings-item" data-action="app:close-window" data-i18n-key="closeWindow">关闭窗口</button>
-                  <button type="button" class="quick-settings-item" data-action="app:quit" data-i18n-key="quit">退出</button>
-                </section>
-
-                <section class="quick-settings-pane" data-pane="help">
-                  <button type="button" class="quick-settings-item" data-action="help:about" data-i18n-key="about">关于 Codex Desk</button>
-                </section>
-                <div class="quick-settings-detail-footer">
-                  <button id="qs-back" type="button" class="quick-settings-item quick-settings-back-row" data-i18n-key="settingsBack">返回</button>
                 </div>
               </div>
             </div>
           </div>
+          <label class="sidebar-search-shell" for="sidebar-search-input">
+            <span class="sidebar-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16 16l4 4" />
+              </svg>
+            </span>
+            <input id="sidebar-search-input" class="sidebar-search-input" type="text" placeholder="搜索会话" />
+          </label>
+          <button id="btn-sidebar-new-conv" class="sidebar-compose-btn" type="button" aria-label="新建对话" title="新建对话">
+            <span class="sidebar-compose-icon" aria-hidden="true">+</span>
+          </button>
         </div>
       </div>
       <div class="sidebar-actions sidebar-legacy-actions" hidden>
@@ -163,6 +183,12 @@
           <span id="label-session-id">ID</span>:
           <button id="btn-session-id" class="meta-link-button session-id-button" type="button">
             <span id="session-id">-</span>
+            <span class="session-id-copy-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <rect x="9" y="9" width="10" height="10" rx="2" />
+                <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" />
+              </svg>
+            </span>
           </button>
         </div>
         <div id="phase-chip" class="meta-chip phase-chip"><span id="label-phase">状态</span>: <span id="phase">空闲</span></div>
@@ -200,17 +226,15 @@
 
         <div id="runtime-panel" class="runtime-panel">
           <div class="tabs">
-            <button id="tab-btn-status" class="tab-btn active" data-tab="status">运行状态</button>
+            <button id="tab-btn-workflow" class="tab-btn active" data-tab="workflow">运行步骤</button>
             <button id="tab-btn-structured" class="tab-btn" data-tab="structured">结构化事件</button>
-            <button id="tab-btn-workflow" class="tab-btn" data-tab="workflow">运行步骤</button>
-            <button id="tab-btn-raw" class="tab-btn" data-tab="raw">事件原文(JSON)</button>
+            <button id="tab-btn-raw" class="tab-btn" data-tab="raw">事件原文</button>
           </div>
 
           <div class="tab-content">
-            <div id="tab-status" class="tab-pane active"></div>
+            <div id="tab-workflow" class="tab-pane active"></div>
             <div id="tab-structured" class="tab-pane"></div>
-            <div id="tab-workflow" class="tab-pane"></div>
-            <pre id="tab-raw" class="tab-pane raw-pane"></pre>
+            <div id="tab-raw" class="tab-pane raw-pane"></div>
           </div>
         </div>
       </section>

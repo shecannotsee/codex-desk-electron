@@ -7,6 +7,7 @@ import type {
   ConfirmDialogOptions,
   ImportSessionPreview,
   ImportWorkdirChoice,
+  RawEventEntry,
   RenderJobs,
   RuntimeEventItem,
   RuntimeState,
@@ -71,7 +72,6 @@ import {
   renderRawTab,
   renderRunButtons,
   renderRuntime,
-  renderRuntimeStatusTab,
   renderSettings,
   renderStructuredTab,
   renderTabs,
@@ -173,7 +173,6 @@ function createRenderJobs(): RenderJobs {
     chatTransient: false,
     runtime: false,
     runtimeStructured: false,
-    runtimeStatus: false,
     runtimeWorkflow: false,
     runtimeRaw: false,
     runButtons: false,
@@ -231,15 +230,12 @@ function flushScheduledRender() {
   if (jobs.runtime) {
     renderRuntime();
   } else {
-    if (!hasActiveConversation() && (jobs.runtimeStructured || jobs.runtimeStatus || jobs.runtimeWorkflow || jobs.runtimeRaw)) {
+    if (!hasActiveConversation() && (jobs.runtimeStructured || jobs.runtimeWorkflow || jobs.runtimeRaw)) {
       renderRuntime();
     } else {
       const runtime = hasActiveConversation() ? ensureRuntime(state.activeConversationId) : null;
       if (jobs.runtimeStructured && runtime) {
         renderStructuredTab(runtime);
-      }
-      if (jobs.runtimeStatus && runtime) {
-        renderRuntimeStatusTab(runtime, stickChatToBottom);
       }
       if (jobs.runtimeWorkflow && runtime) {
         renderWorkflowTab(runtime, stickChatToBottom);
@@ -312,9 +308,6 @@ function applyEvent(event: AppEvent | null | undefined) {
       ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
         if (state.activeTab === 'workflow') {
           renderJobs.runtimeWorkflow = true;
         }
@@ -330,9 +323,6 @@ function applyEvent(event: AppEvent | null | undefined) {
       }
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
         if (state.activeTab === 'workflow') {
           renderJobs.runtimeWorkflow = true;
         }
@@ -340,7 +330,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       break;
     }
     case 'runtime-raw-append':
-      ensureRuntime(id).raw.push(String(event.line || ''));
+      ensureRuntime(id).raw.push((event.line || '') as string | RawEventEntry);
       if (isActiveConversation && state.activeTab === 'raw') {
         renderJobs.runtimeRaw = true;
       }
@@ -352,18 +342,12 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
       }
       break;
     case 'runtime-started-at':
       ensureRuntime(id).startedAt = typeof event.startedAt === 'number' ? event.startedAt : null;
       if (isActiveConversation) {
         renderJobs.header = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
       }
       break;
     case 'runtime-reset':
@@ -435,9 +419,6 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
       }
       break;
     case 'queue-updated':
@@ -452,9 +433,6 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'status') {
-          renderJobs.runtimeStatus = true;
-        }
         if (state.activeTab === 'workflow') {
           renderJobs.runtimeWorkflow = true;
         }
@@ -1808,7 +1786,7 @@ async function init() {
       applyCaptureMockData();
 
       el.inputBox.value = '请输出发布前的检查清单。';
-      state.activeTab = 'status';
+      state.activeTab = 'workflow';
       renderAll();
       await capture('workflow-step-1-input.png');
 
@@ -1835,7 +1813,7 @@ async function init() {
         ];
         conv.updatedAt = now;
       }
-      state.activeTab = 'status';
+      state.activeTab = 'workflow';
       renderAll();
       await capture('workflow-step-3-result.png');
 
@@ -2206,7 +2184,7 @@ async function init() {
         } else {
           throw new Error('clipboard unavailable');
         }
-        el.btnSessionId.title = fullValue;
+        el.btnSessionId.title = t('clickToCopy');
         flashCopiedState();
       } catch {
         const range = document.createRange();
@@ -2216,7 +2194,7 @@ async function init() {
         selection?.addRange(range);
         try {
           document.execCommand('copy');
-          el.btnSessionId.title = fullValue;
+          el.btnSessionId.title = t('clickToCopy');
           flashCopiedState();
         } finally {
           selection?.removeAllRanges();
@@ -2351,6 +2329,14 @@ async function init() {
     state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
   });
 
+  el.sidebarSearchInput.addEventListener('input', () => {
+    renderConversationList();
+  });
+
+  el.btnSidebarNewConv.addEventListener('click', () => {
+    el.btnNewConv.click();
+  });
+
   el.inputBox.addEventListener('keydown', async (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       event.preventDefault();
@@ -2361,16 +2347,14 @@ async function init() {
   el.tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const nextTab = btn.getAttribute('data-tab');
-      state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured' || nextTab === 'status'
+      state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
         ? nextTab
-        : 'status';
+        : 'workflow';
       renderRuntime();
       renderTabs();
       window.requestAnimationFrame(() => {
         let pane = el.tabStructured;
-        if (state.activeTab === 'status') {
-          pane = el.tabStatus;
-        } else if (state.activeTab === 'workflow') {
+        if (state.activeTab === 'workflow') {
           pane = el.tabWorkflow;
         } else if (state.activeTab === 'raw') {
           pane = el.tabRaw;
@@ -2451,16 +2435,6 @@ async function init() {
     renderHeader();
     renderRunButtons();
   }, 200);
-
-  setInterval(() => {
-    if (state.activeTab !== 'status' || !hasActiveConversation()) {
-      return;
-    }
-    if (!isConversationRunning(state.activeConversationId)) {
-      return;
-    }
-    renderRuntimeStatusTab(ensureRuntime(state.activeConversationId), false);
-  }, 1000);
 }
 
 init();

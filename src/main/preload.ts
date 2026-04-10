@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('codexdesk', {
   getAppInfo: () => ipcRenderer.invoke('app:get-info'),
@@ -25,7 +25,15 @@ contextBridge.exposeInMainWorld('codexdesk', {
   refreshModelInfo: (conversationId) => ipcRenderer.invoke('meta:refresh-model', { conversationId }),
 
   sendMessage: (conversationId, text) => ipcRenderer.invoke('chat:send', { conversationId, text }),
+  insertMessage: (conversationId, text) => ipcRenderer.invoke('chat:insert', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
+  getPathForFile: (file) => {
+    try {
+      return String(webUtils.getPathForFile(file) || '');
+    } catch {
+      return '';
+    }
+  },
   setMenuLanguage: (language) => ipcRenderer.invoke('ui:set-menu-language', { language }),
   setWindowTheme: (theme) => ipcRenderer.invoke('ui:set-window-theme', { theme }),
   getZoomFactor: () => ipcRenderer.invoke('ui:get-zoom-factor'),

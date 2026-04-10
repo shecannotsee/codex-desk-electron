@@ -23,13 +23,13 @@ function normalizeAssistantCompareText(text) {
 }
 
 class CodexAppServerRunner extends EventEmitter {
-  constructor({ commandText, prompt, workdir, sessionId = '', mode = 'fork' }) {
+  constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
     super();
     this.commandText = commandText;
     this.prompt = prompt;
     this.workdir = workdir;
     this.sessionId = sessionId;
-    this.mode = mode === 'resume' ? 'resume' : 'fork';
+    this.mode = mode === 'resume' || mode === 'fork' ? mode : 'start';
     this.childEnv = getCodexChildEnv();
 
     this.proc = null;
@@ -41,15 +41,55 @@ class CodexAppServerRunner extends EventEmitter {
     this.assistantChunks = [];
     this.lastAssistantUpdateText = '';
     this.threadId = sessionId;
+    this.activeTurnId = '';
     this.rawLines = [];
   }
 
   stop() {
     this.stopped = true;
-    if (this.proc && !this.proc.killed) {
-      this.emit('status', '正在停止当前任务...');
-      this.proc.kill('SIGTERM');
+    if (!this.proc || this.proc.killed) {
+      return;
     }
+    this.emit('status', '正在停止当前任务...');
+    if (this.threadId && this.activeTurnId) {
+      this._sendRequest('turn/interrupt', {
+        threadId: this.threadId,
+        turnId: this.activeTurnId,
+      }).catch(() => {
+        if (this.proc && !this.proc.killed) {
+          this.proc.kill('SIGTERM');
+        }
+      });
+      return;
+    }
+    this.proc.kill('SIGTERM');
+  }
+
+  async steer(text) {
+    const body = String(text || '').trim();
+    if (!body) {
+      throw new Error('插入内容不能为空');
+    }
+    if (!this.proc || !this.proc.stdin || this.proc.stdin.destroyed) {
+      throw new Error('当前运行实例不可用');
+    }
+    if (!this.threadId || !this.activeTurnId) {
+      throw new Error('当前没有可插入的进行中任务');
+    }
+    this.emit('event', 'hint', `已插入新指令: ${this._trimForStep(body, 160)}`);
+    const result = await this._sendRequest('turn/steer', {
+      threadId: this.threadId,
+      input: [{ type: 'text', text: body }],
+      expectedTurnId: this.activeTurnId,
+    }) as any;
+    const acceptedTurnId = String(result?.turnId || result?.turn?.id || '').trim();
+    if (acceptedTurnId && this.activeTurnId && acceptedTurnId !== this.activeTurnId) {
+      throw new Error('服务器返回了不匹配的 turnId');
+    }
+    return {
+      ok: true,
+      turnId: acceptedTurnId || this.activeTurnId,
+    };
   }
 
   async run() {
@@ -71,25 +111,38 @@ class CodexAppServerRunner extends EventEmitter {
       });
       this._sendNotification('initialized', {});
 
-      const threadResponse = await this._sendRequest(
-        this.mode === 'fork' ? 'thread/fork' : 'thread/resume',
-        { threadId: this.sessionId },
-      ) as any;
+      let threadResponse = null;
+      if (this.mode === 'fork') {
+        threadResponse = await this._sendRequest('thread/fork', {
+          threadId: this.sessionId,
+        }) as any;
+      } else if (this.mode === 'resume') {
+        threadResponse = await this._sendRequest('thread/resume', {
+          threadId: this.sessionId,
+        }) as any;
+      } else {
+        threadResponse = await this._sendRequest('thread/start', {
+          ...(settings.model ? { model: settings.model } : {}),
+        }) as any;
+      }
 
       const thread = threadResponse?.thread || {};
-      const threadId = String(thread.id || '').trim();
+      const threadId = String(thread.id || threadResponse?.threadId || threadResponse?.id || '').trim();
       if (!threadId) {
         throw new Error('app-server 未返回新的会话 ID');
       }
       this.threadId = threadId;
       this.emit('meta', '会话ID', threadId);
-      if (threadResponse?.model) {
-        this.emit('meta', '模型', String(threadResponse.model));
+      const resolvedModel = String(threadResponse?.model || settings.model || '').trim();
+      if (resolvedModel) {
+        this.emit('meta', '模型', resolvedModel);
       }
       if (this.mode === 'fork') {
         this.emit('event', 'hint', `已分叉原生会话: ${this.sessionId} -> ${threadId}`);
-      } else {
+      } else if (this.mode === 'resume') {
         this.emit('event', 'hint', `已恢复原生会话: ${threadId}`);
+      } else {
+        this.emit('event', 'hint', `已创建原生会话: ${threadId}`);
       }
 
       const turnResponse = await this._sendRequest('turn/start', {
@@ -101,10 +154,11 @@ class CodexAppServerRunner extends EventEmitter {
         ...(settings.model ? { model: settings.model } : {}),
       }) as any;
 
-      const turnId = String(turnResponse?.turn?.id || '').trim();
+      const turnId = String(turnResponse?.turn?.id || turnResponse?.turnId || '').trim();
       if (!turnId) {
         throw new Error('app-server 未返回 turn id');
       }
+      this.activeTurnId = turnId;
 
       const result = await this._waitForTurnCompleted(turnId) as any;
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
@@ -259,6 +313,10 @@ class CodexAppServerRunner extends EventEmitter {
 
   _handleNotification(method, params) {
     if (method === 'turn/started') {
+      const turnId = String(params?.turn?.id || params?.turnId || '').trim();
+      if (turnId) {
+        this.activeTurnId = turnId;
+      }
       this.emit('status', '正在分析请求...');
       this.emit('event', 'info', 'turn.started');
       return;
@@ -286,6 +344,10 @@ class CodexAppServerRunner extends EventEmitter {
 
     if (method === 'turn/completed') {
       const status = String(params?.turn?.status || '').toLowerCase();
+      const turnId = String(params?.turn?.id || params?.turnId || '').trim();
+      if (turnId && (!this.activeTurnId || turnId === this.activeTurnId)) {
+        this.activeTurnId = '';
+      }
       const usage = this._extractUsagePayload(params);
       if (usage) {
         this._emitUsageMeta(usage);
@@ -297,6 +359,10 @@ class CodexAppServerRunner extends EventEmitter {
         this.emit('status', '任务完成');
         this.emit('event', 'success', 'turn.completed');
         this.pendingTurn.resolve({ exitCode: 0 });
+      } else if (status === 'interrupted') {
+        this.emit('status', '任务已停止');
+        this.emit('event', 'warn', 'turn.interrupted');
+        this.pendingTurn.resolve({ exitCode: 130 });
       } else {
         const message = String(params?.turn?.error?.message || status || 'turn failed');
         this.emit('status', '任务失败');

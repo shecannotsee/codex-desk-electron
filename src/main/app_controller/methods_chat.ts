@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 
 const { nowTs, getConversation, sortedConversations } = require('../conversation_service');
-const { CodexRunner } = require('../codex_runner');
+const { CodexRunner, splitShellArgs } = require('../codex_runner');
 const { CodexAppServerRunner } = require('../codex_app_server_runner');
 const { normalizePreview } = require('./shared');
 
@@ -14,6 +14,13 @@ function normalizeAssistantRuntimeText(text) {
 }
 
 const USAGE_META_KEYS = new Set(['输入Tokens', '缓存输入Tokens', '输出Tokens', '总Tokens']);
+
+function supportsAppServer(commandText) {
+  const parts = splitShellArgs(commandText);
+  return parts.length >= 2
+    && /codex/i.test(String(parts[0] || ''))
+    && String(parts[1] || '') === 'exec';
+}
 
 const chatMethods = {
   closeCurrentConversation() {
@@ -144,6 +151,46 @@ const chatMethods = {
     });
   },
 
+  async insertMessage({ conversationId, text }) {
+    const targetId = conversationId || this.activeConversationId;
+    if (!targetId) {
+      return { error: '请先新建对话。', snapshot: this.snapshot() };
+    }
+    const conv = getConversation(this.conversations, targetId);
+    if (!conv) {
+      return { error: '会话不存在', snapshot: this.snapshot() };
+    }
+    const userText = String(text || '').trim();
+    if (!userText) {
+      return { error: '消息不能为空', snapshot: this.snapshot() };
+    }
+    const runner = this.runners.get(targetId);
+    if (!runner) {
+      return { error: '当前没有进行中的任务。', snapshot: this.snapshot() };
+    }
+    if (typeof runner.steer !== 'function') {
+      return { error: '当前运行模式不支持插入对话，请改用排队发送。', snapshot: this.snapshot() };
+    }
+
+    try {
+      await runner.steer(userText);
+    } catch (error) {
+      return { error: `插入对话失败: ${error?.message || String(error)}`, snapshot: this.snapshot() };
+    }
+
+    conv.messages.push({ role: 'user', text: userText, createdAt: nowTs() });
+    conv.updatedAt = nowTs();
+    this._syncConversationUpdated(conv);
+
+    const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+    const stepIndex = (this.stepIndexByRunner.get(runner) || 0) + 1;
+    this.stepIndexByRunner.set(runner, stepIndex);
+    this._appendWorkflowStep(targetId, `R${currentRound}-S${stepIndex}. 插入指令: ${userText}`);
+    this._appendStructuredEvent(targetId, 'hint', `已插入指令: ${normalizePreview(userText)}`);
+    this._persist();
+    return { ok: true, inserted: true, snapshot: this.snapshot() };
+  },
+
   async sendMessage({ conversationId, text, appendUserMessage = true, forceFreshSession = false, fromRetry = false }) {
     const targetId = conversationId || this.activeConversationId;
     if (!targetId) {
@@ -218,22 +265,28 @@ const chatMethods = {
     this._persist();
 
     const prompt = userText;
-    const shouldForkImportedSession = this.useNativeMemory
-      && !forceFreshSession
-      && String(conv.sessionId || '').trim()
-      && String(conv.sessionContinuationMode || '').trim() === 'fork';
+    const useAppServer = this.useNativeMemory && supportsAppServer(this.commandText);
+    const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
+    const continuationMode = String(conv.sessionContinuationMode || '').trim();
+    const appServerMode = !useAppServer
+      ? ''
+      : forceFreshSession || !hasStoredSession
+        ? 'start'
+        : continuationMode === 'fork'
+          ? 'fork'
+          : 'resume';
 
-    if (shouldForkImportedSession) {
+    if (appServerMode === 'fork') {
       this._appendStructuredEvent(targetId, 'hint', '本次将先分叉导入的原生会话（fork），后续继续新的 thread id');
     }
 
-    const runner = shouldForkImportedSession
+    const runner = useAppServer
       ? new CodexAppServerRunner({
         commandText: this.commandText,
         prompt,
         workdir,
         sessionId: conv.sessionId || '',
-        mode: 'fork',
+        mode: appServerMode || 'start',
       })
       : new CodexRunner({
         commandText: this.commandText,
@@ -342,19 +395,17 @@ const chatMethods = {
       }
 
       const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
-      const normalizedFinalText = normalizeAssistantRuntimeText(finalText);
+      while (this._removeLastStructuredEventIf(
+        targetId,
+        (item) => item?.kind === 'assistant-update',
+      )) {}
+      while (this._removeLastWorkflowItemIf(
+        targetId,
+        (item) => item.type === 'assistant'
+          && item.status === 'running'
+          && Number(item.roundIndex || 0) === currentRound,
+      )) {}
       if (finalText && targetConv) {
-        this._removeLastStructuredEventIf(
-          targetId,
-          (item) => item?.kind === 'assistant-update'
-            && normalizeAssistantRuntimeText(item.body || '') === normalizedFinalText,
-        );
-        this._removeLastWorkflowItemIf(
-          targetId,
-          (item) => item.type === 'assistant'
-            && item.status === 'running'
-            && normalizeAssistantRuntimeText(item.body || '') === normalizedFinalText,
-        );
         this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
         targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
       } else if (!finalText && targetConv && result.exitCode === 0) {

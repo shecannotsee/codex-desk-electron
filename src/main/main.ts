@@ -738,6 +738,13 @@ function registerIpc() {
     });
   });
 
+  ipcMain.handle('chat:insert', async (_, payload) => {
+    return controller.insertMessage({
+      conversationId: String(payload?.conversationId || ''),
+      text: String(payload?.text || ''),
+    });
+  });
+
   ipcMain.handle('chat:retry-last', async (_, payload) => {
     return controller.retryLastMessage(String(payload?.conversationId || ''));
   });

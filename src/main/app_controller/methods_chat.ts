@@ -13,6 +13,61 @@ function normalizeAssistantRuntimeText(text) {
     .trim();
 }
 
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.tif', '.tiff']);
+
+function attachmentBasename(filePath) {
+  const raw = String(filePath || '').trim();
+  if (!raw) {
+    return '';
+  }
+  const parts = raw.split(/[\\/]/);
+  return parts[parts.length - 1] || raw;
+}
+
+function looksLikeImageAttachment(item) {
+  const mimeType = String(item?.mimeType || '').trim().toLowerCase();
+  if (mimeType.startsWith('image/')) {
+    return true;
+  }
+  const filePath = String(item?.path || '').trim().toLowerCase();
+  for (const ext of IMAGE_EXTENSIONS) {
+    if (filePath.endsWith(ext)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function normalizeAttachments(attachments) {
+  const list = Array.isArray(attachments) ? attachments : [];
+  const seen = new Set();
+  return list
+    .map((item) => {
+      const path = String(item?.path || '').trim();
+      if (!path || seen.has(path) || !fs.existsSync(path)) {
+        return null;
+      }
+      seen.add(path);
+      return {
+        path,
+        name: String(item?.name || '').trim() || attachmentBasename(path),
+        mimeType: String(item?.mimeType || '').trim(),
+        size: Number(item?.size || 0) || 0,
+        kind: looksLikeImageAttachment(item) ? 'image' : String(item?.kind || '').trim(),
+      };
+    })
+    .filter((item) => item && item.kind === 'image');
+}
+
+function appendAttachmentPreview(text, attachments) {
+  const preview = normalizePreview(text);
+  const count = Array.isArray(attachments) ? attachments.length : 0;
+  if (count <= 0) {
+    return preview;
+  }
+  return `${preview} [附件 ${count}]`;
+}
+
 const USAGE_META_KEYS = new Set(['输入Tokens', '缓存输入Tokens', '输出Tokens', '总Tokens']);
 
 function supportsAppServer(commandText) {
@@ -145,6 +200,7 @@ const chatMethods = {
     return this.sendMessage({
       conversationId: targetId,
       text: String(lastUser.text || ''),
+      attachments: Array.isArray(lastUser.attachments) ? lastUser.attachments : [],
       appendUserMessage: false,
       forceFreshSession: conv.sessionContinuationMode === 'fork' ? false : true,
       fromRetry: true,
@@ -191,7 +247,7 @@ const chatMethods = {
     return { ok: true, inserted: true, snapshot: this.snapshot() };
   },
 
-  async sendMessage({ conversationId, text, appendUserMessage = true, forceFreshSession = false, fromRetry = false }) {
+  async sendMessage({ conversationId, text, attachments = [], appendUserMessage = true, forceFreshSession = false, fromRetry = false }) {
     const targetId = conversationId || this.activeConversationId;
     if (!targetId) {
       return { error: '请先新建对话。', snapshot: this.snapshot() };
@@ -202,6 +258,7 @@ const chatMethods = {
     }
 
     const userText = String(text || '').trim();
+    const normalizedAttachments = normalizeAttachments(attachments);
     if (!userText) {
       return { error: '消息不能为空', snapshot: this.snapshot() };
     }
@@ -215,13 +272,14 @@ const chatMethods = {
       const queue = this._getPendingQueue(targetId);
       queue.push({
         text: userText,
+        attachments: normalizedAttachments,
         appendUserMessage: Boolean(appendUserMessage),
         forceFreshSession: Boolean(forceFreshSession),
         fromRetry: Boolean(fromRetry),
         queuedAt: Date.now(),
       });
       this._emitQueueUpdated(targetId);
-      this._appendStructuredEvent(targetId, 'hint', `当前仍在处理中，已加入排队（第 ${queue.length} 条）: ${normalizePreview(userText)}`);
+      this._appendStructuredEvent(targetId, 'hint', `当前仍在处理中，已加入排队（第 ${queue.length} 条）: ${appendAttachmentPreview(userText, normalizedAttachments)}`);
       this._persist();
       return { queued: true, snapshot: this.snapshot() };
     }
@@ -237,10 +295,15 @@ const chatMethods = {
 
     let appendedUserMessage = null;
     if (appendUserMessage) {
-      conv.messages.push({ role: 'user', text: userText, createdAt: nowTs() });
+      conv.messages.push({
+        role: 'user',
+        text: userText,
+        attachments: normalizedAttachments,
+        createdAt: nowTs(),
+      });
       appendedUserMessage = conv.messages[conv.messages.length - 1] || null;
     } else if (fromRetry) {
-      this._appendStructuredEvent(targetId, 'info', `用户手动重试上一条消息: ${normalizePreview(userText)}`);
+      this._appendStructuredEvent(targetId, 'info', `用户手动重试上一条消息: ${appendAttachmentPreview(userText, normalizedAttachments)}`);
     }
     conv.updatedAt = nowTs();
     this._syncConversationUpdated(conv);
@@ -265,7 +328,8 @@ const chatMethods = {
     this._persist();
 
     const prompt = userText;
-    const useAppServer = this.useNativeMemory && supportsAppServer(this.commandText);
+    const hasAttachments = normalizedAttachments.length > 0;
+    const useAppServer = this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();
     const appServerMode = !useAppServer
@@ -279,6 +343,12 @@ const chatMethods = {
     if (appServerMode === 'fork') {
       this._appendStructuredEvent(targetId, 'hint', '本次将先分叉导入的原生会话（fork），后续继续新的 thread id');
     }
+    if (hasAttachments) {
+      this._appendStructuredEvent(targetId, 'hint', `本次请求附带 ${normalizedAttachments.length} 个图片附件`);
+    }
+    if (hasAttachments && supportsAppServer(this.commandText)) {
+      this._appendStructuredEvent(targetId, 'hint', `检测到 ${normalizedAttachments.length} 个图片附件，已切换到 exec --image 模式`);
+    }
 
     const runner = useAppServer
       ? new CodexAppServerRunner({
@@ -291,6 +361,7 @@ const chatMethods = {
       : new CodexRunner({
         commandText: this.commandText,
         prompt,
+        attachments: normalizedAttachments,
         workdir,
         sessionId: conv.sessionId || '',
         useNativeMemory: this.useNativeMemory,
@@ -432,7 +503,6 @@ const chatMethods = {
       runtimeState.startedAt = null;
       this._emit({ type: 'runtime-started-at', conversationId: targetId, startedAt: null });
       this._setPhase(targetId, runtimeState.phase || '空闲');
-
       this._releaseRunner(targetId, runner);
       this._persist();
       this._startNextQueuedMessage(targetId);

@@ -36,10 +36,11 @@ function splitShellArgs(commandText) {
 }
 
 class CodexRunner extends EventEmitter {
-  constructor({ commandText, prompt, workdir, sessionId = '', useNativeMemory = true }) {
+  constructor({ commandText, prompt, attachments = [], workdir, sessionId = '', useNativeMemory = true }) {
     super();
     this.commandText = commandText;
     this.prompt = prompt;
+    this.attachments = Array.isArray(attachments) ? attachments : [];
     this.workdir = workdir;
     this.sessionId = sessionId;
     this.useNativeMemory = useNativeMemory;
@@ -185,6 +186,7 @@ class CodexRunner extends EventEmitter {
       session_id: this.sessionId || '',
       use_native_memory: Boolean(this.useNativeMemory),
       workdir: this.workdir || process.cwd(),
+      attachments: this.attachments.map((item) => String(item?.path || '').trim()).filter(Boolean),
       command: command.length > 1 ? command.slice(0, -1) : command,
       prompt,
     };
@@ -198,15 +200,22 @@ class CodexRunner extends EventEmitter {
     const [normalized, isCodexExec] = this._normalizeBaseOptions(baseCmd);
     if (!isCodexExec) {
       this.emit('event', 'warn', '当前命令不是 `codex exec`，已退化为单次执行模式。');
+      if (this.attachments.length) {
+        this.emit('event', 'warn', '当前命令不支持真实附件，已忽略附件参数。');
+      }
       return [...normalized, this.prompt];
     }
 
     const codexBin = normalized[0];
     const execOpts = normalized.slice(2);
+    const imageArgs = this.attachments
+      .map((item) => String(item?.path || '').trim())
+      .filter(Boolean)
+      .flatMap((filePath) => ['--image', filePath]);
 
     if (this.useNativeMemory && this.sessionId && !forceNewSession) {
       this.emit('event', 'hint', `使用原生会话续聊: ${this.sessionId}`);
-      return [codexBin, 'exec', ...execOpts, 'resume', this.sessionId, this.prompt];
+      return [codexBin, 'exec', ...execOpts, ...imageArgs, 'resume', this.sessionId, this.prompt];
     }
 
     if (this.useNativeMemory) {
@@ -215,7 +224,7 @@ class CodexRunner extends EventEmitter {
       this.emit('event', 'hint', '当前为本地拼接上下文模式（非原生会话）');
     }
 
-    return [codexBin, 'exec', ...execOpts, this.prompt];
+    return [codexBin, 'exec', ...execOpts, ...imageArgs, this.prompt];
   }
 
   _normalizeBaseOptions(baseCmd): [string[], boolean] {

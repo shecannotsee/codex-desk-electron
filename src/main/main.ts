@@ -735,6 +735,7 @@ function registerIpc() {
     return controller.sendMessage({
       conversationId: String(payload?.conversationId || ''),
       text: String(payload?.text || ''),
+      attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
     });
   });
 

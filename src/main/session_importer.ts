@@ -60,6 +60,32 @@ function extractMessageText(payload) {
   return extractContentText(payload.content);
 }
 
+function extractAttachments(payload) {
+  const direct = Array.isArray(payload?.attachments) ? payload.attachments : [];
+  if (direct.length) {
+    return direct
+      .filter((item) => item && typeof item === 'object' && String(item.path || '').trim())
+      .map((item) => ({
+        path: String(item.path || '').trim(),
+        name: String(item.name || '').trim(),
+        mimeType: String(item.mimeType || '').trim(),
+        size: Number(item.size || 0) || 0,
+        kind: String(item.kind || '').trim(),
+      }));
+  }
+
+  const content = Array.isArray(payload?.content) ? payload.content : [];
+  return content
+    .filter((item) => item && typeof item === 'object' && String(item.type || '').trim() === 'input_image' && String(item.path || '').trim())
+    .map((item) => ({
+      path: String(item.path || '').trim(),
+      name: String(item.name || '').trim(),
+      mimeType: String(item.mime_type || item.mimeType || '').trim(),
+      size: Number(item.size || 0) || 0,
+      kind: 'image',
+    }));
+}
+
 function isEnvelopeUserMessage(role, text) {
   if (role !== 'user') {
     return false;
@@ -201,9 +227,11 @@ function importSessionJsonl(filePath) {
     }
 
     const createdAt = toUnixSeconds(record.timestamp);
+    const attachments = extractAttachments(payload);
     messages.push({
       role,
       text: contentText,
+      ...(attachments.length ? { attachments } : {}),
       createdAt: createdAt || undefined,
     });
   }

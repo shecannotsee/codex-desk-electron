@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   refreshCodexVersion: (conversationId) => ipcRenderer.invoke('meta:refresh-codex-version', { conversationId }),
   refreshModelInfo: (conversationId) => ipcRenderer.invoke('meta:refresh-model', { conversationId }),
 
-  sendMessage: (conversationId, text) => ipcRenderer.invoke('chat:send', { conversationId, text }),
+  sendMessage: (conversationId, text, attachments = []) => ipcRenderer.invoke('chat:send', { conversationId, text, attachments }),
   insertMessage: (conversationId, text) => ipcRenderer.invoke('chat:insert', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   getPathForFile: (file) => {

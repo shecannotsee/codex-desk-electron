@@ -95,6 +95,7 @@ const runtimeMethods = {
         index: index + 1,
         text: rawText,
         preview: normalizePreview(rawText, 200),
+        attachments: Array.isArray(item?.attachments) ? item.attachments : [],
         queuedAt,
         fromRetry: Boolean(item?.fromRetry),
       };
@@ -152,6 +153,7 @@ const runtimeMethods = {
     this.sendMessage({
       conversationId,
       text: String(next.text || ''),
+      attachments: Array.isArray(next.attachments) ? next.attachments : [],
       appendUserMessage: Boolean(next.appendUserMessage),
       forceFreshSession: Boolean(next.forceFreshSession),
       fromRetry: Boolean(next.fromRetry),

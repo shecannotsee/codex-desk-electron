@@ -33,6 +33,17 @@ function buildMessageRecord(message) {
   const role = String(message?.role || '').trim().toLowerCase() === 'assistant' ? 'assistant' : 'user';
   const text = String(message?.text || '').trim();
   const createdAt = Number(message?.createdAt || 0);
+  const attachments = Array.isArray(message?.attachments)
+    ? message.attachments
+      .filter((item) => item && String(item.path || '').trim())
+      .map((item) => ({
+        path: String(item.path || '').trim(),
+        name: String(item.name || '').trim(),
+        mimeType: String(item.mimeType || '').trim(),
+        size: Number(item.size || 0) || 0,
+        kind: String(item.kind || '').trim(),
+      }))
+    : [];
   return {
     timestamp: toIsoTimestamp(createdAt),
     type: 'response_item',
@@ -40,10 +51,17 @@ function buildMessageRecord(message) {
       type: 'message',
       role,
       text,
+      ...(attachments.length ? { attachments } : {}),
       content: [
         role === 'assistant'
           ? { type: 'output_text', text }
           : { type: 'input_text', text },
+        ...attachments.map((item) => ({
+          type: 'input_image',
+          path: item.path,
+          mime_type: item.mimeType,
+          name: item.name,
+        })),
       ],
     },
   };

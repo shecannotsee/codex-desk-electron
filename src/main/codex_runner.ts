@@ -83,6 +83,7 @@ class CodexRunner extends EventEmitter {
       const cmd = this._buildCommand(baseCmd, false);
       this.emit('status', '正在启动 Codex...');
       this.emit('event', 'hint', `执行命令: ${cmd.slice(0, -1).join(' ')} '<PROMPT>'`);
+      this._emitRawRequest(cmd);
       this._emitCodexVersion(cmd);
       this._emitModelFromCommand(cmd);
 
@@ -172,6 +173,24 @@ class CodexRunner extends EventEmitter {
         rawLines.push(`process error: ${error.message}`);
         resolve(1);
       });
+    });
+  }
+
+  _emitRawRequest(cmd) {
+    const command = Array.isArray(cmd) ? cmd.map((item) => String(item || '')) : [];
+    const prompt = String(this.prompt || '');
+    const payload = {
+      type: 'request.sent',
+      transport: 'codex-exec',
+      session_id: this.sessionId || '',
+      use_native_memory: Boolean(this.useNativeMemory),
+      workdir: this.workdir || process.cwd(),
+      command: command.length > 1 ? command.slice(0, -1) : command,
+      prompt,
+    };
+    this.emit('raw_line', {
+      direction: 'sent',
+      line: JSON.stringify(payload),
     });
   }
 

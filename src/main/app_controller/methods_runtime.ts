@@ -371,13 +371,24 @@ const runtimeMethods = {
     return true;
   },
 
-  _appendRawJsonLine(conversationId, line) {
-    if (!String(line || '').trimStart().startsWith('{')) {
+  _appendRawJsonLine(conversationId, payload, direction = 'received') {
+    const rawText = typeof payload === 'string'
+      ? payload
+      : String(payload?.line || '');
+    if (!String(rawText || '').trimStart().startsWith('{')) {
       return;
     }
+    const normalizedDirection = typeof payload === 'object' && payload
+      ? String(payload.direction || direction || 'received').trim().toLowerCase() || 'received'
+      : String(direction || 'received').trim().toLowerCase() || 'received';
+    const item = {
+      direction: normalizedDirection === 'sent' ? 'sent' : 'received',
+      line: rawText,
+      timestamp: tsLabel(),
+    };
     const runtime = this.runtimeStore.ensure(conversationId);
-    runtime.raw.push(line);
-    this._emit({ type: 'runtime-raw-append', conversationId, line });
+    runtime.raw.push(item);
+    this._emit({ type: 'runtime-raw-append', conversationId, line: item });
   },
 
   _setStartedAt(conversationId, startedAt) {

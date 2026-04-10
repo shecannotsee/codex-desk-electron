@@ -164,7 +164,7 @@ class CodexAppServerRunner extends EventEmitter {
           return;
         }
         this.rawLines.push(cleanLine);
-        this.emit('raw_line', cleanLine);
+        this.emit('raw_line', { direction: 'received', line: cleanLine });
         this._handleJsonRpcMessage(cleanLine);
       });
     };
@@ -350,7 +350,9 @@ class CodexAppServerRunner extends EventEmitter {
     if (!this.proc || !this.proc.stdin || this.proc.stdin.destroyed) {
       throw new Error('app-server stdin 不可用');
     }
-    this.proc.stdin.write(`${JSON.stringify(message)}\n`);
+    const line = JSON.stringify(message);
+    this.emit('raw_line', { direction: 'sent', line });
+    this.proc.stdin.write(`${line}\n`);
   }
 
   _sendNotification(method, params) {

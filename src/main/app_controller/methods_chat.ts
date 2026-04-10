@@ -203,6 +203,12 @@ const chatMethods = {
     runtime.phase = '准备中...';
     runtime.startedAt = Number(process.hrtime.bigint() / 1000000n);
 
+    while (this._removeLastStructuredEventIf(targetId, (item) => item?.kind === 'assistant-update')) {}
+    while (this._removeLastWorkflowItemIf(
+      targetId,
+      (item) => item?.type === 'assistant' && item?.status === 'running',
+    )) {}
+
     this._appendWorkflowRoundHeader(targetId, roundIndex, userText);
     this._appendWorkflowStep(targetId, `R${roundIndex}-S0. 请求: ${userText}`);
     this._appendStructuredEvent(targetId, 'info', '收到新请求，准备执行...');
@@ -295,6 +301,13 @@ const chatMethods = {
         return;
       }
       const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+      this._removeLastStructuredEventIf(targetId, (item) => item?.kind === 'assistant-update');
+      this._removeLastWorkflowItemIf(
+        targetId,
+        (item) => item?.type === 'assistant'
+          && item?.status === 'running'
+          && Number(item?.roundIndex || 0) === currentRound,
+      );
       this._appendStructuredAssistantUpdate(targetId, text);
       this._appendWorkflowAssistantUpdate(targetId, currentRound, text);
     });
@@ -342,6 +355,7 @@ const chatMethods = {
             && item.status === 'running'
             && normalizeAssistantRuntimeText(item.body || '') === normalizedFinalText,
         );
+        this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
         targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
       } else if (!finalText && targetConv && result.exitCode === 0) {
         this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');

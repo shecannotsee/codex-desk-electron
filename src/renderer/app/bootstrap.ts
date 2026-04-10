@@ -6,6 +6,7 @@ import type {
   CloseGuardPayload,
   ConfirmDialogOptions,
   ImportSessionPreview,
+  MessageAttachment,
   ImportWorkdirChoice,
   RawEventEntry,
   RenderJobs,
@@ -29,12 +30,15 @@ import {
   draftStorageKey,
   el,
   ensureChatVisibleCount,
+  getComposerAttachments,
   increaseChatVisibleCount,
   loadDraftPrefs,
   loadUiPrefs,
   localizeKnownText,
+  pruneComposerAttachments,
   syncChatVisibleCount,
   saveUiPrefs,
+  setComposerAttachments,
   setChatFontSize,
   setConversationDraft,
   setRenderHooks,
@@ -111,6 +115,70 @@ function extractDroppedPaths(dataTransfer: DataTransfer | null | undefined): str
     }
   });
   return [...seen];
+}
+
+function normalizeAttachmentFiles(files: File[] = []): MessageAttachment[] {
+  const seen = new Set<string>();
+  return files.map((file): MessageAttachment | null => {
+    const path = String(codexdesk.getPathForFile(file) || '').trim();
+    if (!path || seen.has(path)) {
+      return null;
+    }
+    seen.add(path);
+    return {
+      path,
+      name: String(file.name || '').trim(),
+      mimeType: String(file.type || '').trim(),
+      size: Number(file.size || 0) || 0,
+      kind: String(file.type || '').startsWith('image/') ? 'image' : '',
+    };
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
+function imageAttachmentsOnly(items: MessageAttachment[] = []): MessageAttachment[] {
+  return items.filter((item) => {
+    const mimeType = String(item?.mimeType || '').trim().toLowerCase();
+    if (mimeType.startsWith('image/')) {
+      return true;
+    }
+    const path = String(item?.path || item?.name || '').trim().toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp|svg|tiff?)$/.test(path);
+  });
+}
+
+function addComposerAttachments(items: MessageAttachment[] = []) {
+  const current = getComposerAttachments(state.activeConversationId);
+  const merged = [...current];
+  const seen = new Set(current.map((item) => String(item?.path || '').trim()).filter(Boolean));
+  items.forEach((item) => {
+    const path = String(item?.path || '').trim();
+    if (!path || seen.has(path)) {
+      return;
+    }
+    seen.add(path);
+    merged.push(item);
+  });
+  setComposerAttachments(state.activeConversationId, merged);
+  renderComposerDraft();
+}
+
+function removeComposerAttachment(index: number) {
+  if (!Number.isInteger(index) || index < 0) {
+    return;
+  }
+  const current = getComposerAttachments(state.activeConversationId);
+  current.splice(index, 1);
+  setComposerAttachments(state.activeConversationId, current);
+  renderComposerDraft();
+}
+
+function setAttachmentMenuOpen(open: boolean) {
+  if (!el.attachmentKindMenu || !el.btnAddAttachment) {
+    return;
+  }
+  const expanded = Boolean(open);
+  el.attachmentKindMenu.classList.toggle('hidden', !expanded);
+  el.btnAddAttachment.setAttribute('aria-expanded', expanded ? 'true' : 'false');
 }
 
 let lastInputBoxSelectionStart = 0;
@@ -228,6 +296,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
   });
   pruneChatVisibleCounts([...validIds]);
   pruneConversationDrafts([...validIds]);
+  pruneComposerAttachments([...validIds]);
 
   if (!state.activeConversationId && state.conversations.length) {
     state.activeConversationId = state.conversations[0].id;
@@ -2531,18 +2600,44 @@ async function init() {
     renderAll();
   });
 
+  el.btnAddAttachment.addEventListener('click', () => {
+    if (el.attachmentInput.disabled) {
+      return;
+    }
+    const willOpen = el.attachmentKindMenu.classList.contains('hidden');
+    setAttachmentMenuOpen(willOpen);
+  });
+
+  el.btnAddImageAttachment.addEventListener('click', () => {
+    if (el.attachmentInput.disabled) {
+      return;
+    }
+    setAttachmentMenuOpen(false);
+    el.attachmentInput.click();
+  });
+
+  el.attachmentInput.addEventListener('change', () => {
+    const attachments = imageAttachmentsOnly(normalizeAttachmentFiles(Array.from(el.attachmentInput.files || [])));
+    if (attachments.length) {
+      addComposerAttachments(attachments);
+    }
+    el.attachmentInput.value = '';
+  });
+
   el.btnSend.addEventListener('click', async () => {
     const text = el.inputBox.value.trim();
+    const attachments = getComposerAttachments(state.activeConversationId);
     if (!text) {
       return;
     }
-    const result = await codexdesk.sendMessage(state.activeConversationId, text);
+    const result = await codexdesk.sendMessage(state.activeConversationId, text, attachments);
     if (result?.error) {
       window.alert(localizeKnownText(result.error));
       return;
     }
     el.inputBox.value = '';
     setConversationDraft(state.activeConversationId, '');
+    setComposerAttachments(state.activeConversationId, []);
     state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
     applySnapshot(result?.snapshot || result);
     renderAll();
@@ -2636,7 +2731,7 @@ async function init() {
   });
 
   el.tabButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const nextTab = btn.getAttribute('data-tab');
       state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
         ? nextTab
@@ -2655,6 +2750,28 @@ async function init() {
         }
       });
     });
+  });
+
+  el.composerAttachments.addEventListener('click', (event) => {
+    const target = getEventElementTarget(event);
+    const button = target?.closest('.composer-attachment-remove');
+    if (!button) {
+      return;
+    }
+    const index = Number(button.getAttribute('data-attachment-index') || '-1');
+    removeComposerAttachment(index);
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = getEventElementTarget(event);
+    if (!target) {
+      setAttachmentMenuOpen(false);
+      return;
+    }
+    if (target.closest('.attachment-picker')) {
+      return;
+    }
+    setAttachmentMenuOpen(false);
   });
 
   el.languageSelect.addEventListener('change', () => {

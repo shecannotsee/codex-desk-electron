@@ -247,6 +247,7 @@
       </section>
 
       <section class="input-row">
+        <div id="composer-attachments" class="composer-attachments hidden" aria-live="polite"></div>
         <div class="composer-input-shell">
           <textarea id="input-box" wrap="soft" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
           <div id="composer-resize-handle" class="composer-resize-handle" aria-hidden="true"></div>
@@ -254,15 +255,22 @@
       </section>
 
       <section id="send-row" class="send-row">
+        <div id="composer-workdir" class="composer-workdir hidden" aria-live="polite">
+          <span id="label-composer-workdir" class="composer-workdir-label">会话目录:</span>
+          <span id="composer-workdir-value" class="composer-workdir-value" title="-">-</span>
+        </div>
         <div class="composer-actions">
+          <div class="attachment-picker">
+            <input id="attachment-input" type="file" accept="image/*" multiple hidden />
+            <button id="btn-add-attachment" class="btn-secondary" type="button">添加附件</button>
+            <div id="attachment-kind-menu" class="attachment-kind-menu hidden">
+              <button id="btn-add-image-attachment" class="attachment-kind-option" type="button">图片</button>
+            </div>
+          </div>
           <button id="btn-send">发送</button>
           <button id="btn-insert-message" class="hidden">插入对话</button>
           <button id="btn-retry-last">重试上一条</button>
           <button id="btn-stop">停止</button>
-        </div>
-        <div id="composer-workdir" class="composer-workdir hidden" aria-live="polite">
-          <span id="label-composer-workdir" class="composer-workdir-label">会话目录:</span>
-          <span id="composer-workdir-value" class="composer-workdir-value" title="-">-</span>
         </div>
       </section>
     </main>

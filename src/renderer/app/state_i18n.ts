@@ -34,6 +34,7 @@ const state: AppState = {
   workflowCollapsedByConversation: {},
   chatVisibleCountByConversation: {},
   draftsByConversation: {},
+  composerAttachmentsByConversation: {},
   inputBindingConversationId: '',
   activeTab: 'workflow',
   ui: {
@@ -163,6 +164,15 @@ const I18N: Record<string, Record<string, string>> = {
     inputPlaceholderIdle: '输入消息，Ctrl+Enter 发送',
     inputPlaceholderRunning: '正在回复中，可点击「插入对话」或「排队发送」',
     inputPlaceholderNoConversation: '先新建一个会话，然后开始聊天',
+    addAttachment: '添加附件',
+    attachmentTypeImage: '图片',
+    attachmentHint: '支持图片附件，发送时会作为真实附件传给 Codex',
+    attachmentCount: '附件 {count}',
+    attachmentRemove: '移除附件',
+    attachmentEmpty: '当前没有附件',
+    attachmentOnlyImages: '当前真实附件仅支持图片文件。',
+    attachmentInvalidPath: '附件路径无效，已忽略。',
+    attachmentBadge: '附件',
     runningInProgress: '正在执行中...',
     chatRunningHint: 'Codex 正在执行中，请稍候...',
     chatRunningHintWithQueue: 'Codex 正在执行中，当前还有 {count} 条排队消息...',
@@ -342,6 +352,15 @@ const I18N: Record<string, Record<string, string>> = {
     inputPlaceholderIdle: 'Type a message, press Ctrl+Enter to send',
     inputPlaceholderRunning: 'Response in progress. Use "Insert Message" or "Queue Send".',
     inputPlaceholderNoConversation: 'Create a conversation first, then start chatting',
+    addAttachment: 'Add Attachment',
+    attachmentTypeImage: 'Image',
+    attachmentHint: 'Image attachments are sent to Codex as real attachments.',
+    attachmentCount: '{count} attachments',
+    attachmentRemove: 'Remove attachment',
+    attachmentEmpty: 'No attachments selected.',
+    attachmentOnlyImages: 'Real attachments currently support images only.',
+    attachmentInvalidPath: 'Invalid attachment path ignored.',
+    attachmentBadge: 'Attachment',
     runningInProgress: 'Running...',
     chatRunningHint: 'Codex is working, please wait...',
     chatRunningHintWithQueue: 'Codex is working. {count} queued message(s) pending...',
@@ -557,6 +576,11 @@ const el: UiElementRefs = {
   tabButtons: queryAll<HTMLButtonElement>('.tab-btn'),
 
   inputBox: queryById<HTMLTextAreaElement>('input-box'),
+  attachmentInput: queryById<HTMLInputElement>('attachment-input'),
+  composerAttachments: queryById<HTMLElement>('composer-attachments'),
+  btnAddAttachment: queryById<HTMLButtonElement>('btn-add-attachment'),
+  attachmentKindMenu: queryById<HTMLElement>('attachment-kind-menu'),
+  btnAddImageAttachment: queryById<HTMLButtonElement>('btn-add-image-attachment'),
   composerResizeHandle: queryById<HTMLElement>('composer-resize-handle'),
   sendRow: queryById<HTMLElement>('send-row'),
   btnSend: queryById<HTMLButtonElement>('btn-send'),
@@ -779,6 +803,34 @@ function pruneConversationDrafts(validConversationIds) {
   if (changed) {
     saveDraftPrefs();
   }
+}
+
+function getComposerAttachments(conversationId) {
+  const key = draftStorageKey(conversationId);
+  const items = state.composerAttachmentsByConversation[key];
+  return Array.isArray(items) ? items : [];
+}
+
+function setComposerAttachments(conversationId, attachments) {
+  const key = draftStorageKey(conversationId);
+  const items = Array.isArray(attachments)
+    ? attachments.filter((item) => item && String(item.path || '').trim())
+    : [];
+  if (items.length) {
+    state.composerAttachmentsByConversation[key] = items;
+  } else {
+    delete state.composerAttachmentsByConversation[key];
+  }
+}
+
+function pruneComposerAttachments(validConversationIds) {
+  const validKeys = new Set((validConversationIds || []).map((id) => draftStorageKey(id)));
+  validKeys.add(NO_CONVERSATION_DRAFT_KEY);
+  Object.keys(state.composerAttachmentsByConversation || {}).forEach((key) => {
+    if (!validKeys.has(key)) {
+      delete state.composerAttachmentsByConversation[key];
+    }
+  });
 }
 
 function defaultChatVisibleCount(totalCount) {
@@ -1299,6 +1351,9 @@ export {
   getConversationDraft,
   setConversationDraft,
   pruneConversationDrafts,
+  getComposerAttachments,
+  setComposerAttachments,
+  pruneComposerAttachments,
   defaultChatVisibleCount,
   ensureChatVisibleCount,
   syncChatVisibleCount,

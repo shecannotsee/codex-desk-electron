@@ -3,6 +3,7 @@ import type {
   ComposerRenderOptions,
   ConversationMessage,
   ConversationSummary,
+  MessageAttachment,
   RawEventEntry,
   RenderAllOptions,
   RenderTransientOptions,
@@ -18,6 +19,7 @@ import {
   el,
   escapeHtml,
   ensureChatVisibleCount,
+  getComposerAttachments,
   getConversationDraft,
   localizeKnownText,
   renderMarkdownLike,
@@ -273,6 +275,57 @@ function renderComposerWorkdir() {
   el.composerWorkdirValue.title = workdir || '-';
 }
 
+function attachmentName(item: MessageAttachment | null | undefined): string {
+  const name = String(item?.name || '').trim();
+  if (name) {
+    return name;
+  }
+  const path = String(item?.path || '').trim();
+  if (!path) {
+    return '';
+  }
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
+
+function renderAttachmentChips(attachments: MessageAttachment[] = [], removable = false): string {
+  const items = Array.isArray(attachments) ? attachments : [];
+  if (!items.length) {
+    return '';
+  }
+  return items.map((item, index) => {
+    const name = attachmentName(item);
+    const path = String(item?.path || '').trim();
+    const removeButton = removable
+      ? `<button type="button" class="composer-attachment-remove" data-attachment-index="${escapeHtml(index)}" aria-label="${escapeHtml(t('attachmentRemove'))}" title="${escapeHtml(t('attachmentRemove'))}">×</button>`
+      : '';
+    return [
+      `<div class="${removable ? 'composer-attachment-chip' : 'msg-attachment-chip'}" title="${escapeHtml(path || name)}">`,
+      `<span class="${removable ? 'composer-attachment-badge' : 'msg-attachment-badge'}">${escapeHtml(t('attachmentBadge'))}</span>`,
+      `<span class="${removable ? 'composer-attachment-name' : 'msg-attachment-name'}">${escapeHtml(name || path)}</span>`,
+      removeButton,
+      '</div>',
+    ].join('');
+  }).join('');
+}
+
+function renderComposerAttachments() {
+  if (!el.composerAttachments) {
+    return;
+  }
+  const items = getComposerAttachments(state.activeConversationId);
+  el.composerAttachments.classList.toggle('hidden', items.length <= 0);
+  el.composerAttachments.innerHTML = items.length
+    ? [
+      '<div class="composer-attachments-head">',
+      `<span class="composer-attachments-title">${escapeHtml(t('attachmentCount', { count: items.length }))}</span>`,
+      `<span class="composer-attachments-hint">${escapeHtml(t('attachmentHint'))}</span>`,
+      '</div>',
+      `<div class="composer-attachments-list">${renderAttachmentChips(items, true)}</div>`,
+    ].join('')
+    : '';
+}
+
 function renderComposerDraft(options: ComposerRenderOptions = {}) {
   if (!el.inputBox) {
     return;
@@ -285,6 +338,7 @@ function renderComposerDraft(options: ComposerRenderOptions = {}) {
     el.inputBox.value = nextValue;
   }
   state.inputBindingConversationId = draftKey;
+  renderComposerAttachments();
 }
 
 function toMessageTimeMs(input: unknown): number {
@@ -592,6 +646,9 @@ function renderChatMessageBlock(
   const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
   const timeText = resolveMessageTime(item, conversation, index);
   const usageFooter = renderMessageUsageFooter(conversation, latestAssistantIndex, index, item);
+  const attachmentsHtml = Array.isArray(item.attachments) && item.attachments.length
+    ? `<div class="msg-attachments">${renderAttachmentChips(item.attachments)}</div>`
+    : '';
   const expandedHtml = markdownEnabled
     ? renderMarkdownLike(item.text)
     : `<div class="msg-plain-text">${escapeHtml(String(item.text || ''))}</div>`;
@@ -606,7 +663,7 @@ function renderChatMessageBlock(
     '</div>',
     '</div>',
     `<div class="msg-bubble ${bubbleClass}${collapsed ? ' collapsed' : ''}" data-msg-index="${escapeHtml(index)}">`,
-    `<div class="msg-expanded">${expandedHtml}</div>`,
+    `<div class="msg-expanded">${attachmentsHtml}${expandedHtml}</div>`,
     `<div class="msg-collapsed-line">${escapeHtml(preview)}</div>`,
     '<div class="msg-footer">',
     usageFooter || '<span></span>',
@@ -720,11 +777,13 @@ function renderQueuedMessagesPanel(conversationId: string): string {
     const source = item?.fromRetry ? t('queuedFromRetry') : t('queuedFromInput');
     const queuedAt = formatQueuedAt(item?.queuedAt);
     const body = String(item?.text || item?.preview || '').trim();
+    const attachmentCount = Array.isArray(item?.attachments) ? item.attachments.length : 0;
+    const attachmentMeta = attachmentCount > 0 ? ` | ${t('attachmentCount', { count: attachmentCount })}` : '';
     return [
       '<div class="queued-preview-item">',
       '<div class="queued-preview-item-head">',
       `<span class="title">${escapeHtml(title)}</span>`,
-      `<span class="meta">${escapeHtml(source)} | ${escapeHtml(t('queuedAt'))} ${escapeHtml(queuedAt)}</span>`,
+      `<span class="meta">${escapeHtml(source)} | ${escapeHtml(t('queuedAt'))} ${escapeHtml(queuedAt)}${escapeHtml(attachmentMeta)}</span>`,
       '</div>',
       `<div class="queued-preview-item-body">${escapeHtml(body)}</div>`,
       '</div>',
@@ -986,6 +1045,12 @@ function renderRunButtons() {
   if (el.btnMetaModel) {
     el.btnMetaModel.disabled = !hasConv;
   }
+  if (el.btnAddAttachment) {
+    el.btnAddAttachment.disabled = !hasConv;
+  }
+  if (el.attachmentInput) {
+    el.attachmentInput.disabled = !hasConv;
+  }
   el.inputBox.disabled = !hasConv;
   if (!hasConv) {
     el.inputBox.placeholder = t('inputPlaceholderNoConversation');
@@ -1073,6 +1138,14 @@ function renderLocaleTexts() {
   el.tabBtnStructured.textContent = t('tabStructured');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
   el.tabBtnRaw.textContent = t('tabRaw');
+  if (el.btnAddAttachment) {
+    el.btnAddAttachment.textContent = t('addAttachment');
+    el.btnAddAttachment.title = t('attachmentHint');
+  }
+  if (el.btnAddImageAttachment) {
+    el.btnAddImageAttachment.textContent = t('attachmentTypeImage');
+    el.btnAddImageAttachment.title = t('attachmentHint');
+  }
   el.renameModalTitle.textContent = t('renameModalTitle');
   el.renameInput.placeholder = t('renameModalPlaceholder');
   el.renameCancel.textContent = t('cancel');

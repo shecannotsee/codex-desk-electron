@@ -28,12 +28,21 @@ export interface UiState {
 export interface ConversationMessage {
   role: 'user' | 'assistant';
   text: string;
+  attachments?: MessageAttachment[];
   createdAt?: number;
   interrupted?: boolean;
   interruptedReason?: string;
   interruptedAt?: number;
   timestamp?: number;
   time?: number;
+}
+
+export interface MessageAttachment {
+  path: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  kind?: string;
 }
 
 export interface ConversationSummary {
@@ -95,6 +104,7 @@ export interface QueuedMessageItem {
   index?: number;
   text?: string;
   preview?: string;
+  attachments?: MessageAttachment[];
   queuedAt?: number;
   fromRetry?: boolean;
   [key: string]: unknown;
@@ -251,7 +261,7 @@ export interface CodexDeskApi {
   stopConversation(conversationId: string): Promise<AppSnapshot>;
   refreshCodexVersion(conversationId: string): Promise<GenericResult>;
   refreshModelInfo(conversationId: string): Promise<GenericResult>;
-  sendMessage(conversationId: string, text: string): Promise<GenericResult>;
+  sendMessage(conversationId: string, text: string, attachments?: MessageAttachment[]): Promise<GenericResult>;
   insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
   getPathForFile(file: File): string;
@@ -284,6 +294,7 @@ export interface AppState {
   workflowCollapsedByConversation: Record<string, Record<string, boolean>>;
   chatVisibleCountByConversation: Record<string, number>;
   draftsByConversation: Record<string, string>;
+  composerAttachmentsByConversation: Record<string, MessageAttachment[]>;
   inputBindingConversationId: string;
   activeTab: ActiveTab;
   ui: UiState;
@@ -375,6 +386,11 @@ export interface UiElementRefs {
   tabBtnRaw: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];
   inputBox: HTMLTextAreaElement;
+  attachmentInput: HTMLInputElement;
+  composerAttachments: HTMLElement;
+  btnAddAttachment: HTMLButtonElement;
+  attachmentKindMenu: HTMLElement;
+  btnAddImageAttachment: HTMLButtonElement;
   composerResizeHandle: HTMLElement;
   sendRow: HTMLElement;
   btnSend: HTMLButtonElement;

@@ -278,9 +278,6 @@ function effectivePhaseRaw() {
   if (isConversationRunning(state.activeConversationId)) {
     return runtime.phase || '运行中';
   }
-  if (anyConversationRunning()) {
-    return '后台运行中';
-  }
   return runtime.phase || '空闲';
 }
 

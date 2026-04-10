@@ -108,7 +108,13 @@ function renderConversationList() {
       const status = getConversationState(item.id);
       const queue = queuedCount(item.id);
       const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
-      const pinBadge = pinned ? `<span class="conversation-pin-badge">${escapeHtml(t('pinnedConversation'))}</span>` : '';
+      const pinBadge = pinned ? [
+        `<span class="conversation-pin-badge" title="${escapeHtml(t('pinnedConversation'))}" aria-label="${escapeHtml(t('pinnedConversation'))}">`,
+        '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">',
+        '<path d="M14 4v1.4l1.8 1.8v4.2l1.9 1.9v.8h-4.2V20l-1.5-1.5v-4.4H7.8v-.8l1.9-1.9V7.2l1.8-1.8V4z" />',
+        '</svg>',
+        '</span>',
+      ].join('') : '';
       const titleText = String(item.title || '-').trim();
       const avatarChar = titleText ? Array.from(titleText)[0] : '•';
       const avatarTone = conversationAvatarTone(item.id, titleText);
@@ -121,9 +127,11 @@ function renderConversationList() {
         '<div class="conversation-top-row">',
         '<div class="conversation-title-row">',
         `<span class="conversation-title-text">${escapeHtml(item.title || '-')}</span>`,
+        '</div>',
+        '<div class="conversation-top-meta">',
+        `<div class="conversation-time">${escapeHtml(timeText || '')}</div>`,
         pinBadge,
         '</div>',
-        `<div class="conversation-time">${escapeHtml(timeText || '')}</div>`,
         '</div>',
         '<div class="conversation-bottom-row">',
         '<div class="conversation-preview-row">',
@@ -174,7 +182,7 @@ function renderHeader() {
   if (el.btnSessionId) {
     el.btnSessionId.disabled = !sid || sid === '-';
     el.btnSessionId.dataset.fullValue = sid;
-    el.btnSessionId.title = sid && sid !== '-' ? t('clickToCopy') : '';
+    el.btnSessionId.dataset.tooltip = sid && sid !== '-' ? t('clickToCopy') : '';
     el.btnSessionId.setAttribute('aria-label', sid && sid !== '-' ? `${t('clickToCopy')}: ${sid}` : t('sessionId'));
   }
 
@@ -186,17 +194,33 @@ function renderHeader() {
   el.queueCount.textContent = String(queue);
   el.queueChip.classList.toggle('queue-chip-active', queue > 0);
   el.queueChip.classList.toggle('hidden', queue <= 0);
+  if (el.queuePopoverTitle) {
+    el.queuePopoverTitle.textContent = t('queuedRepliesTitle');
+  }
+  if (el.queuePopoverClose) {
+    el.queuePopoverClose.textContent = '×';
+    el.queuePopoverClose.setAttribute('aria-label', t('close'));
+    el.queuePopoverClose.title = t('close');
+  }
+  if (el.queuePopover) {
+    if (queue <= 0) {
+      el.queuePopover.classList.add('hidden');
+    }
+    el.queueChip.setAttribute('aria-expanded', queue > 0 && !el.queuePopover.classList.contains('hidden') ? 'true' : 'false');
+  }
+  renderQueuePopover(state.activeConversationId);
 
   if (el.metaModelValue) {
     const modelText = normalizeMetaValue(meta['模型']);
     const fallbackText = t('clickToFetch');
     el.metaModelValue.textContent = modelText || fallbackText;
-    el.metaModelValue.title = modelText || fallbackText;
   }
   if (el.btnMetaModel) {
     const modelText = normalizeMetaValue(meta['模型']);
-    el.btnMetaModel.title = modelText || t('refreshModel');
+    el.btnMetaModel.dataset.tooltip = modelText || t('refreshModel');
+    el.btnMetaModel.setAttribute('aria-label', modelText || t('refreshModel'));
   }
+  renderComposerWorkdir();
 }
 
 function renderSettings() {
@@ -235,6 +259,18 @@ function renderSettings() {
     const rawVersion = String(state.appInfo?.version || '').trim();
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
   }
+}
+
+function renderComposerWorkdir() {
+  if (!el.composerWorkdir || !el.labelComposerWorkdir || !el.composerWorkdirValue) {
+    return;
+  }
+  const conv = currentConversation();
+  const workdir = String(conv?.workdir || '').trim();
+  el.labelComposerWorkdir.textContent = `${t('composerWorkdir')}:`;
+  el.composerWorkdir.classList.toggle('hidden', !workdir);
+  el.composerWorkdirValue.textContent = workdir || '-';
+  el.composerWorkdirValue.title = workdir || '-';
 }
 
 function renderComposerDraft(options: ComposerRenderOptions = {}) {
@@ -510,38 +546,6 @@ function renderWorkflowRunningPanel(conversationId: string): string {
   ].join('');
 }
 
-function renderQueuedQuestionBlocks(conversationId: string): string {
-  const items = queuedMessages(conversationId);
-  if (!items.length) {
-    return '';
-  }
-  const blocks = items.map((item, index) => {
-    const title = t('queuedQuestionItem', { index: index + 1 });
-    const queuedAt = formatQueuedAt(item?.queuedAt);
-    const text = String(item?.text || item?.preview || '').trim();
-    return [
-      '<div class="msg-block msg-user-row msg-queued-row">',
-      '<div class="msg-head">',
-      `<div class="msg-role">${escapeHtml(t('roleYou'))}</div>`,
-      `<div class="msg-queued-tag">${escapeHtml(t('stateQueued'))}</div>`,
-      '</div>',
-      '<div class="msg-bubble msg-user msg-queued-bubble">',
-      `<div class="msg-queued-title">${escapeHtml(title)} · ${escapeHtml(queuedAt)}</div>`,
-      `<div class="msg-queued-text">${escapeHtml(text)}</div>`,
-      '</div>',
-      '</div>',
-    ].join('');
-  }).join('');
-
-  return [
-    '<div class="msg-queued-panel">',
-    `<div class="msg-queued-panel-title">${escapeHtml(t('queuedQuestionsTitle'))}</div>`,
-    `<div class="msg-queued-panel-hint">${escapeHtml(t('queuedQuestionsHint'))}</div>`,
-    blocks,
-    '</div>',
-  ].join('');
-}
-
 function renderChatPaginationBar(totalCount: number, visibleCount: number): string {
   const total = Math.max(0, Number(totalCount) || 0);
   const visible = Math.max(0, Math.min(total, Number(visibleCount) || 0));
@@ -560,7 +564,6 @@ function renderChatPaginationBar(totalCount: number, visibleCount: number): stri
 function renderChatTransientStack(conversationId: string): string {
   return [
     '<div class="chat-transient-stack">',
-    renderQueuedQuestionBlocks(conversationId),
     renderRunningHintBlock(conversationId),
     '</div>',
   ].join('');
@@ -622,7 +625,7 @@ function renderChatTransientPanels(options: RenderTransientOptions = {}) {
   if (!target) {
     return;
   }
-  target.innerHTML = `${renderQueuedQuestionBlocks(state.activeConversationId)}${renderRunningHintBlock(state.activeConversationId)}`;
+  target.innerHTML = renderRunningHintBlock(state.activeConversationId);
   if (options.stickToBottom) {
     el.chatView.scrollTop = el.chatView.scrollHeight;
   }
@@ -708,8 +711,9 @@ function formatQueuedAt(input: unknown): string {
 
 function renderQueuedMessagesPanel(conversationId: string): string {
   const items = queuedMessages(conversationId);
+  const hintHtml = `<div class="queue-popover-hint">${escapeHtml(t('queuedRepliesHint'))}</div>`;
   if (!items.length) {
-    return '';
+    return `${hintHtml}<div class="queue-popover-empty">${escapeHtml(t('queueEmpty'))}</div>`;
   }
   const blocks = items.map((item, index) => {
     const title = t('queuedReplyItem', { index: index + 1 });
@@ -726,13 +730,14 @@ function renderQueuedMessagesPanel(conversationId: string): string {
       '</div>',
     ].join('');
   }).join('');
-  return [
-    '<div class="queued-preview-panel">',
-    `<div class="queued-preview-title">${escapeHtml(t('queuedRepliesTitle'))}</div>`,
-    `<div class="queued-preview-hint">${escapeHtml(t('queuedRepliesHint'))}</div>`,
-    blocks,
-    '</div>',
-  ].join('');
+  return `${hintHtml}${blocks}`;
+}
+
+function renderQueuePopover(conversationId: string): void {
+  if (!el.queuePopoverBody) {
+    return;
+  }
+  el.queuePopoverBody.innerHTML = renderQueuedMessagesPanel(conversationId);
 }
 
 function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
@@ -800,10 +805,9 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
       '</div>',
     ].join('');
   }).join('');
-  const queueHtml = renderQueuedMessagesPanel(state.activeConversationId);
   const emptyHtml = workflowHtml ? '' : `<div class="tip">${escapeHtml(t('runtimeWorkflowEmpty'))}</div>`;
   const runningHtml = renderWorkflowRunningPanel(state.activeConversationId);
-  const html = `${queueHtml}${emptyHtml}${workflowHtml}${runningHtml}`;
+  const html = `${emptyHtml}${workflowHtml}${runningHtml}`;
 
   el.tabWorkflow.innerHTML = html;
   el.tabWorkflow.onclick = (event) => {
@@ -906,8 +910,12 @@ function renderRuntime() {
 function renderRunButtons() {
   const hasConv = hasActiveConversation();
   const running = isConversationRunning(state.activeConversationId);
+  const canInsert = running && hasConv;
   el.btnSend.disabled = !hasConv;
   el.btnSend.textContent = running ? t('queueSend') : t('send');
+  el.btnInsertMessage.disabled = !canInsert;
+  el.btnInsertMessage.textContent = t('insertMessage');
+  el.btnInsertMessage.classList.remove('hidden');
   el.btnRetryLast.disabled = !canRetryLastMessage();
   el.btnRetryLast.textContent = t('retryLast');
   el.btnStop.textContent = t('stop');
@@ -935,10 +943,12 @@ function renderRunButtons() {
     el.qsLangZh.classList.toggle('active', isZh);
     el.qsLangEn.classList.toggle('active', !isZh);
   }
-  if (el.qsThemeLight && el.qsThemeDark) {
+  if (el.qsRootThemeToggle && el.qsRootThemeSwitch) {
     const isDark = state.ui.theme === 'dark';
-    el.qsThemeLight.classList.toggle('active', !isDark);
-    el.qsThemeDark.classList.toggle('active', isDark);
+    el.qsRootThemeToggle.classList.toggle('active', isDark);
+    el.qsRootThemeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    el.qsRootThemeToggle.setAttribute('aria-label', t('themeDark'));
+    el.qsRootThemeSwitch.classList.toggle('active', isDark);
   }
   if (el.quickSettingsMenu) {
     const scopedActions = new Set([
@@ -1038,11 +1048,17 @@ function renderLocaleTexts() {
   if (el.labelQuickSettings) {
     el.labelQuickSettings.textContent = t('quickSettings');
   }
+  if (el.labelRootThemeToggle) {
+    el.labelRootThemeToggle.textContent = t('themeDark');
+  }
   if (el.labelCommand) {
     el.labelCommand.textContent = `${t('command')}:`;
   }
   if (el.labelWorkdir) {
     el.labelWorkdir.textContent = `${t('workdir')}:`;
+  }
+  if (el.labelComposerWorkdir) {
+    el.labelComposerWorkdir.textContent = `${t('composerWorkdir')}:`;
   }
   if (el.labelPermission) {
     el.labelPermission.textContent = `${t('permission')}:`;
@@ -1182,7 +1198,6 @@ export {
   resolveMessageTime,
   runningStepMarkdown,
   renderRunningHintBlock,
-  renderQueuedQuestionBlocks,
   renderChatPaginationBar,
   renderChatTransientStack,
   renderChatMessageBlock,
@@ -1191,10 +1206,12 @@ export {
   renderStructuredTab,
   formatQueuedAt,
   renderQueuedMessagesPanel,
+  renderQueuePopover,
   renderWorkflowTab,
   renderRawTab,
   renderRuntime,
   renderRunButtons,
+  renderComposerWorkdir,
   isChatViewNearBottom,
   renderTabs,
   renderLayout,

@@ -18,6 +18,7 @@ export interface UiState {
   theme: Theme;
   zoomFactor: number;
   sidebarWidth: number;
+  runtimePanelWidth: number;
   chatFontSize: number;
   runtimePanelHidden: boolean;
   settingsPanelHidden: boolean;
@@ -251,7 +252,9 @@ export interface CodexDeskApi {
   refreshCodexVersion(conversationId: string): Promise<GenericResult>;
   refreshModelInfo(conversationId: string): Promise<GenericResult>;
   sendMessage(conversationId: string, text: string): Promise<GenericResult>;
+  insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
+  getPathForFile(file: File): string;
   setMenuLanguage(language: Language): Promise<unknown>;
   setWindowTheme(theme: Theme): Promise<unknown>;
   getZoomFactor(): Promise<GenericResult>;
@@ -311,8 +314,12 @@ export interface UiElementRefs {
   metaModelValue: HTMLElement;
   phase: HTMLElement;
   phaseChip: HTMLElement;
-  queueChip: HTMLElement;
+  queueChip: HTMLButtonElement;
   queueCount: HTMLElement;
+  queuePopover: HTMLElement;
+  queuePopoverTitle: HTMLElement;
+  queuePopoverBody: HTMLElement;
+  queuePopoverClose: HTMLButtonElement;
   btnQuickSettings: HTMLButtonElement;
   labelQuickSettings: HTMLElement;
   quickSettingsMenu: HTMLElement;
@@ -334,8 +341,9 @@ export interface UiElementRefs {
   btnZoomResetInline: HTMLButtonElement;
   qsLangZh: HTMLButtonElement;
   qsLangEn: HTMLButtonElement;
-  qsThemeLight: HTMLButtonElement;
-  qsThemeDark: HTMLButtonElement;
+  qsRootThemeToggle: HTMLButtonElement;
+  labelRootThemeToggle: HTMLElement;
+  qsRootThemeSwitch: HTMLElement;
   i18nNodes: HTMLElement[];
   commandInput: HTMLInputElement;
   workdirInput: HTMLInputElement;
@@ -357,6 +365,7 @@ export interface UiElementRefs {
   btnToggleSidebar: HTMLButtonElement;
   contentRow: HTMLElement;
   chatView: HTMLElement;
+  runtimeResizer: HTMLElement;
   runtimePanel: HTMLElement;
   tabStructured: HTMLElement;
   tabWorkflow: HTMLElement;
@@ -366,10 +375,15 @@ export interface UiElementRefs {
   tabBtnRaw: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];
   inputBox: HTMLTextAreaElement;
+  composerResizeHandle: HTMLElement;
   sendRow: HTMLElement;
   btnSend: HTMLButtonElement;
+  btnInsertMessage: HTMLButtonElement;
   btnRetryLast: HTMLButtonElement;
   btnStop: HTMLButtonElement;
+  composerWorkdir: HTMLElement;
+  labelComposerWorkdir: HTMLElement;
+  composerWorkdirValue: HTMLElement;
   createConversationModal: HTMLElement;
   createConversationTitle: HTMLElement;
   createConversationMessage: HTMLElement;

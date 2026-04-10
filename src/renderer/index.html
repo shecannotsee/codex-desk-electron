@@ -48,6 +48,12 @@
                     <span data-i18n-key="menuHelp">帮助</span>
                     <span class="quick-settings-chevron">›</span>
                   </button>
+                  <button id="qs-root-theme-toggle" type="button" class="quick-settings-category quick-settings-root-toggle" data-action="ui:theme:toggle" aria-pressed="false">
+                    <span id="label-root-theme-toggle" class="quick-settings-root-toggle-label" data-i18n-key="themeDark">夜间模式</span>
+                    <span id="qs-root-theme-switch" class="quick-settings-switch" aria-hidden="true">
+                      <span class="quick-settings-switch-knob"></span>
+                    </span>
+                  </button>
                 </div>
                 <div class="quick-settings-detail-footer quick-settings-root-footer">
                   <div class="quick-settings-app-info" aria-label="application info">
@@ -119,13 +125,6 @@
                         <button id="qs-lang-en" type="button" class="quick-settings-pill" data-action="ui:language:en-US" data-i18n-key="languageEn">English</button>
                       </div>
                     </div>
-                    <div class="quick-settings-toggle-row">
-                      <span class="quick-settings-inline-label" data-i18n-key="theme">主题</span>
-                      <div class="quick-settings-segmented">
-                        <button id="qs-theme-light" type="button" class="quick-settings-pill" data-action="ui:theme:light" data-i18n-key="themeLight">浅色</button>
-                        <button id="qs-theme-dark" type="button" class="quick-settings-pill" data-action="ui:theme:dark" data-i18n-key="themeDark">深色</button>
-                      </div>
-                    </div>
                   </section>
 
                   <section class="quick-settings-pane" data-pane="window">
@@ -192,8 +191,15 @@
           </button>
         </div>
         <div id="phase-chip" class="meta-chip phase-chip"><span id="label-phase">状态</span>: <span id="phase">空闲</span></div>
-        <div id="queue-chip" class="meta-chip queue-chip"><span id="label-queue">排队</span>: <span id="queue-count">0</span></div>
+        <button id="queue-chip" class="meta-chip queue-chip" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="queue-popover"><span id="label-queue">排队</span>: <span id="queue-count">0</span></button>
         <div class="focus-spacer"></div>
+      </section>
+      <section id="queue-popover" class="queue-popover hidden" role="dialog" aria-modal="false" aria-labelledby="queue-popover-title">
+        <div class="queue-popover-head">
+          <div id="queue-popover-title" class="queue-popover-title">待执行排队消息</div>
+          <button id="queue-popover-close" class="queue-popover-close" type="button" aria-label="关闭">×</button>
+        </div>
+        <div id="queue-popover-body" class="queue-popover-body"></div>
       </section>
 
       <section id="row-language-font" class="setting-row hidden">
@@ -223,6 +229,7 @@
 
       <section id="content-row" class="content-row">
         <div id="chat-view" class="chat-view"></div>
+        <div id="runtime-resizer" class="runtime-resizer" aria-hidden="true"></div>
 
         <div id="runtime-panel" class="runtime-panel">
           <div class="tabs">
@@ -240,13 +247,23 @@
       </section>
 
       <section class="input-row">
-        <textarea id="input-box" wrap="soft" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
+        <div class="composer-input-shell">
+          <textarea id="input-box" wrap="soft" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
+          <div id="composer-resize-handle" class="composer-resize-handle" aria-hidden="true"></div>
+        </div>
       </section>
 
       <section id="send-row" class="send-row">
-        <button id="btn-send">发送</button>
-        <button id="btn-retry-last">重试上一条</button>
-        <button id="btn-stop">停止</button>
+        <div class="composer-actions">
+          <button id="btn-send">发送</button>
+          <button id="btn-insert-message" class="hidden">插入对话</button>
+          <button id="btn-retry-last">重试上一条</button>
+          <button id="btn-stop">停止</button>
+        </div>
+        <div id="composer-workdir" class="composer-workdir hidden" aria-live="polite">
+          <span id="label-composer-workdir" class="composer-workdir-label">会话目录:</span>
+          <span id="composer-workdir-value" class="composer-workdir-value" title="-">-</span>
+        </div>
       </section>
     </main>
   </div>

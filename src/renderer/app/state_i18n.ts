@@ -41,6 +41,7 @@ const state: AppState = {
     theme: 'light',
     zoomFactor: 1,
     sidebarWidth: 320,
+    runtimePanelWidth: 440,
     chatFontSize: 15,
     runtimePanelHidden: false,
     settingsPanelHidden: false,
@@ -63,6 +64,9 @@ const CHAT_PAGE_SIZE_INCREMENT = 80;
 const SIDEBAR_WIDTH_MIN = 220;
 const SIDEBAR_WIDTH_MAX = 520;
 const SIDEBAR_WIDTH_DEFAULT = 320;
+const RUNTIME_PANEL_WIDTH_MIN = 320;
+const RUNTIME_PANEL_WIDTH_MAX = 760;
+const RUNTIME_PANEL_WIDTH_DEFAULT = 440;
 const MARKDOWN_CACHE_LIMIT = 400;
 const markdownRenderCache = new Map<string, string>();
 
@@ -89,6 +93,7 @@ const I18N: Record<string, Record<string, string>> = {
     queue: '排队',
     command: 'Codex命令',
     workdir: '工作目录',
+    composerWorkdir: '会话目录',
     defaultWorkdir: '默认工作目录',
     selectedWorkdir: '本次工作目录',
     chooseWorkdirTitle: '新建对话',
@@ -138,9 +143,9 @@ const I18N: Record<string, Record<string, string>> = {
     aboutDialogDesc: 'Codex Desk 是 Codex CLI 的桌面图形客户端。',
     aboutSessionConfig: '当前会话配置',
     close: '关闭',
-    theme: '主题',
-    themeLight: '浅色',
-    themeDark: '深色',
+    theme: '模式',
+    themeLight: '白天模式',
+    themeDark: '夜间模式',
     languageZh: '中文',
     languageEn: 'English',
     contextMenuNew: '新建对话',
@@ -156,13 +161,14 @@ const I18N: Record<string, Record<string, string>> = {
     tabWorkflow: '运行步骤',
     tabRaw: '事件原文',
     inputPlaceholderIdle: '输入消息，Ctrl+Enter 发送',
-    inputPlaceholderRunning: '正在回复中，可继续输入并点击「排队发送」',
+    inputPlaceholderRunning: '正在回复中，可点击「插入对话」或「排队发送」',
     inputPlaceholderNoConversation: '先新建一个会话，然后开始聊天',
     runningInProgress: '正在执行中...',
     chatRunningHint: 'Codex 正在执行中，请稍候...',
     chatRunningHintWithQueue: 'Codex 正在执行中，当前还有 {count} 条排队消息...',
     send: '发送',
     queueSend: '排队发送',
+    insertMessage: '插入对话',
     retryLast: '重试上一条',
     stop: '停止',
     renameModalTitle: '重命名会话',
@@ -218,6 +224,7 @@ const I18N: Record<string, Record<string, string>> = {
     queuedFromInput: '输入',
     queuedFromRetry: '重试',
     queuedAt: '入队时间',
+    queueEmpty: '当前没有排队消息',
     question: '问题',
     startTime: '开始时间',
     roleYou: '你',
@@ -265,6 +272,7 @@ const I18N: Record<string, Record<string, string>> = {
     queue: 'Queue',
     command: 'Codex Command',
     workdir: 'Working Directory',
+    composerWorkdir: 'Chat Directory',
     defaultWorkdir: 'Default Working Directory',
     selectedWorkdir: 'Working Directory For This Chat',
     chooseWorkdirTitle: 'New Conversation',
@@ -314,9 +322,9 @@ const I18N: Record<string, Record<string, string>> = {
     aboutDialogDesc: 'Codex Desk is the desktop GUI client for Codex CLI.',
     aboutSessionConfig: 'Current Session Configuration',
     close: 'Close',
-    theme: 'Theme',
-    themeLight: 'Light',
-    themeDark: 'Dark',
+    theme: 'Mode',
+    themeLight: 'Day Mode',
+    themeDark: 'Night Mode',
     languageZh: 'Chinese',
     languageEn: 'English',
     contextMenuNew: 'New Conversation',
@@ -332,13 +340,14 @@ const I18N: Record<string, Record<string, string>> = {
     tabWorkflow: 'Workflow',
     tabRaw: 'Raw Events',
     inputPlaceholderIdle: 'Type a message, press Ctrl+Enter to send',
-    inputPlaceholderRunning: 'Response in progress. Keep typing and click "Queue Send".',
+    inputPlaceholderRunning: 'Response in progress. Use "Insert Message" or "Queue Send".',
     inputPlaceholderNoConversation: 'Create a conversation first, then start chatting',
     runningInProgress: 'Running...',
     chatRunningHint: 'Codex is working, please wait...',
     chatRunningHintWithQueue: 'Codex is working. {count} queued message(s) pending...',
     send: 'Send',
     queueSend: 'Queue Send',
+    insertMessage: 'Insert Message',
     retryLast: 'Retry Last',
     stop: 'Stop',
     renameModalTitle: 'Rename Conversation',
@@ -394,6 +403,7 @@ const I18N: Record<string, Record<string, string>> = {
     queuedFromInput: 'Input',
     queuedFromRetry: 'Retry',
     queuedAt: 'Queued At',
+    queueEmpty: 'No queued messages right now.',
     question: 'Question',
     startTime: 'Start',
     roleYou: 'You',
@@ -455,8 +465,12 @@ const el: UiElementRefs = {
   metaModelValue: queryById<HTMLElement>('meta-model-value'),
   phase: queryById<HTMLElement>('phase'),
   phaseChip: queryById<HTMLElement>('phase-chip'),
-  queueChip: queryById<HTMLElement>('queue-chip'),
+  queueChip: queryById<HTMLButtonElement>('queue-chip'),
   queueCount: queryById<HTMLElement>('queue-count'),
+  queuePopover: queryById<HTMLElement>('queue-popover'),
+  queuePopoverTitle: queryById<HTMLElement>('queue-popover-title'),
+  queuePopoverBody: queryById<HTMLElement>('queue-popover-body'),
+  queuePopoverClose: queryById<HTMLButtonElement>('queue-popover-close'),
   btnQuickSettings: queryById<HTMLButtonElement>('btn-quick-settings'),
   labelQuickSettings: queryById<HTMLElement>('label-quick-settings'),
   quickSettingsMenu: queryById<HTMLElement>('quick-settings-menu'),
@@ -478,8 +492,9 @@ const el: UiElementRefs = {
   btnZoomResetInline: queryById<HTMLButtonElement>('btn-zoom-reset-inline'),
   qsLangZh: queryById<HTMLButtonElement>('qs-lang-zh'),
   qsLangEn: queryById<HTMLButtonElement>('qs-lang-en'),
-  qsThemeLight: queryById<HTMLButtonElement>('qs-theme-light'),
-  qsThemeDark: queryById<HTMLButtonElement>('qs-theme-dark'),
+  qsRootThemeToggle: queryById<HTMLButtonElement>('qs-root-theme-toggle'),
+  labelRootThemeToggle: queryById<HTMLElement>('label-root-theme-toggle'),
+  qsRootThemeSwitch: queryById<HTMLElement>('qs-root-theme-switch'),
   i18nNodes: queryAll<HTMLElement>('[data-i18n-key]'),
 
   commandInput: queryById<HTMLInputElement>('command-input'),
@@ -531,6 +546,7 @@ const el: UiElementRefs = {
 
   contentRow: queryById<HTMLElement>('content-row'),
   chatView: queryById<HTMLElement>('chat-view'),
+  runtimeResizer: queryById<HTMLElement>('runtime-resizer'),
   runtimePanel: queryById<HTMLElement>('runtime-panel'),
   tabStructured: queryById<HTMLElement>('tab-structured'),
   tabWorkflow: queryById<HTMLElement>('tab-workflow'),
@@ -541,10 +557,15 @@ const el: UiElementRefs = {
   tabButtons: queryAll<HTMLButtonElement>('.tab-btn'),
 
   inputBox: queryById<HTMLTextAreaElement>('input-box'),
+  composerResizeHandle: queryById<HTMLElement>('composer-resize-handle'),
   sendRow: queryById<HTMLElement>('send-row'),
   btnSend: queryById<HTMLButtonElement>('btn-send'),
+  btnInsertMessage: queryById<HTMLButtonElement>('btn-insert-message'),
   btnRetryLast: queryById<HTMLButtonElement>('btn-retry-last'),
   btnStop: queryById<HTMLButtonElement>('btn-stop'),
+  composerWorkdir: queryById<HTMLElement>('composer-workdir'),
+  labelComposerWorkdir: queryById<HTMLElement>('label-composer-workdir'),
+  composerWorkdirValue: queryById<HTMLElement>('composer-workdir-value'),
 
   renameModal: queryById<HTMLElement>('rename-modal'),
   renameModalTitle: queryById<HTMLElement>('rename-modal-title'),
@@ -629,6 +650,14 @@ function clampSidebarWidth(input, fallback = SIDEBAR_WIDTH_DEFAULT) {
   return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, Math.round(value)));
 }
 
+function clampRuntimePanelWidth(input, fallback = RUNTIME_PANEL_WIDTH_DEFAULT) {
+  const value = Number(input);
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(RUNTIME_PANEL_WIDTH_MAX, Math.max(RUNTIME_PANEL_WIDTH_MIN, Math.round(value)));
+}
+
 function normalizeTheme(input: unknown): Theme {
   return String(input || '').trim().toLowerCase() === 'dark' ? 'dark' : 'light';
 }
@@ -640,6 +669,7 @@ function parseUiPrefs(rawText: string | null): UiState {
     const theme = normalizeTheme(data.theme);
     const zoomFactor = clampAppZoom(data.zoomFactor, APP_ZOOM_DEFAULT);
     const sidebarWidth = clampSidebarWidth(data.sidebarWidth, SIDEBAR_WIDTH_DEFAULT);
+    const runtimePanelWidth = clampRuntimePanelWidth(data.runtimePanelWidth, RUNTIME_PANEL_WIDTH_DEFAULT);
     const chatFontSize = clampChatFontSize(data.chatFontSize, CHAT_FONT_SIZE_DEFAULT);
     const runtimePanelHidden = Boolean(data.runtimePanelHidden);
     const settingsPanelHidden = Boolean(data.settingsPanelHidden);
@@ -649,6 +679,7 @@ function parseUiPrefs(rawText: string | null): UiState {
       theme,
       zoomFactor,
       sidebarWidth,
+      runtimePanelWidth,
       chatFontSize,
       runtimePanelHidden,
       settingsPanelHidden,
@@ -660,6 +691,7 @@ function parseUiPrefs(rawText: string | null): UiState {
       theme: 'light',
       zoomFactor: APP_ZOOM_DEFAULT,
       sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+      runtimePanelWidth: RUNTIME_PANEL_WIDTH_DEFAULT,
       chatFontSize: CHAT_FONT_SIZE_DEFAULT,
       runtimePanelHidden: false,
       settingsPanelHidden: false,
@@ -834,6 +866,11 @@ function applySidebarWidth() {
   document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
 }
 
+function applyRuntimePanelWidth() {
+  const width = clampRuntimePanelWidth(state.ui.runtimePanelWidth, RUNTIME_PANEL_WIDTH_DEFAULT);
+  document.documentElement.style.setProperty('--runtime-panel-width', `${width}px`);
+}
+
 function setSidebarWidth(input, options: PersistOptions = {}) {
   const persist = options.persist !== false;
   const next = clampSidebarWidth(input, state.ui.sidebarWidth);
@@ -841,6 +878,19 @@ function setSidebarWidth(input, options: PersistOptions = {}) {
   state.ui.sidebarWidth = next;
   if (changed) {
     applySidebarWidth();
+    if (persist) {
+      saveUiPrefs();
+    }
+  }
+}
+
+function setRuntimePanelWidth(input, options: PersistOptions = {}) {
+  const persist = options.persist !== false;
+  const next = clampRuntimePanelWidth(input, state.ui.runtimePanelWidth);
+  const changed = next !== state.ui.runtimePanelWidth;
+  state.ui.runtimePanelWidth = next;
+  if (changed) {
+    applyRuntimePanelWidth();
     if (persist) {
       saveUiPrefs();
     }
@@ -1237,6 +1287,7 @@ export {
   clampChatFontSize,
   clampAppZoom,
   clampSidebarWidth,
+  clampRuntimePanelWidth,
   normalizeTheme,
   parseUiPrefs,
   loadUiPrefs,
@@ -1256,7 +1307,9 @@ export {
   syncMenuLanguage,
   applyChatFontSize,
   applySidebarWidth,
+  applyRuntimePanelWidth,
   setSidebarWidth,
+  setRuntimePanelWidth,
   applyTheme,
   syncWindowTheme,
   setTheme,

@@ -21,6 +21,7 @@ import {
   CHAT_FONT_SIZE_MAX,
   CHAT_FONT_SIZE_MIN,
   applyChatFontSize,
+  applyRuntimePanelWidth,
   applySidebarWidth,
   applyTheme,
   clampAppZoom,
@@ -37,6 +38,7 @@ import {
   setChatFontSize,
   setConversationDraft,
   setRenderHooks,
+  setRuntimePanelWidth,
   setSidebarWidth,
   setTheme,
   state,
@@ -75,6 +77,7 @@ import {
   renderSettings,
   renderStructuredTab,
   renderTabs,
+  renderQueuePopover,
   renderWorkflowTab,
   setRendererCallbacks,
 } from './renderers.js';
@@ -91,6 +94,80 @@ function getEventElementTarget(event: Event): Element | null {
 
 function getEventNodeTarget(event: Event): Node | null {
   return event.target instanceof Node ? event.target : null;
+}
+
+function dragEventHasFiles(event: DragEvent): boolean {
+  const types = Array.from(event.dataTransfer?.types || []);
+  return types.includes('Files');
+}
+
+function extractDroppedPaths(dataTransfer: DataTransfer | null | undefined): string[] {
+  const seen = new Set<string>();
+  const files = Array.from(dataTransfer?.files || []);
+  files.forEach((file) => {
+    const path = String(codexdesk.getPathForFile(file) || '').trim();
+    if (path) {
+      seen.add(path);
+    }
+  });
+  return [...seen];
+}
+
+let lastInputBoxSelectionStart = 0;
+let lastInputBoxSelectionEnd = 0;
+
+function rememberInputBoxSelection() {
+  if (!el.inputBox) {
+    return;
+  }
+  const start = Number(el.inputBox.selectionStart);
+  const end = Number(el.inputBox.selectionEnd);
+  if (!Number.isInteger(start) || !Number.isInteger(end)) {
+    return;
+  }
+  lastInputBoxSelectionStart = Math.max(0, start);
+  lastInputBoxSelectionEnd = Math.max(lastInputBoxSelectionStart, end);
+}
+
+function insertTextIntoInputBox(text: string) {
+  if (!el.inputBox || !text) {
+    return;
+  }
+  const input = el.inputBox;
+  const focusedStart = Number(input.selectionStart);
+  const focusedEnd = Number(input.selectionEnd);
+  const hasLiveSelection = Number.isInteger(focusedStart) && Number.isInteger(focusedEnd);
+  const start = hasLiveSelection
+    ? Math.max(0, focusedStart)
+    : Math.max(0, Math.min(input.value.length, lastInputBoxSelectionStart));
+  const end = hasLiveSelection
+    ? Math.max(start, focusedEnd)
+    : Math.max(start, Math.min(input.value.length, lastInputBoxSelectionEnd));
+  const nextValue = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+  input.value = nextValue;
+  const caret = start + text.length;
+  input.focus();
+  input.setSelectionRange(caret, caret);
+  lastInputBoxSelectionStart = caret;
+  lastInputBoxSelectionEnd = caret;
+  setConversationDraft(state.activeConversationId, nextValue);
+  state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
+}
+
+function composerHeightBounds() {
+  if (!el.inputBox) {
+    return { min: 100, max: 420 };
+  }
+  const styles = window.getComputedStyle(el.inputBox);
+  const min = Math.max(72, parseFloat(styles.minHeight) || el.inputBox.clientHeight || 100);
+  const max = Math.max(min, parseFloat(styles.maxHeight) || Math.max(min, 420));
+  return { min, max };
+}
+
+function clampComposerHeight(input: number) {
+  const { min, max } = composerHeightBounds();
+  const value = Number(input) || min;
+  return Math.min(max, Math.max(min, value));
 }
 
 function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item: RuntimeEventItem | null | undefined) {
@@ -1080,6 +1157,7 @@ async function init() {
   loadDraftPrefs();
   applyTheme();
   applySidebarWidth();
+  applyRuntimePanelWidth();
   applyChatFontSize();
   await setAppZoomFactor(state.ui.zoomFactor, { persist: false, rerenderControls: false }).catch(() => {});
 
@@ -1239,6 +1317,38 @@ async function init() {
     el.chatContextMenu.style.top = `${top}px`;
   };
 
+  const hideQueuePopover = () => {
+    if (!el.queuePopover || !el.queueChip) {
+      return;
+    }
+    el.queuePopover.classList.add('hidden');
+    el.queueChip.setAttribute('aria-expanded', 'false');
+  };
+
+  const showQueuePopover = () => {
+    if (!el.queuePopover || !el.queueChip) {
+      return;
+    }
+    if (Number(state.queuedCountByConversation[state.activeConversationId] || 0) <= 0) {
+      hideQueuePopover();
+      return;
+    }
+    renderQueuePopover(state.activeConversationId);
+    el.queuePopover.classList.remove('hidden');
+    el.queueChip.setAttribute('aria-expanded', 'true');
+  };
+
+  const toggleQueuePopover = () => {
+    if (!el.queuePopover || el.queueChip.classList.contains('hidden')) {
+      return;
+    }
+    if (el.queuePopover.classList.contains('hidden')) {
+      showQueuePopover();
+      return;
+    }
+    hideQueuePopover();
+  };
+
   const switchConversationIfNeeded = async (conversationId) => {
     const targetId = String(conversationId || '').trim();
     if (!targetId || targetId === state.activeConversationId) {
@@ -1327,6 +1437,21 @@ async function init() {
       event.preventDefault();
       hideConversationContextMenu();
       showChatContextMenu(event.clientX, event.clientY);
+    });
+  }
+
+  if (el.queueChip) {
+    el.queueChip.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleQueuePopover();
+    });
+  }
+  if (el.queuePopoverClose) {
+    el.queuePopoverClose.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      hideQueuePopover();
     });
   }
 
@@ -1586,6 +1711,10 @@ async function init() {
       if (state.ui.theme !== 'dark') {
         setTheme('dark');
       }
+      return;
+    }
+    if (action === 'ui:theme:toggle') {
+      setTheme(state.ui.theme === 'dark' ? 'light' : 'dark');
       return;
     }
     if (action === 'help:about') {
@@ -1922,6 +2051,13 @@ async function init() {
     if (el.contextMenu && !el.contextMenu.classList.contains('hidden') && (!targetNode || !el.contextMenu.contains(targetNode))) {
       hideConversationContextMenu();
     }
+    if (
+      el.queuePopover
+      && !el.queuePopover.classList.contains('hidden')
+      && (!targetNode || (!el.queuePopover.contains(targetNode) && !el.queueChip.contains(targetNode)))
+    ) {
+      hideQueuePopover();
+    }
     if (!el.quickSettingsMenu || el.quickSettingsMenu.classList.contains('hidden')) {
       return;
     }
@@ -1937,6 +2073,7 @@ async function init() {
   window.addEventListener('blur', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
+    hideQueuePopover();
     if (!shouldKeepQuickSettingsOpen()) {
       hideQuickSettingsMenu();
     }
@@ -1947,6 +2084,7 @@ async function init() {
   window.addEventListener('resize', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
+    hideQueuePopover();
     if (!shouldKeepQuickSettingsOpen()) {
       hideQuickSettingsMenu();
     }
@@ -1975,6 +2113,7 @@ async function init() {
         resolveCloseGuardAction('cancel');
         return;
       }
+      hideQueuePopover();
       hideChatContextMenu();
       hideConversationContextMenu();
       hideQuickSettingsMenu();
@@ -2044,6 +2183,93 @@ async function init() {
       window.addEventListener('pointermove', onSidebarPointerMove);
       window.addEventListener('pointerup', stopSidebarResize);
       window.addEventListener('pointercancel', stopSidebarResize);
+    });
+  }
+
+  let resizingRuntimePanel = false;
+  let runtimeResizeStartX = 0;
+  let runtimeResizeStartWidth = state.ui.runtimePanelWidth;
+  const onRuntimePanelPointerMove = (event) => {
+    if (!resizingRuntimePanel || state.ui.runtimePanelHidden) {
+      return;
+    }
+    const delta = Number(event.clientX || 0) - runtimeResizeStartX;
+    setRuntimePanelWidth(runtimeResizeStartWidth - delta, { persist: false });
+  };
+  const stopRuntimePanelResize = () => {
+    if (!resizingRuntimePanel) {
+      return;
+    }
+    resizingRuntimePanel = false;
+    document.body.classList.remove('sidebar-resizing');
+    saveUiPrefs();
+    window.removeEventListener('pointermove', onRuntimePanelPointerMove);
+    window.removeEventListener('pointerup', stopRuntimePanelResize);
+    window.removeEventListener('pointercancel', stopRuntimePanelResize);
+  };
+  if (el.runtimeResizer) {
+    el.runtimeResizer.addEventListener('pointerdown', (event) => {
+      if (state.ui.runtimePanelHidden || window.innerWidth <= 1200) {
+        return;
+      }
+      event.preventDefault();
+      resizingRuntimePanel = true;
+      runtimeResizeStartX = Number(event.clientX || 0);
+      runtimeResizeStartWidth = state.ui.runtimePanelWidth;
+      document.body.classList.add('sidebar-resizing');
+      if (typeof el.runtimeResizer.setPointerCapture === 'function') {
+        try {
+          el.runtimeResizer.setPointerCapture(event.pointerId);
+        } catch {
+          // ignore capture failures
+        }
+      }
+      window.addEventListener('pointermove', onRuntimePanelPointerMove);
+      window.addEventListener('pointerup', stopRuntimePanelResize);
+      window.addEventListener('pointercancel', stopRuntimePanelResize);
+    });
+  }
+
+  let resizingComposer = false;
+  let composerResizeStartY = 0;
+  let composerResizeStartHeight = 0;
+  const onComposerPointerMove = (event) => {
+    if (!resizingComposer || !el.inputBox || el.inputBox.disabled) {
+      return;
+    }
+    const delta = Number(event.clientY || 0) - composerResizeStartY;
+    el.inputBox.style.height = `${clampComposerHeight(composerResizeStartHeight - delta)}px`;
+  };
+  const stopComposerResize = () => {
+    if (!resizingComposer) {
+      return;
+    }
+    resizingComposer = false;
+    document.body.classList.remove('composer-resizing');
+    window.removeEventListener('pointermove', onComposerPointerMove);
+    window.removeEventListener('pointerup', stopComposerResize);
+    window.removeEventListener('pointercancel', stopComposerResize);
+  };
+  if (el.composerResizeHandle) {
+    el.composerResizeHandle.addEventListener('pointerdown', (event) => {
+      if (!el.inputBox || el.inputBox.disabled) {
+        return;
+      }
+      event.preventDefault();
+      resizingComposer = true;
+      composerResizeStartY = Number(event.clientY || 0);
+      composerResizeStartHeight = el.inputBox.getBoundingClientRect().height;
+      document.body.classList.add('composer-resizing');
+      if (typeof el.composerResizeHandle?.setPointerCapture === 'function') {
+        try {
+          el.composerResizeHandle.setPointerCapture(event.pointerId);
+        } catch {
+          // ignore capture failures
+        }
+      }
+      window.addEventListener('pointermove', onComposerPointerMove);
+      window.addEventListener('pointerup', stopComposerResize);
+      window.addEventListener('pointercancel', stopComposerResize);
     });
   }
 
@@ -2184,7 +2410,6 @@ async function init() {
         } else {
           throw new Error('clipboard unavailable');
         }
-        el.btnSessionId.title = t('clickToCopy');
         flashCopiedState();
       } catch {
         const range = document.createRange();
@@ -2194,7 +2419,6 @@ async function init() {
         selection?.addRange(range);
         try {
           document.execCommand('copy');
-          el.btnSessionId.title = t('clickToCopy');
           flashCopiedState();
         } finally {
           selection?.removeAllRanges();
@@ -2324,9 +2548,76 @@ async function init() {
     renderAll();
   });
 
+  el.btnInsertMessage.addEventListener('click', async () => {
+    const text = el.inputBox.value.trim();
+    if (!text) {
+      return;
+    }
+    const result = await codexdesk.insertMessage(state.activeConversationId, text);
+    if (result?.error) {
+      window.alert(localizeKnownText(result.error));
+      return;
+    }
+    el.inputBox.value = '';
+    setConversationDraft(state.activeConversationId, '');
+    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
+    applySnapshot(result?.snapshot || result);
+    renderAll();
+  });
+
   el.inputBox.addEventListener('input', () => {
+    rememberInputBoxSelection();
     setConversationDraft(state.activeConversationId, el.inputBox.value);
     state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
+  });
+
+  ['click', 'keyup', 'select', 'focus'].forEach((eventName) => {
+    el.inputBox.addEventListener(eventName, () => {
+      rememberInputBoxSelection();
+    });
+  });
+
+  el.inputBox.addEventListener('dragenter', (event) => {
+    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    rememberInputBoxSelection();
+    el.inputBox.classList.add('is-dragover');
+  });
+
+  el.inputBox.addEventListener('dragover', (event) => {
+    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    rememberInputBoxSelection();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+    el.inputBox.classList.add('is-dragover');
+  });
+
+  el.inputBox.addEventListener('dragleave', (event) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && el.inputBox.contains(nextTarget)) {
+      return;
+    }
+    el.inputBox.classList.remove('is-dragover');
+  });
+
+  el.inputBox.addEventListener('drop', (event) => {
+    el.inputBox.classList.remove('is-dragover');
+    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    const paths = extractDroppedPaths(event.dataTransfer);
+    if (!paths.length) {
+      return;
+    }
+    const text = paths.join('\n');
+    insertTextIntoInputBox(text);
   });
 
   el.sidebarSearchInput.addEventListener('input', () => {

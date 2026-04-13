@@ -266,6 +266,7 @@ export interface CodexDeskApi {
   insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
   getPathForFile(file: File): string;
+  openPath(targetPath: string): Promise<GenericResult>;
   setMenuLanguage(language: Language): Promise<unknown>;
   setWindowTheme(theme: Theme): Promise<unknown>;
   getZoomFactor(): Promise<GenericResult>;

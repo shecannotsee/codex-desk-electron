@@ -104,6 +104,61 @@ function getEventNodeTarget(event: Event): Node | null {
   return event.target instanceof Node ? event.target : null;
 }
 
+let noticeLayer: HTMLElement | null = null;
+let noticeHideTimer = 0;
+let noticeClearTimer = 0;
+
+function ensureNoticeLayer(): HTMLElement {
+  const host = el.focusRow || el.workspace || document.body;
+  if (noticeLayer && host.contains(noticeLayer)) {
+    return noticeLayer;
+  }
+  const layer = document.createElement('div');
+  layer.className = 'app-notice-layer';
+  layer.setAttribute('aria-live', 'polite');
+  layer.setAttribute('aria-atomic', 'true');
+  host.appendChild(layer);
+  noticeLayer = layer;
+  return layer;
+}
+
+function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'info') {
+  const text = String(message || '').trim();
+  if (!text) {
+    return;
+  }
+  const layer = ensureNoticeLayer();
+  layer.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = `app-notice app-notice-${tone}`;
+  card.textContent = text;
+  card.title = t('clickToCopy');
+  card.addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch {
+      // Ignore clipboard failures for transient notices.
+    }
+  });
+  layer.appendChild(card);
+  window.clearTimeout(noticeHideTimer);
+  window.clearTimeout(noticeClearTimer);
+  window.requestAnimationFrame(() => {
+    card.classList.add('is-visible');
+  });
+  const visibleMs = tone === 'error' ? 6000 : 2200;
+  noticeHideTimer = window.setTimeout(() => {
+    card.classList.remove('is-visible');
+    noticeClearTimer = window.setTimeout(() => {
+      if (noticeLayer === layer) {
+        layer.innerHTML = '';
+      }
+    }, 180);
+  }, visibleMs);
+}
+
 function dragEventHasFiles(event: DragEvent): boolean {
   const types = Array.from(event.dataTransfer?.types || []);
   return types.includes('Files');
@@ -171,8 +226,8 @@ function removeComposerAttachment(index: number) {
     return;
   }
   const current = getComposerAttachments(state.activeConversationId);
-  current.splice(index, 1);
-  setComposerAttachments(state.activeConversationId, current);
+  const next = current.filter((_, itemIndex) => itemIndex !== index);
+  setComposerAttachments(state.activeConversationId, next);
   renderComposerDraft();
 }
 
@@ -2491,12 +2546,13 @@ async function init() {
       }
       const flashCopiedState = () => {
         el.btnSessionId.classList.remove('is-copied');
-        window.setTimeout(() => {
+        window.requestAnimationFrame(() => {
           el.btnSessionId.classList.add('is-copied');
           window.setTimeout(() => {
             el.btnSessionId.classList.remove('is-copied');
-          }, 1200);
-        }, 0);
+          }, 900);
+        });
+        showAppNotice(t('copySuccess'), 'success');
       };
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
@@ -2802,6 +2858,26 @@ async function init() {
 
   document.addEventListener('click', (event) => {
     const target = getEventElementTarget(event);
+    const localLink = target?.closest<HTMLAnchorElement>('a[data-open-path]');
+    if (localLink) {
+      event.preventDefault();
+      event.stopPropagation();
+      const encodedPath = String(localLink.getAttribute('data-open-path') || '').trim();
+      const targetPath = encodedPath ? decodeURIComponent(encodedPath) : '';
+      if (!targetPath) {
+        return;
+      }
+      codexdesk.openPath(targetPath).then((result) => {
+        if (result?.error) {
+          showAppNotice(localizeKnownText(result.error), 'error');
+          return;
+        }
+        if (result?.warning) {
+          showAppNotice(localizeKnownText(String(result.warning || '')), 'info');
+        }
+      }).catch(() => {});
+      return;
+    }
     if (!target) {
       setAttachmentMenuOpen(false);
       return;

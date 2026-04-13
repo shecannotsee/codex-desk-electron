@@ -573,6 +573,7 @@ button:hover:not(:disabled) {
 }
 
 .focus-row {
+  position: relative;
   gap: 12px;
   padding: 2px 2px 8px;
   border-bottom: 1px solid rgba(201, 215, 229, 0.72);
@@ -947,7 +948,7 @@ button:hover:not(:disabled) {
 }
 
 .session-id-button.is-copied {
-  color: #0f766e;
+  color: #0b6b61;
   background: transparent;
   box-shadow: none;
 }
@@ -985,31 +986,6 @@ button:hover:not(:disabled) {
 .session-id-button:hover:not(:disabled) .session-id-copy-icon,
 .session-id-button:focus-visible .session-id-copy-icon {
   opacity: 0.9;
-}
-
-.session-id-button::after {
-  content: attr(data-copied-label);
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%) translateY(-4px);
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: rgba(20, 43, 64, 0.94);
-  color: #f8fbff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  box-shadow: 0 10px 22px rgba(20, 43, 64, 0.16);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.session-id-button.is-copied::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 #session-id {
@@ -2039,8 +2015,37 @@ body.composer-resizing .composer-resize-handle::before {
 .msg-bubble a,
 .runtime-step-body a,
 .msg-running-step-panel a {
-  color: #4ea1ff;
-  text-decoration: none;
+  color: #0f5f9a;
+  text-decoration: underline;
+  text-decoration-color: rgba(15, 95, 154, 0.3);
+  text-underline-offset: 2px;
+}
+
+.msg-bubble a:hover,
+.runtime-step-body a:hover,
+.msg-running-step-panel a:hover {
+  color: #0a4f83;
+  text-decoration-color: rgba(10, 79, 131, 0.55);
+}
+
+.msg-user a {
+  color: #0b5a8e;
+  text-decoration-color: rgba(11, 90, 142, 0.32);
+}
+
+.msg-user a:hover {
+  color: #084d79;
+  text-decoration-color: rgba(8, 77, 121, 0.55);
+}
+
+.msg-assistant a {
+  color: #145b8e;
+  text-decoration-color: rgba(20, 91, 142, 0.28);
+}
+
+.msg-assistant a:hover {
+  color: #0f4d79;
+  text-decoration-color: rgba(15, 77, 121, 0.5);
 }
 
 .md-code-wrap {
@@ -3746,19 +3751,123 @@ html[data-theme='dark'] .session-id-button:hover:not(:disabled) {
 }
 
 html[data-theme='dark'] .session-id-button.is-copied {
-  color: #bbf7d0;
+  color: #8ee7c4;
   background: transparent;
   box-shadow: none;
 }
 
-html[data-theme='dark'] .session-id-button::after {
-  background: rgba(54, 78, 102, 0.96);
-  color: #f4f9ff;
-  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.32);
-}
-
 html[data-theme='dark'] .msg-running-status {
   color: #9fc0de;
+}
+
+html[data-theme='dark'] .msg-bubble a,
+html[data-theme='dark'] .runtime-step-body a,
+html[data-theme='dark'] .msg-running-step-panel a {
+  color: #7fc3ff;
+  text-decoration-color: rgba(127, 195, 255, 0.34);
+}
+
+html[data-theme='dark'] .msg-bubble a:hover,
+html[data-theme='dark'] .runtime-step-body a:hover,
+html[data-theme='dark'] .msg-running-step-panel a:hover {
+  color: #abd8ff;
+  text-decoration-color: rgba(171, 216, 255, 0.58);
+}
+
+html[data-theme='dark'] .msg-user a {
+  color: #93d5ff;
+  text-decoration-color: rgba(147, 213, 255, 0.34);
+}
+
+html[data-theme='dark'] .msg-user a:hover {
+  color: #c0e7ff;
+  text-decoration-color: rgba(192, 231, 255, 0.6);
+}
+
+html[data-theme='dark'] .msg-assistant a {
+  color: #7fc3ff;
+  text-decoration-color: rgba(127, 195, 255, 0.34);
+}
+
+html[data-theme='dark'] .msg-assistant a:hover {
+  color: #abd8ff;
+  text-decoration-color: rgba(171, 216, 255, 0.58);
+}
+
+.app-notice-layer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: min(320px, calc(100% - 420px));
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-notice {
+  min-width: 120px;
+  width: auto;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.96);
+  color: #16324d;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+  pointer-events: auto;
+  cursor: copy;
+  text-align: center;
+  transform: translateY(10px) scale(0.98);
+  opacity: 0;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.app-notice.is-visible {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.app-notice-success {
+  border-color: rgba(13, 148, 136, 0.28);
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.98), rgba(221, 247, 241, 0.96));
+  color: #0f4f49;
+}
+
+.app-notice-error {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.98), rgba(254, 226, 226, 0.96));
+  color: #7f1d1d;
+}
+
+html[data-theme='dark'] .app-notice {
+  border-color: rgba(71, 85, 105, 0.72);
+  background: rgba(18, 28, 43, 0.96);
+  color: #dbeafe;
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.28);
+}
+
+html[data-theme='dark'] .app-notice-success {
+  border-color: rgba(45, 212, 191, 0.28);
+  background: linear-gradient(180deg, rgba(8, 47, 43, 0.98), rgba(15, 64, 59, 0.96));
+  color: #a7f3d0;
+}
+
+html[data-theme='dark'] .app-notice-error {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: linear-gradient(180deg, rgba(69, 10, 10, 0.98), rgba(91, 18, 18, 0.96));
+  color: #fecaca;
 }
 
 html[data-theme='dark'] .msg-running-step-panel {

@@ -1117,6 +1117,29 @@ function escapeHtml(text) {
     .replaceAll("'", '&#39;');
 }
 
+function normalizeLocalLinkTarget(target) {
+  const value = String(target || '').trim();
+  if (!value) {
+    return '';
+  }
+  if (/^file:\/\//i.test(value)) {
+    return value;
+  }
+  return /^(\/|[a-zA-Z]:[\\/])/.test(value) ? value : '';
+}
+
+function renderMarkdownLink(label, target) {
+  const href = String(target || '').trim();
+  const localPath = normalizeLocalLinkTarget(href);
+  if (localPath) {
+    return `<a href="#" class="md-local-link" data-open-path="${escapeHtml(encodeURIComponent(localPath))}" title="${escapeHtml(localPath)}">${label}</a>`;
+  }
+  if (/^https?:\/\//i.test(href)) {
+    return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${label}</a>`;
+  }
+  return `[${label}](${escapeHtml(href)})`;
+}
+
 function renderInline(text) {
   const parts = String(text || '').split(/(`[^`]+`)/g);
   return parts.map((part) => {
@@ -1124,8 +1147,16 @@ function renderInline(text) {
       const code = escapeHtml(part.slice(1, -1));
       return `<code>${code}</code>`;
     }
-    let escaped = escapeHtml(part);
-    escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "<a href='$2' target='_blank' rel='noreferrer'>$1</a>");
+    const linkTokens: string[] = [];
+    const linked = String(part).replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (_, label, target) => {
+      const token = `@@MD_LINK_${linkTokens.length}@@`;
+      linkTokens.push(renderMarkdownLink(escapeHtml(label), target));
+      return token;
+    });
+    let escaped = escapeHtml(linked);
+    linkTokens.forEach((html, index) => {
+      escaped = escaped.replace(`@@MD_LINK_${index}@@`, html);
+    });
     escaped = escaped.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
     escaped = escaped.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<i>$1</i>');
     return escaped;

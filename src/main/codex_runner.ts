@@ -215,7 +215,7 @@ class CodexRunner extends EventEmitter {
 
     if (this.useNativeMemory && this.sessionId && !forceNewSession) {
       this.emit('event', 'hint', `使用原生会话续聊: ${this.sessionId}`);
-      return [codexBin, 'exec', ...execOpts, ...imageArgs, 'resume', this.sessionId, this.prompt];
+      return [codexBin, 'exec', ...execOpts, ...imageArgs, 'resume', this.sessionId, '--', this.prompt];
     }
 
     if (this.useNativeMemory) {
@@ -224,7 +224,7 @@ class CodexRunner extends EventEmitter {
       this.emit('event', 'hint', '当前为本地拼接上下文模式（非原生会话）');
     }
 
-    return [codexBin, 'exec', ...execOpts, ...imageArgs, this.prompt];
+    return [codexBin, 'exec', ...execOpts, ...imageArgs, '--', this.prompt];
   }
 
   _normalizeBaseOptions(baseCmd): [string[], boolean] {

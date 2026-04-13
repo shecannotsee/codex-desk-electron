@@ -495,7 +495,8 @@ const chatMethods = {
     const hasAttachments = normalizedAttachments.length > 0;
     const useAppServerEnv = String(process.env.CODEX_DESK_ENABLE_APP_SERVER || '').trim().toLowerCase();
     const preferAppServer = Boolean(this.preferAppServerByConversation?.[targetId]);
-    const allowAppServer = useAppServerEnv === '1' || useAppServerEnv === 'true' || preferAppServer;
+    const appServerDisabled = useAppServerEnv === '0' || useAppServerEnv === 'false';
+    const allowAppServer = !appServerDisabled || preferAppServer;
     const useAppServer = allowAppServer && this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();

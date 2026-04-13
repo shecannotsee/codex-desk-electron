@@ -94,6 +94,27 @@ function normalizeMessageUsage(usage, fallbackModel = '') {
   };
 }
 
+function normalizeMessageUsageFromMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return null;
+  }
+  const inputTokens = Number(meta['输入Tokens'] ?? 0) || 0;
+  const cachedInputTokens = Number(meta['缓存输入Tokens'] ?? 0) || 0;
+  const outputTokens = Number(meta['输出Tokens'] ?? 0) || 0;
+  const totalTokens = Number(meta['总Tokens'] ?? 0) || 0;
+  const model = String(meta['模型'] || '').trim();
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0 && totalTokens <= 0) {
+    return null;
+  }
+  return {
+    ...(model && model !== '-' ? { model } : {}),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    ...(totalTokens > 0 ? { totalTokens } : {}),
+  };
+}
+
 function supportsAppServer(commandText) {
   const parts = splitShellArgs(commandText);
   return parts.length >= 2
@@ -462,7 +483,9 @@ const chatMethods = {
 
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;
-    const useAppServer = this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
+    const useAppServerEnv = String(process.env.CODEX_DESK_ENABLE_APP_SERVER || '').trim().toLowerCase();
+    const allowAppServer = useAppServerEnv === '1' || useAppServerEnv === 'true';
+    const useAppServer = allowAppServer && this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();
     const appServerMode = !useAppServer
@@ -502,6 +525,8 @@ const chatMethods = {
 
     this.runners.set(targetId, runner);
     this._emit({ type: 'runner-state', conversationId: targetId, running: true });
+    const streamPreviewEnv = String(process.env.CODEX_DESK_STREAM_PREVIEW || '').trim().toLowerCase();
+    const enableStreamPreview = streamPreviewEnv === '1' || streamPreviewEnv === 'true';
 
     this.assistantBufferByRunner.set(runner, '');
     this.assistantStreamPreviewByRunner.set(runner, {
@@ -557,7 +582,9 @@ const chatMethods = {
       const current = this.assistantBufferByRunner.get(runner) || '';
       const next = current + String(delta || '');
       this.assistantBufferByRunner.set(runner, next);
-      this._maybeEmitStreamingAssistantUpdate(targetId, runner, delta, { text: next });
+      if (enableStreamPreview) {
+        this._maybeEmitStreamingAssistantUpdate(targetId, runner, delta, { text: next });
+      }
     });
 
     runner.on('assistant_update', (payload) => {
@@ -570,7 +597,9 @@ const chatMethods = {
       if (previewText.length > bufferedText.length) {
         this.assistantBufferByRunner.set(runner, previewText);
       }
-      this._maybeEmitStreamingAssistantUpdate(targetId, runner, '', { text: previewText, force: true });
+      if (enableStreamPreview) {
+        this._maybeEmitStreamingAssistantUpdate(targetId, runner, '', { text: previewText, force: true });
+      }
     });
 
     runner.on('step', (step) => {
@@ -615,7 +644,11 @@ const chatMethods = {
       )) {}
       if (finalText && targetConv) {
         this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
-        const messageUsage = normalizeMessageUsage(result?.usage, result?.model);
+        const metaModel = String(this._ensureMeta(targetId)?.['模型'] || '').trim();
+        const messageUsage = normalizeMessageUsage(
+          result?.usage,
+          String(result?.model || '').trim() || metaModel,
+        ) || normalizeMessageUsageFromMeta(this._ensureMeta(targetId));
         targetConv.messages.push({
           role: 'assistant',
           text: finalText,

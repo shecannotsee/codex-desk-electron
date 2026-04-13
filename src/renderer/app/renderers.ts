@@ -720,13 +720,20 @@ function renderMessageUsageFooter(conversation: ConversationSummary, latestAssis
   if (item.role !== 'assistant') {
     return '';
   }
+  const metaModel = String(ensureMeta(conversation.id)['模型'] || '').trim();
   const usage = item?.usage && typeof item.usage === 'object'
     ? item.usage
     : (index === latestAssistantIndex ? buildUsageFromMeta(conversation.id) : null);
   if (!usage) {
     return '';
   }
-  const usageCostUsd = calculateUsageCostUsd(usage);
+  const usageWithModel = usage?.model
+    ? usage
+    : {
+      ...usage,
+      ...(metaModel && metaModel !== '-' ? { model: metaModel } : {}),
+    };
+  const usageCostUsd = calculateUsageCostUsd(usageWithModel);
   const usageItems = [
     { value: usage.inputTokens, labelKey: 'usageInputShort', titleKey: 'usageInputTitle' },
     { value: usage.cachedInputTokens, labelKey: 'usageCachedShort', titleKey: 'usageCachedTitle' },
@@ -742,10 +749,10 @@ function renderMessageUsageFooter(conversation: ConversationSummary, latestAssis
   }).filter(Boolean);
 
   if (usageCostUsd !== null) {
-    const pricing = resolveModelPricing(usage.model);
+    const pricing = resolveModelPricing(usageWithModel.model);
     const titleLines = [
       `${t('usageCostTitle')}: ${formatUsageCostFull(usageCostUsd)}`,
-      `Model: ${String(usage.model || '-')}`,
+      `Model: ${String(usageWithModel.model || '-')}`,
     ];
     if (pricing) {
       titleLines.push(

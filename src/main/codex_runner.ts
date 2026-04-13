@@ -35,6 +35,66 @@ function splitShellArgs(commandText) {
   return result;
 }
 
+function isUsageLikeObject(node) {
+  if (!node || typeof node !== 'object') {
+    return false;
+  }
+  const keys = [
+    'input_tokens',
+    'inputTokens',
+    'prompt_tokens',
+    'promptTokens',
+    'cached_input_tokens',
+    'cachedInputTokens',
+    'cached_tokens',
+    'cachedTokens',
+    'output_tokens',
+    'outputTokens',
+    'completion_tokens',
+    'completionTokens',
+    'total_tokens',
+    'totalTokens',
+  ];
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(node, key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function deepFindUsagePayload(root, maxNodes = 200) {
+  if (!root || typeof root !== 'object') {
+    return null;
+  }
+  const queue = [root];
+  const visited = new Set();
+  let scanned = 0;
+  while (queue.length) {
+    const node = queue.shift();
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    if (visited.has(node)) {
+      continue;
+    }
+    visited.add(node);
+    scanned += 1;
+    if (scanned > maxNodes) {
+      break;
+    }
+    if (isUsageLikeObject(node)) {
+      return node;
+    }
+    for (const value of Object.values(node)) {
+      if (value && typeof value === 'object') {
+        queue.push(value);
+      }
+    }
+  }
+  return null;
+}
+
 class CodexRunner extends EventEmitter {
   constructor({ commandText, prompt, attachments = [], workdir, sessionId = '', useNativeMemory = true }) {
     super();
@@ -665,36 +725,40 @@ class CodexRunner extends EventEmitter {
   }
 
   _emitUsageMeta(usage) {
-    const cachedInputTokens = usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cached_tokens;
+    const inputTokensRaw = usage.input_tokens
+      ?? usage.inputTokens
+      ?? usage.prompt_tokens
+      ?? usage.promptTokens;
+    const cachedInputTokensRaw = usage.cached_input_tokens
+      ?? usage.cachedInputTokens
+      ?? usage.input_tokens_details?.cached_tokens
+      ?? usage.inputTokensDetails?.cachedTokens
+      ?? usage.prompt_tokens_details?.cached_tokens
+      ?? usage.promptTokensDetails?.cachedTokens
+      ?? usage.cached_tokens
+      ?? usage.cachedTokens;
+    const outputTokensRaw = usage.output_tokens
+      ?? usage.outputTokens
+      ?? usage.completion_tokens
+      ?? usage.completionTokens;
+    const totalTokensRaw = usage.total_tokens ?? usage.totalTokens ?? usage.total;
     this.lastUsage = {
-      inputTokens: Number(usage.input_tokens ?? 0) || 0,
-      cachedInputTokens: Number(cachedInputTokens ?? 0) || 0,
-      outputTokens: Number(usage.output_tokens ?? 0) || 0,
-      totalTokens: Number(usage.total_tokens ?? 0) || 0,
+      inputTokens: Number(inputTokensRaw ?? 0) || 0,
+      cachedInputTokens: Number(cachedInputTokensRaw ?? 0) || 0,
+      outputTokens: Number(outputTokensRaw ?? 0) || 0,
+      totalTokens: Number(totalTokensRaw ?? 0) || 0,
     };
 
-    this.emit('meta', '输入Tokens', usage.input_tokens !== undefined ? String(usage.input_tokens) : '-');
-    this.emit('meta', '缓存输入Tokens', cachedInputTokens !== undefined ? String(cachedInputTokens) : '-');
-    this.emit('meta', '输出Tokens', usage.output_tokens !== undefined ? String(usage.output_tokens) : '-');
-    if (usage.total_tokens !== undefined) {
-      this.emit('meta', '总Tokens', String(usage.total_tokens));
+    this.emit('meta', '输入Tokens', inputTokensRaw !== undefined ? String(inputTokensRaw) : '-');
+    this.emit('meta', '缓存输入Tokens', cachedInputTokensRaw !== undefined ? String(cachedInputTokensRaw) : '-');
+    this.emit('meta', '输出Tokens', outputTokensRaw !== undefined ? String(outputTokensRaw) : '-');
+    if (totalTokensRaw !== undefined) {
+      this.emit('meta', '总Tokens', String(totalTokensRaw));
     }
   }
 
   _extractUsagePayload(payload) {
-    if (!payload || typeof payload !== 'object') {
-      return null;
-    }
-    if (payload.usage && typeof payload.usage === 'object') {
-      return payload.usage;
-    }
-    if (payload.response && typeof payload.response === 'object' && payload.response.usage && typeof payload.response.usage === 'object') {
-      return payload.response.usage;
-    }
-    if (payload.turn && typeof payload.turn === 'object' && payload.turn.usage && typeof payload.turn.usage === 'object') {
-      return payload.turn.usage;
-    }
-    return null;
+    return deepFindUsagePayload(payload);
   }
 
   _extractResponseMessageText(response) {

@@ -324,6 +324,14 @@ class CodexAppServerRunner extends EventEmitter {
   }
 
   _handleNotification(method, params) {
+    if (method === 'codex/event/token_count' || method === 'thread/tokenUsage/updated') {
+      const usage = this._extractUsagePayload(params);
+      if (usage) {
+        this._emitUsageMeta(usage);
+      }
+      return;
+    }
+
     if (method === 'turn/started') {
       const turnId = String(params?.turn?.id || params?.turnId || '').trim();
       if (turnId) {

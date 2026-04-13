@@ -78,6 +78,7 @@ class AppController {
     this.runtimeStore = new RuntimeStore();
     this.metaByConversation = {};
     this.runners = new Map();
+    this.preferAppServerByConversation = {};
     this.pendingQueueByConversation = new Map();
     this.assistantBufferByRunner = new Map();
     this.assistantStreamPreviewByRunner = new Map();

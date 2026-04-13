@@ -266,6 +266,7 @@ const chatMethods = {
     this.conversations = this.conversations.filter((item) => item.id !== closeId);
     this.runtimeStore.remove(closeId);
     delete this.metaByConversation[closeId];
+    delete this.preferAppServerByConversation[closeId];
     this.pendingQueueByConversation.delete(closeId);
     this._emit({ type: 'conversation-removed', conversationId: closeId });
     if (this.activeConversationId) {
@@ -380,7 +381,15 @@ const chatMethods = {
       return { error: '当前没有进行中的任务。', snapshot: this.snapshot() };
     }
     if (typeof runner.steer !== 'function') {
-      return { error: '当前运行模式不支持插入对话，请改用排队发送。', snapshot: this.snapshot() };
+      this.preferAppServerByConversation[targetId] = true;
+      this._appendStructuredEvent(targetId, 'hint', '当前轮次不支持插入，已自动切换为混合策略：后续轮次将启用可插入模式');
+      return this.sendMessage({
+        conversationId: targetId,
+        text: userText,
+        appendUserMessage: true,
+        forceFreshSession: false,
+        fromRetry: false,
+      });
     }
 
     try {
@@ -485,7 +494,8 @@ const chatMethods = {
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;
     const useAppServerEnv = String(process.env.CODEX_DESK_ENABLE_APP_SERVER || '').trim().toLowerCase();
-    const allowAppServer = useAppServerEnv === '1' || useAppServerEnv === 'true';
+    const preferAppServer = Boolean(this.preferAppServerByConversation?.[targetId]);
+    const allowAppServer = useAppServerEnv === '1' || useAppServerEnv === 'true' || preferAppServer;
     const useAppServer = allowAppServer && this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();

@@ -1,4 +1,4 @@
-const { StateStore } = require('../state_store');
+const { createAppStateStorage } = require('../storage');
 const { RuntimeStore } = require('../runtime_store');
 const { nowTs } = require('../conversation_service');
 
@@ -6,14 +6,53 @@ const { runtimeMethods } = require('./methods_runtime');
 const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
 
+function usageFromMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return null;
+  }
+  const inputTokens = Number(meta['输入Tokens'] ?? 0) || 0;
+  const cachedInputTokens = Number(meta['缓存输入Tokens'] ?? 0) || 0;
+  const outputTokens = Number(meta['输出Tokens'] ?? 0) || 0;
+  const model = String(meta['模型'] || '').trim();
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0) {
+    return null;
+  }
+  return {
+    ...(model && model !== '-' ? { model } : {}),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+  };
+}
+
+function backfillLatestAssistantUsage(conversation, meta) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const usage = usageFromMeta(meta);
+  if (!usage) {
+    return false;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const item = messages[index];
+    if (item?.role !== 'assistant') {
+      continue;
+    }
+    if (item.usage && typeof item.usage === 'object') {
+      return false;
+    }
+    item.usage = usage;
+    return true;
+  }
+  return false;
+}
+
 class AppController {
   [key: string]: any;
 
-  constructor(mainWindow) {
+  constructor(mainWindow, options: any = {}) {
     this.mainWindow = mainWindow;
-    this.stateStore = new StateStore();
+    this.stateStorage = options.stateStorage || createAppStateStorage(options.stateStorageOptions);
 
-    const loaded = this.stateStore.load();
+    const loaded = this.stateStorage.loadState();
     this.commandText = loaded.commandText;
     this.workdir = loaded.workdir;
     this.useNativeMemory = true;
@@ -21,6 +60,7 @@ class AppController {
     this.conversations = Array.isArray(loaded.conversations) ? loaded.conversations : [];
 
     let renamedFromTest = false;
+    let backfilledUsage = false;
     for (let index = 0; index < this.conversations.length; index += 1) {
       const conv = this.conversations[index];
       if (String(conv.title || '').trim() === '测试重命名') {
@@ -61,9 +101,12 @@ class AppController {
       if (!String(this.metaByConversation[conv.id]['会话ID'] || '').trim() || this.metaByConversation[conv.id]['会话ID'] === '-') {
         this.metaByConversation[conv.id]['会话ID'] = conv.sessionId || '-';
       }
+      if (backfillLatestAssistantUsage(conv, this.metaByConversation[conv.id])) {
+        backfilledUsage = true;
+      }
     }
 
-    if (renamedFromTest) {
+    if (renamedFromTest || backfilledUsage) {
       this._persist();
     }
   }

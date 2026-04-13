@@ -22,7 +22,7 @@ const runtimeMethods = {
   },
 
   _persist() {
-    this.stateStore.save({
+    this.stateStorage.saveState({
       commandText: this.commandText,
       workdir: this.workdir,
       useNativeMemory: this.useNativeMemory,

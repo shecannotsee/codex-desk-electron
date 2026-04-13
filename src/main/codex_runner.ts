@@ -51,6 +51,8 @@ class CodexRunner extends EventEmitter {
     this.detectedSessionId = sessionId;
     this.lastAssistantUpdateText = '';
     this.stopped = false;
+    this.lastUsage = null;
+    this.lastModel = '';
   }
 
   stop() {
@@ -113,14 +115,16 @@ class CodexRunner extends EventEmitter {
       }
 
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
-      this.emit('finished', {
-        exitCode,
-        assistantText: assistantText.trim(),
-        rawOutput: cleanOutput,
-        durationSeconds,
-        sessionId: this.detectedSessionId,
-        sessionResetSuggested,
-      });
+        this.emit('finished', {
+          exitCode,
+          assistantText: assistantText.trim(),
+          rawOutput: cleanOutput,
+          durationSeconds,
+          sessionId: this.detectedSessionId,
+          sessionResetSuggested,
+          usage: this.lastUsage,
+          model: this.lastModel,
+        });
     } catch (error) {
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
       const message = error && error.code === 'ENOENT'
@@ -133,6 +137,8 @@ class CodexRunner extends EventEmitter {
         durationSeconds,
         sessionId: this.detectedSessionId,
         sessionResetSuggested,
+        usage: this.lastUsage,
+        model: this.lastModel,
       });
     }
   }
@@ -337,6 +343,7 @@ class CodexRunner extends EventEmitter {
       }
     }
     if (model) {
+      this.lastModel = model;
       this.emit('meta', '模型', model);
     }
   }
@@ -592,6 +599,7 @@ class CodexRunner extends EventEmitter {
       if (event.response && typeof event.response === 'object') {
         const model = String(event.response.model || '').trim();
         if (model) {
+          this.lastModel = model;
           this.emit('meta', '模型', model);
         }
 
@@ -658,6 +666,12 @@ class CodexRunner extends EventEmitter {
 
   _emitUsageMeta(usage) {
     const cachedInputTokens = usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cached_tokens;
+    this.lastUsage = {
+      inputTokens: Number(usage.input_tokens ?? 0) || 0,
+      cachedInputTokens: Number(cachedInputTokens ?? 0) || 0,
+      outputTokens: Number(usage.output_tokens ?? 0) || 0,
+      totalTokens: Number(usage.total_tokens ?? 0) || 0,
+    };
 
     this.emit('meta', '输入Tokens', usage.input_tokens !== undefined ? String(usage.input_tokens) : '-');
     this.emit('meta', '缓存输入Tokens', cachedInputTokens !== undefined ? String(cachedInputTokens) : '-');

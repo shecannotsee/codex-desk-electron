@@ -43,6 +43,8 @@ class CodexAppServerRunner extends EventEmitter {
     this.threadId = sessionId;
     this.activeTurnId = '';
     this.rawLines = [];
+    this.lastUsage = null;
+    this.lastModel = '';
   }
 
   stop() {
@@ -135,6 +137,7 @@ class CodexAppServerRunner extends EventEmitter {
       this.emit('meta', '会话ID', threadId);
       const resolvedModel = String(threadResponse?.model || settings.model || '').trim();
       if (resolvedModel) {
+        this.lastModel = resolvedModel;
         this.emit('meta', '模型', resolvedModel);
       }
       if (this.mode === 'fork') {
@@ -169,6 +172,8 @@ class CodexAppServerRunner extends EventEmitter {
         durationSeconds,
         sessionId: this.threadId,
         sessionResetSuggested: false,
+        usage: this.lastUsage,
+        model: this.lastModel,
       });
     } catch (error) {
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
@@ -179,6 +184,8 @@ class CodexAppServerRunner extends EventEmitter {
         durationSeconds,
         sessionId: this.threadId,
         sessionResetSuggested: false,
+        usage: this.lastUsage,
+        model: this.lastModel,
       });
     } finally {
       this._shutdownProcess();
@@ -403,6 +410,12 @@ class CodexAppServerRunner extends EventEmitter {
 
   _emitUsageMeta(usage) {
     const cachedInputTokens = usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? usage.cached_tokens;
+    this.lastUsage = {
+      inputTokens: Number(usage.input_tokens ?? 0) || 0,
+      cachedInputTokens: Number(cachedInputTokens ?? 0) || 0,
+      outputTokens: Number(usage.output_tokens ?? 0) || 0,
+      totalTokens: Number(usage.total_tokens ?? 0) || 0,
+    };
 
     this.emit('meta', '输入Tokens', usage.input_tokens !== undefined ? String(usage.input_tokens) : '-');
     this.emit('meta', '缓存输入Tokens', cachedInputTokens !== undefined ? String(cachedInputTokens) : '-');

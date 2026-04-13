@@ -73,6 +73,27 @@ function appendAttachmentPreview(text, attachments) {
 
 const USAGE_META_KEYS = new Set(['输入Tokens', '缓存输入Tokens', '输出Tokens', '总Tokens']);
 
+function normalizeMessageUsage(usage, fallbackModel = '') {
+  if (!usage || typeof usage !== 'object') {
+    return null;
+  }
+  const inputTokens = Number(usage.inputTokens ?? 0) || 0;
+  const cachedInputTokens = Number(usage.cachedInputTokens ?? 0) || 0;
+  const outputTokens = Number(usage.outputTokens ?? 0) || 0;
+  const totalTokens = Number(usage.totalTokens ?? 0) || 0;
+  const model = String(usage.model || fallbackModel || '').trim();
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0 && totalTokens <= 0) {
+    return null;
+  }
+  return {
+    ...(model ? { model } : {}),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    ...(totalTokens > 0 ? { totalTokens } : {}),
+  };
+}
+
 function supportsAppServer(commandText) {
   const parts = splitShellArgs(commandText);
   return parts.length >= 2
@@ -594,7 +615,13 @@ const chatMethods = {
       )) {}
       if (finalText && targetConv) {
         this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
-        targetConv.messages.push({ role: 'assistant', text: finalText, createdAt: nowTs() });
+        const messageUsage = normalizeMessageUsage(result?.usage, result?.model);
+        targetConv.messages.push({
+          role: 'assistant',
+          text: finalText,
+          ...(messageUsage ? { usage: messageUsage } : {}),
+          createdAt: nowTs(),
+        });
       } else if (!finalText && targetConv && result.exitCode === 0) {
         this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
       }

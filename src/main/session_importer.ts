@@ -86,6 +86,28 @@ function extractAttachments(payload) {
     }));
 }
 
+function extractUsage(payload) {
+  const usage = payload?.usage;
+  if (!usage || typeof usage !== 'object') {
+    return null;
+  }
+  const inputTokens = Number(usage.inputTokens ?? usage.input_tokens ?? 0) || 0;
+  const cachedInputTokens = Number(usage.cachedInputTokens ?? usage.cached_input_tokens ?? 0) || 0;
+  const outputTokens = Number(usage.outputTokens ?? usage.output_tokens ?? 0) || 0;
+  const totalTokens = Number(usage.totalTokens ?? usage.total_tokens ?? 0) || 0;
+  const model = String(usage.model || '').trim();
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0 && totalTokens <= 0) {
+    return null;
+  }
+  return {
+    ...(model ? { model } : {}),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    ...(totalTokens > 0 ? { totalTokens } : {}),
+  };
+}
+
 function isEnvelopeUserMessage(role, text) {
   if (role !== 'user') {
     return false;
@@ -228,10 +250,12 @@ function importSessionJsonl(filePath) {
 
     const createdAt = toUnixSeconds(record.timestamp);
     const attachments = extractAttachments(payload);
+    const usage = extractUsage(payload);
     messages.push({
       role,
       text: contentText,
       ...(attachments.length ? { attachments } : {}),
+      ...(usage ? { usage } : {}),
       createdAt: createdAt || undefined,
     });
   }

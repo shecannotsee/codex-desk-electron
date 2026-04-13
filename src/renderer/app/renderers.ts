@@ -4,6 +4,7 @@ import type {
   ConversationMessage,
   ConversationSummary,
   MessageAttachment,
+  MessageUsage,
   RawEventEntry,
   RenderAllOptions,
   RenderTransientOptions,
@@ -84,6 +85,30 @@ let sortedConversationCacheKey = '';
 let sortedConversationCache: ConversationSummary[] = [];
 let conversationListCacheVersion = 0;
 let lastConversationListRenderSignature = '';
+
+interface ModelPricing {
+  inputPerMillion: number;
+  cachedInputPerMillion: number;
+  outputPerMillion: number;
+}
+
+const MODEL_PRICING_TABLE: Array<[string, ModelPricing]> = [
+  ['gpt-5.4-mini', { inputPerMillion: 0.75, cachedInputPerMillion: 0.075, outputPerMillion: 4.5 }],
+  ['gpt-5.4-nano', { inputPerMillion: 0.2, cachedInputPerMillion: 0.02, outputPerMillion: 1.25 }],
+  ['gpt-5.4', { inputPerMillion: 2.5, cachedInputPerMillion: 0.25, outputPerMillion: 15 }],
+  ['gpt-5.3-codex', { inputPerMillion: 1.75, cachedInputPerMillion: 0.175, outputPerMillion: 14 }],
+  ['gpt-5.3-chat-latest', { inputPerMillion: 1.75, cachedInputPerMillion: 0.175, outputPerMillion: 14 }],
+  ['gpt-5.2', { inputPerMillion: 1.75, cachedInputPerMillion: 0.175, outputPerMillion: 14 }],
+  ['gpt-5.2-codex', { inputPerMillion: 1.75, cachedInputPerMillion: 0.175, outputPerMillion: 14 }],
+  ['gpt-5.1-codex-mini', { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 }],
+  ['gpt-5.1', { inputPerMillion: 1.25, cachedInputPerMillion: 0.125, outputPerMillion: 10 }],
+  ['gpt-5.1-codex', { inputPerMillion: 1.25, cachedInputPerMillion: 0.125, outputPerMillion: 10 }],
+  ['gpt-5-codex', { inputPerMillion: 1.25, cachedInputPerMillion: 0.125, outputPerMillion: 10 }],
+  ['codex-mini-latest', { inputPerMillion: 1.5, cachedInputPerMillion: 0.375, outputPerMillion: 6 }],
+  ['gpt-5-mini', { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 }],
+  ['gpt-5-nano', { inputPerMillion: 0.05, cachedInputPerMillion: 0.005, outputPerMillion: 0.4 }],
+  ['gpt-5', { inputPerMillion: 1.25, cachedInputPerMillion: 0.125, outputPerMillion: 10 }],
+];
 
 function setRendererCallbacks(nextCallbacks: Partial<RendererCallbacks> = {}) {
   rendererCallbacks = {
@@ -569,6 +594,78 @@ function formatUsageCompact(value: unknown): string {
   return String(parsed);
 }
 
+function parseUsageNumber(value: unknown): number {
+  const raw = String(value ?? '').trim();
+  if (!raw || raw === '-') {
+    return 0;
+  }
+  const parsed = Number(raw.replace(/,/g, ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function resolveModelPricing(modelName: unknown): ModelPricing | null {
+  const normalized = String(modelName ?? '').trim().toLowerCase();
+  if (!normalized || normalized === '-') {
+    return null;
+  }
+  for (const [prefix, pricing] of MODEL_PRICING_TABLE) {
+    if (normalized === prefix || normalized.startsWith(`${prefix}-`)) {
+      return pricing;
+    }
+  }
+  return null;
+}
+
+function calculateUsageCostUsd(usage: MessageUsage | null | undefined): number | null {
+  const pricing = resolveModelPricing(usage?.model);
+  if (!pricing) {
+    return null;
+  }
+  const inputTokens = parseUsageNumber(usage?.inputTokens);
+  const cachedInputTokens = parseUsageNumber(usage?.cachedInputTokens);
+  const outputTokens = parseUsageNumber(usage?.outputTokens);
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0) {
+    return null;
+  }
+  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+  return (
+    (uncachedInputTokens / 1_000_000) * pricing.inputPerMillion
+    + (cachedInputTokens / 1_000_000) * pricing.cachedInputPerMillion
+    + (outputTokens / 1_000_000) * pricing.outputPerMillion
+  );
+}
+
+function formatUsageCostCompact(costUsd: number | null | undefined): string {
+  const value = Number(costUsd);
+  if (!Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+  if (value < 0.0001) {
+    return '<0.0001';
+  }
+  if (value < 0.01) {
+    return value.toFixed(4);
+  }
+  if (value < 1) {
+    return value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+  }
+  if (value < 100) {
+    return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  }
+  return value.toFixed(0);
+}
+
+function formatUsageCostFull(costUsd: number | null | undefined): string {
+  const value = Number(costUsd);
+  if (!Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+  if (value < 0.0001) {
+    return '<$0.0001';
+  }
+  return `$${value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}`;
+}
+
 function updateUsageMetaValue(node: HTMLElement | null | undefined, rawValue: unknown, titleKey: string) {
   if (!node) {
     return;
@@ -601,23 +698,43 @@ function findLatestAssistantMessageIndex(conversation: ConversationSummary | nul
 }
 
 function renderMessageUsageFooter(conversation: ConversationSummary, latestAssistantIndex: number, index: number, item: ConversationMessage): string {
-  if (item.role !== 'assistant' || index !== latestAssistantIndex) {
+  if (item.role !== 'assistant') {
     return '';
   }
-  const meta = ensureMeta(conversation.id);
+  const usage = item?.usage && typeof item.usage === 'object' ? item.usage : null;
+  if (!usage) {
+    return '';
+  }
+  const usageCostUsd = calculateUsageCostUsd(usage);
   const usageItems = [
-    { key: '输入Tokens', labelKey: 'usageInputShort', titleKey: 'usageInputTitle' },
-    { key: '缓存输入Tokens', labelKey: 'usageCachedShort', titleKey: 'usageCachedTitle' },
-    { key: '输出Tokens', labelKey: 'usageOutputShort', titleKey: 'usageOutputTitle' },
-  ].map(({ key, labelKey, titleKey }) => {
-    const formatted = formatUsageCompact(meta[key]);
+    { value: usage.inputTokens, labelKey: 'usageInputShort', titleKey: 'usageInputTitle' },
+    { value: usage.cachedInputTokens, labelKey: 'usageCachedShort', titleKey: 'usageCachedTitle' },
+    { value: usage.outputTokens, labelKey: 'usageOutputShort', titleKey: 'usageOutputTitle' },
+  ].map(({ value, labelKey, titleKey }) => {
+    const formatted = formatUsageCompact(value);
     if (formatted === '-') {
       return '';
     }
-    const title = `${t(titleKey)}: ${formatUsageCount(meta[key])}`;
+    const title = `${t(titleKey)}: ${formatUsageCount(value)}`;
     const label = t(labelKey);
     return `<span class="msg-usage-item" title="${escapeHtml(title)}"><span class="msg-usage-key">${label}</span><span class="msg-usage-value">${escapeHtml(formatted)}</span></span>`;
   }).filter(Boolean);
+
+  if (usageCostUsd !== null) {
+    const pricing = resolveModelPricing(usage.model);
+    const titleLines = [
+      `${t('usageCostTitle')}: ${formatUsageCostFull(usageCostUsd)}`,
+      `Model: ${String(usage.model || '-')}`,
+    ];
+    if (pricing) {
+      titleLines.push(
+        `Rates / 1M: in $${pricing.inputPerMillion}, cache $${pricing.cachedInputPerMillion}, out $${pricing.outputPerMillion}`,
+      );
+    }
+    usageItems.push(
+      `<span class="msg-usage-item" title="${escapeHtml(titleLines.join('\n'))}"><span class="msg-usage-key">${escapeHtml(t('usageCostShort'))}</span><span class="msg-usage-value">${escapeHtml(formatUsageCostCompact(usageCostUsd))}</span></span>`,
+    );
+  }
 
   if (!usageItems.length) {
     return '';

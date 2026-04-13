@@ -30,12 +30,21 @@ export interface ConversationMessage {
   role: 'user' | 'assistant';
   text: string;
   attachments?: MessageAttachment[];
+  usage?: MessageUsage;
   createdAt?: number;
   interrupted?: boolean;
   interruptedReason?: string;
   interruptedAt?: number;
   timestamp?: number;
   time?: number;
+}
+
+export interface MessageUsage {
+  model?: string;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
 }
 
 export interface MessageAttachment {

@@ -44,6 +44,15 @@ function buildMessageRecord(message) {
         kind: String(item.kind || '').trim(),
       }))
     : [];
+  const usage = message?.usage && typeof message.usage === 'object'
+    ? {
+      model: String(message.usage.model || '').trim(),
+      inputTokens: Number(message.usage.inputTokens || 0) || 0,
+      cachedInputTokens: Number(message.usage.cachedInputTokens || 0) || 0,
+      outputTokens: Number(message.usage.outputTokens || 0) || 0,
+      totalTokens: Number(message.usage.totalTokens || 0) || 0,
+    }
+    : null;
   return {
     timestamp: toIsoTimestamp(createdAt),
     type: 'response_item',
@@ -51,6 +60,7 @@ function buildMessageRecord(message) {
       type: 'message',
       role,
       text,
+      ...(usage ? { usage } : {}),
       ...(attachments.length ? { attachments } : {}),
       content: [
         role === 'assistant'

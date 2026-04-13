@@ -1,6 +1,7 @@
 export type Language = 'zh-CN' | 'en-US';
 export type Theme = 'light' | 'dark';
 export type ActiveTab = 'structured' | 'workflow' | 'raw';
+export type RuntimeTab = ActiveTab;
 
 export interface AppInfo {
   name: string;
@@ -293,6 +294,7 @@ export interface AppState {
   messageMarkdownByConversation: Record<string, Record<string, boolean>>;
   workflowCollapsedByConversation: Record<string, Record<string, boolean>>;
   chatVisibleCountByConversation: Record<string, number>;
+  runtimeVisibleCountByConversation: Record<string, Partial<Record<RuntimeTab, number>>>;
   draftsByConversation: Record<string, string>;
   composerAttachmentsByConversation: Record<string, MessageAttachment[]>;
   inputBindingConversationId: string;

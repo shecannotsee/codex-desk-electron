@@ -1070,7 +1070,7 @@ body.composer-resizing {
 .content-row {
   flex: 1;
   display: flex;
-  gap: calc(8px * var(--chat-font-scale));
+  gap: calc(4px * var(--chat-font-scale));
   min-height: 240px;
   min-width: 0;
 }
@@ -1095,8 +1095,8 @@ body.composer-resizing {
 }
 
 .runtime-resizer {
-  flex: 0 0 8px;
-  width: 8px;
+  flex: 0 0 6px;
+  width: 6px;
   cursor: col-resize;
   position: relative;
   align-self: stretch;
@@ -2050,6 +2050,47 @@ body.composer-resizing .composer-resize-handle::before {
   overflow: hidden;
 }
 
+.md-table-wrap {
+  margin: 8px 0;
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.md-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: calc(13px * var(--chat-font-scale));
+}
+
+.md-table th,
+.md-table td {
+  padding: calc(8px * var(--chat-font-scale)) calc(10px * var(--chat-font-scale));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  vertical-align: top;
+}
+
+.md-table thead th {
+  background: rgba(226, 232, 240, 0.9);
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.md-table tbody tr:nth-child(even) {
+  background: rgba(241, 245, 249, 0.72);
+}
+
+.md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.md-table th code,
+.md-table td code {
+  white-space: nowrap;
+}
+
 .md-code-lang {
   background: #2d2d30;
   color: #9cdcfe;
@@ -2543,7 +2584,7 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .content-row {
-  gap: calc(10px * var(--chat-font-scale));
+  gap: calc(6px * var(--chat-font-scale));
 }
 
 .chat-view {
@@ -3647,6 +3688,25 @@ html[data-theme='dark'] .msg-running-step-panel pre {
 html[data-theme='dark'] .md-code-wrap {
   border-color: #334a60;
   background: #131d27;
+}
+
+html[data-theme='dark'] .md-table-wrap {
+  border-color: #334a60;
+  background: rgba(19, 29, 39, 0.92);
+}
+
+html[data-theme='dark'] .md-table th,
+html[data-theme='dark'] .md-table td {
+  border-bottom-color: rgba(51, 74, 96, 0.88);
+}
+
+html[data-theme='dark'] .md-table thead th {
+  background: rgba(26, 38, 50, 0.94);
+  color: #e2edf8;
+}
+
+html[data-theme='dark'] .md-table tbody tr:nth-child(even) {
+  background: rgba(23, 33, 43, 0.86);
 }
 
 html[data-theme='dark'] .md-code-lang {

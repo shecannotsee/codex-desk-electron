@@ -5,6 +5,9 @@ const { CodexRunner, splitShellArgs } = require('../codex_runner');
 const { CodexAppServerRunner } = require('../codex_app_server_runner');
 const { normalizePreview } = require('./shared');
 
+const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;
+const ASSISTANT_STREAM_PREVIEW_MIN_GROWTH = 32;
+
 function normalizeAssistantRuntimeText(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
@@ -78,6 +81,115 @@ function supportsAppServer(commandText) {
 }
 
 const chatMethods = {
+  _ensureAssistantStreamPreviewState(runner) {
+    let previewState = this.assistantStreamPreviewByRunner.get(runner);
+    if (!previewState) {
+      previewState = {
+        lastEmittedText: '',
+        lastEmittedAt: 0,
+        pendingText: '',
+        timer: null,
+      };
+      this.assistantStreamPreviewByRunner.set(runner, previewState);
+    }
+    return previewState;
+  },
+
+  _clearAssistantStreamPreviewTimer(runner) {
+    const previewState = this.assistantStreamPreviewByRunner.get(runner);
+    if (!previewState?.timer) {
+      return;
+    }
+    clearTimeout(previewState.timer);
+    previewState.timer = null;
+  },
+
+  _emitStreamingAssistantUpdate(conversationId, runner, text) {
+    const body = normalizeAssistantRuntimeText(text);
+    if (!body) {
+      return false;
+    }
+
+    const previewState = this._ensureAssistantStreamPreviewState(runner);
+    if (body === previewState.lastEmittedText) {
+      return false;
+    }
+
+    this._clearAssistantStreamPreviewTimer(runner);
+    previewState.pendingText = body;
+    previewState.lastEmittedText = body;
+    previewState.lastEmittedAt = Date.now();
+
+    const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+    this._removeLastStructuredEventIf(conversationId, (item) => item?.kind === 'assistant-update');
+    this._removeLastWorkflowItemIf(
+      conversationId,
+      (item) => item?.type === 'assistant'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === currentRound,
+    );
+    this._appendStructuredAssistantUpdate(conversationId, body);
+    this._appendWorkflowAssistantUpdate(conversationId, currentRound, body);
+    return true;
+  },
+
+  _scheduleStreamingAssistantUpdate(conversationId, runner, delayMs) {
+    const previewState = this._ensureAssistantStreamPreviewState(runner);
+    if (previewState.timer) {
+      return;
+    }
+    previewState.timer = setTimeout(() => {
+      previewState.timer = null;
+      this._emitStreamingAssistantUpdate(conversationId, runner, previewState.pendingText);
+    }, Math.max(16, Number(delayMs) || ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS));
+  },
+
+  _maybeEmitStreamingAssistantUpdate(conversationId, runner, delta, options = {}) {
+    const optionEntries = Object.entries(options || {});
+    const streamOptions = new Map(optionEntries);
+    const previewState = this._ensureAssistantStreamPreviewState(runner);
+    const sourceText = streamOptions.has('text')
+      ? streamOptions.get('text')
+      : (this.assistantBufferByRunner.get(runner) || '');
+    const body = normalizeAssistantRuntimeText(sourceText);
+    if (!body) {
+      return false;
+    }
+
+    previewState.pendingText = body;
+    if (Boolean(streamOptions.get('force'))) {
+      return this._emitStreamingAssistantUpdate(conversationId, runner, body);
+    }
+
+    if (body === previewState.lastEmittedText) {
+      return false;
+    }
+
+    const now = Date.now();
+    const sinceLastEmit = previewState.lastEmittedAt > 0
+      ? now - previewState.lastEmittedAt
+      : ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS;
+    const lengthDelta = body.length - String(previewState.lastEmittedText || '').length;
+    const deltaText = String(delta || '');
+    const shouldEmitNow = (
+      !previewState.lastEmittedAt
+      || sinceLastEmit >= ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS
+      || lengthDelta >= ASSISTANT_STREAM_PREVIEW_MIN_GROWTH
+      || deltaText.includes('\n')
+    );
+
+    if (shouldEmitNow) {
+      return this._emitStreamingAssistantUpdate(conversationId, runner, body);
+    }
+
+    this._scheduleStreamingAssistantUpdate(
+      conversationId,
+      runner,
+      ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS - sinceLastEmit,
+    );
+    return false;
+  },
+
   closeCurrentConversation() {
     if (!this.conversations.length) {
       return this.snapshot();
@@ -371,6 +483,12 @@ const chatMethods = {
     this._emit({ type: 'runner-state', conversationId: targetId, running: true });
 
     this.assistantBufferByRunner.set(runner, '');
+    this.assistantStreamPreviewByRunner.set(runner, {
+      lastEmittedText: '',
+      lastEmittedAt: 0,
+      pendingText: '',
+      timer: null,
+    });
     if (appendedUserMessage) {
       this.userMessageByRunner.set(runner, {
         conversationId: targetId,
@@ -416,24 +534,22 @@ const chatMethods = {
 
     runner.on('assistant_delta', (delta) => {
       const current = this.assistantBufferByRunner.get(runner) || '';
-      this.assistantBufferByRunner.set(runner, current + String(delta || ''));
+      const next = current + String(delta || '');
+      this.assistantBufferByRunner.set(runner, next);
+      this._maybeEmitStreamingAssistantUpdate(targetId, runner, delta, { text: next });
     });
 
     runner.on('assistant_update', (payload) => {
-      const text = String(payload?.text || '').trim();
+      const text = normalizeAssistantRuntimeText(payload?.text || '');
       if (!text) {
         return;
       }
-      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
-      this._removeLastStructuredEventIf(targetId, (item) => item?.kind === 'assistant-update');
-      this._removeLastWorkflowItemIf(
-        targetId,
-        (item) => item?.type === 'assistant'
-          && item?.status === 'running'
-          && Number(item?.roundIndex || 0) === currentRound,
-      );
-      this._appendStructuredAssistantUpdate(targetId, text);
-      this._appendWorkflowAssistantUpdate(targetId, currentRound, text);
+      const bufferedText = normalizeAssistantRuntimeText(this.assistantBufferByRunner.get(runner) || '');
+      const previewText = bufferedText.length >= text.length ? bufferedText : text;
+      if (previewText.length > bufferedText.length) {
+        this.assistantBufferByRunner.set(runner, previewText);
+      }
+      this._maybeEmitStreamingAssistantUpdate(targetId, runner, '', { text: previewText, force: true });
     });
 
     runner.on('step', (step) => {

@@ -40,6 +40,7 @@ class AppController {
     this.runners = new Map();
     this.pendingQueueByConversation = new Map();
     this.assistantBufferByRunner = new Map();
+    this.assistantStreamPreviewByRunner = new Map();
     this.userMessageByRunner = new Map();
     this.stepIndexByRunner = new Map();
     this.roundIndexByRunner = new Map();

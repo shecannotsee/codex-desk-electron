@@ -4,6 +4,7 @@ import type {
   FontSizeOptions,
   Language,
   PersistOptions,
+  RuntimeTab,
   RenderAllOptions,
   RenderHooks,
   ThemeOptions,
@@ -33,6 +34,7 @@ const state: AppState = {
   messageMarkdownByConversation: {},
   workflowCollapsedByConversation: {},
   chatVisibleCountByConversation: {},
+  runtimeVisibleCountByConversation: {},
   draftsByConversation: {},
   composerAttachmentsByConversation: {},
   inputBindingConversationId: '',
@@ -68,6 +70,8 @@ const SIDEBAR_WIDTH_DEFAULT = 320;
 const RUNTIME_PANEL_WIDTH_MIN = 320;
 const RUNTIME_PANEL_WIDTH_MAX = 760;
 const RUNTIME_PANEL_WIDTH_DEFAULT = 440;
+const RUNTIME_PAGE_SIZE_INITIAL = 200;
+const RUNTIME_PAGE_SIZE_INCREMENT = 200;
 const MARKDOWN_CACHE_LIMIT = 400;
 const markdownRenderCache = new Map<string, string>();
 
@@ -246,6 +250,8 @@ const I18N: Record<string, Record<string, string>> = {
     emptyMessagePreview: '（空消息）',
     loadEarlierMessages: '加载更早消息（剩余 {count} 条）',
     showingRecentMessages: '当前显示最近 {visible}/{total} 条消息',
+    runtimeLoadEarlier: '加载更早记录（剩余 {count} 条）',
+    runtimeShowingRecent: '当前显示最近 {visible}/{total} 条记录',
     stateRunning: '运行中',
     stateError: '失败',
     stateSuccess: '已完成',
@@ -434,6 +440,8 @@ const I18N: Record<string, Record<string, string>> = {
     emptyMessagePreview: '(empty message)',
     loadEarlierMessages: 'Load earlier messages ({count} remaining)',
     showingRecentMessages: 'Showing latest {visible}/{total} messages',
+    runtimeLoadEarlier: 'Load earlier entries ({count} remaining)',
+    runtimeShowingRecent: 'Showing latest {visible}/{total} entries',
     stateRunning: 'Running',
     stateError: 'Failed',
     stateSuccess: 'Completed',
@@ -898,6 +906,54 @@ function pruneChatVisibleCounts(validConversationIds) {
   });
 }
 
+function defaultRuntimeVisibleCount(totalCount) {
+  const total = Math.max(0, Number(totalCount) || 0);
+  return Math.min(total, RUNTIME_PAGE_SIZE_INITIAL);
+}
+
+function ensureRuntimeVisibleCount(conversationId, tab: RuntimeTab, totalCount) {
+  const id = String(conversationId || '').trim();
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!id) {
+    return defaultRuntimeVisibleCount(total);
+  }
+  if (!state.runtimeVisibleCountByConversation[id] || typeof state.runtimeVisibleCountByConversation[id] !== 'object') {
+    state.runtimeVisibleCountByConversation[id] = {};
+  }
+  const table = state.runtimeVisibleCountByConversation[id];
+  const fallback = defaultRuntimeVisibleCount(total);
+  const current = Number(table[tab]);
+  let next = Number.isFinite(current) ? Math.max(0, Math.round(current)) : fallback;
+  if (total <= 0) {
+    next = 0;
+  } else {
+    next = Math.max(fallback, Math.min(total, next || fallback));
+  }
+  table[tab] = next;
+  return next;
+}
+
+function increaseRuntimeVisibleCount(conversationId, tab: RuntimeTab, totalCount, step = RUNTIME_PAGE_SIZE_INCREMENT) {
+  const id = String(conversationId || '').trim();
+  const total = Math.max(0, Number(totalCount) || 0);
+  if (!id) {
+    return defaultRuntimeVisibleCount(total);
+  }
+  const current = ensureRuntimeVisibleCount(id, tab, total);
+  const next = Math.min(total, current + Math.max(1, Number(step) || RUNTIME_PAGE_SIZE_INCREMENT));
+  state.runtimeVisibleCountByConversation[id][tab] = next;
+  return next;
+}
+
+function pruneRuntimeVisibleCounts(validConversationIds) {
+  const validIds = new Set((validConversationIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+  Object.keys(state.runtimeVisibleCountByConversation || {}).forEach((id) => {
+    if (!validIds.has(id)) {
+      delete state.runtimeVisibleCountByConversation[id];
+    }
+  });
+}
+
 function syncMenuLanguage() {
   if (!codexdesk || typeof codexdesk.setMenuLanguage !== 'function') {
     return;
@@ -1076,6 +1132,69 @@ function renderInline(text) {
   }).join('');
 }
 
+function isMarkdownTableSeparator(text) {
+  const value = String(text || '').trim();
+  if (!value || !value.includes('|')) {
+    return false;
+  }
+  const normalized = value.replace(/^\|/, '').replace(/\|$/, '');
+  const cells = normalized.split('|').map((item) => item.trim()).filter(Boolean);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function splitMarkdownTableRow(text) {
+  const raw = String(text || '').trim().replace(/^\|/, '').replace(/\|$/, '');
+  return raw.split('|').map((item) => item.trim());
+}
+
+function tableAlignmentFromMarker(marker) {
+  const value = String(marker || '').trim();
+  if (value.startsWith(':') && value.endsWith(':')) {
+    return 'center';
+  }
+  if (value.endsWith(':')) {
+    return 'right';
+  }
+  if (value.startsWith(':')) {
+    return 'left';
+  }
+  return '';
+}
+
+function isMarkdownTableStart(headerLine, separatorLine) {
+  if (!isMarkdownTableSeparator(separatorLine)) {
+    return false;
+  }
+  const headers = splitMarkdownTableRow(headerLine);
+  const separators = splitMarkdownTableRow(separatorLine);
+  return headers.length > 0 && headers.length === separators.length;
+}
+
+function renderMarkdownTable(headerLine, separatorLine, bodyLines) {
+  const headers = splitMarkdownTableRow(headerLine);
+  const separators = splitMarkdownTableRow(separatorLine);
+  if (!headers.length || headers.length !== separators.length) {
+    return '';
+  }
+
+  const alignments = separators.map((item) => tableAlignmentFromMarker(item));
+  const renderCell = (tag, value, alignment) => {
+    const style = alignment ? ` style="text-align:${escapeHtml(alignment)}"` : '';
+    return `<${tag}${style}>${renderInline(value)}</${tag}>`;
+  };
+
+  const headHtml = `<thead><tr>${headers.map((item, index) => renderCell('th', item, alignments[index])).join('')}</tr></thead>`;
+  const bodyHtml = bodyLines.length
+    ? `<tbody>${bodyLines.map((line) => {
+      const cells = splitMarkdownTableRow(line);
+      const normalized = headers.map((_, index) => cells[index] || '');
+      return `<tr>${normalized.map((item, index) => renderCell('td', item, alignments[index])).join('')}</tr>`;
+    }).join('')}</tbody>`
+    : '';
+
+  return `<div class="md-table-wrap"><table class="md-table">${headHtml}${bodyHtml}</table></div>`;
+}
+
 function renderMarkdownFallback(text) {
   const lines = String(text || '').split(/\r?\n/);
   const result = [];
@@ -1135,6 +1254,25 @@ function renderMarkdownFallback(text) {
       continue;
     }
 
+    if (stripped.includes('|') && index + 1 < lines.length && isMarkdownTableStart(line, lines[index + 1])) {
+      const tableLines = [line, lines[index + 1]];
+      index += 2;
+      while (index < lines.length) {
+        const current = String(lines[index] || '');
+        const currentStrip = current.trim();
+        if (!currentStrip || !currentStrip.includes('|') || isMarkdownTableSeparator(currentStrip)) {
+          break;
+        }
+        tableLines.push(current);
+        index += 1;
+      }
+      const tableHtml = renderMarkdownTable(tableLines[0], tableLines[1], tableLines.slice(2));
+      if (tableHtml) {
+        result.push(tableHtml);
+        continue;
+      }
+    }
+
     const paragraphLines = [];
     while (index < lines.length) {
       const current = String(lines[index] || '');
@@ -1155,6 +1293,9 @@ function renderMarkdownFallback(text) {
         break;
       }
       if (/^\s*\d+\.\s+/.test(current)) {
+        break;
+      }
+      if (currentStrip.includes('|') && index + 1 < lines.length && isMarkdownTableStart(current, lines[index + 1])) {
         break;
       }
       paragraphLines.push(currentStrip);
@@ -1359,6 +1500,9 @@ export {
   syncChatVisibleCount,
   increaseChatVisibleCount,
   pruneChatVisibleCounts,
+  ensureRuntimeVisibleCount,
+  increaseRuntimeVisibleCount,
+  pruneRuntimeVisibleCounts,
   syncMenuLanguage,
   applyChatFontSize,
   applySidebarWidth,

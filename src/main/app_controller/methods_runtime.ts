@@ -417,7 +417,12 @@ const runtimeMethods = {
       this._emit({ type: 'runner-state', conversationId, running: false });
     }
 
+    const previewState = this.assistantStreamPreviewByRunner.get(runner);
+    if (previewState?.timer) {
+      clearTimeout(previewState.timer);
+    }
     this.assistantBufferByRunner.delete(runner);
+    this.assistantStreamPreviewByRunner.delete(runner);
     this.userMessageByRunner.delete(runner);
     this.stepIndexByRunner.delete(runner);
     this.roundIndexByRunner.delete(runner);

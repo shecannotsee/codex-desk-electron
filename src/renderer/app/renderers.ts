@@ -17,10 +17,12 @@ import {
   currentLang,
   draftStorageKey,
   el,
+  ensureRuntimeVisibleCount,
   escapeHtml,
   ensureChatVisibleCount,
   getComposerAttachments,
   getConversationDraft,
+  increaseRuntimeVisibleCount,
   localizeKnownText,
   renderMarkdownLike,
   resolvePermissionSummary,
@@ -734,8 +736,26 @@ function renderChat(stickToBottom = true) {
   }
 }
 
-function renderStructuredTab(runtime: RuntimeState) {
-  const html = runtime.events.map((item) => {
+function renderRuntimePaginationBar(tab: 'structured' | 'workflow' | 'raw', totalCount: number, visibleCount: number): string {
+  const total = Math.max(0, Number(totalCount) || 0);
+  const visible = Math.max(0, Math.min(total, Number(visibleCount) || 0));
+  const remaining = Math.max(0, total - visible);
+  if (!remaining) {
+    return '';
+  }
+  return [
+    '<div class="chat-pagination-bar runtime-pagination-bar">',
+    `<button type="button" class="chat-load-more-button" data-runtime-load-more="${escapeHtml(tab)}">${escapeHtml(t('runtimeLoadEarlier', { count: remaining }))}</button>`,
+    `<div class="chat-pagination-summary">${escapeHtml(t('runtimeShowingRecent', { visible, total }))}</div>`,
+    '</div>',
+  ].join('');
+}
+
+function renderStructuredTab(runtime: RuntimeState, stickToBottom = true) {
+  const totalCount = Array.isArray(runtime.events) ? runtime.events.length : 0;
+  const visibleCount = ensureRuntimeVisibleCount(state.activeConversationId, 'structured', totalCount);
+  const startIndex = Math.max(0, totalCount - visibleCount);
+  const html = runtime.events.slice(startIndex).map((item) => {
     const level = escapeHtml(item.level || 'info');
     const message = escapeHtml(localizeKnownText(item.message || ''));
     return [
@@ -747,8 +767,22 @@ function renderStructuredTab(runtime: RuntimeState) {
     ].join('');
   }).join('');
 
-  el.tabStructured.innerHTML = html;
-  el.tabStructured.scrollTop = el.tabStructured.scrollHeight;
+  el.tabStructured.innerHTML = `${renderRuntimePaginationBar('structured', totalCount, visibleCount)}${html}`;
+  el.tabStructured.onclick = (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const button = target.closest('[data-runtime-load-more="structured"]');
+    if (!button) {
+      return;
+    }
+    increaseRuntimeVisibleCount(state.activeConversationId, 'structured', totalCount);
+    renderStructuredTab(runtime, false);
+  };
+  if (stickToBottom) {
+    el.tabStructured.scrollTop = el.tabStructured.scrollHeight;
+  }
 }
 
 function formatQueuedAt(input: unknown): string {
@@ -801,6 +835,10 @@ function renderQueuePopover(conversationId: string): void {
 
 function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
   const visibleItems = runtime.workflow.filter((item) => isWorkflowProgressItem(item));
+  const totalCount = visibleItems.length;
+  const visibleCount = ensureRuntimeVisibleCount(state.activeConversationId, 'workflow', totalCount);
+  const startIndex = Math.max(0, totalCount - visibleCount);
+  const renderedItems = visibleItems.slice(startIndex);
 
   const toggleWorkflowItem = (index: number) => {
     if (!Number.isInteger(index) || index < 0) {
@@ -811,8 +849,9 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
     renderWorkflowTab(runtime, false);
   };
 
-  cleanupWorkflowCollapsed(state.activeConversationId, visibleItems.length);
-  const workflowHtml = visibleItems.map((item, index) => {
+  cleanupWorkflowCollapsed(state.activeConversationId, totalCount);
+  const workflowHtml = renderedItems.map((item, offset) => {
+    const index = startIndex + offset;
     const collapsed = isWorkflowStepCollapsed(state.activeConversationId, index);
     const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
     if (item.type === 'round') {
@@ -866,7 +905,7 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
   }).join('');
   const emptyHtml = workflowHtml ? '' : `<div class="tip">${escapeHtml(t('runtimeWorkflowEmpty'))}</div>`;
   const runningHtml = renderWorkflowRunningPanel(state.activeConversationId);
-  const html = `${emptyHtml}${workflowHtml}${runningHtml}`;
+  const html = `${renderRuntimePaginationBar('workflow', totalCount, visibleCount)}${emptyHtml}${workflowHtml}${runningHtml}`;
 
   el.tabWorkflow.innerHTML = html;
   el.tabWorkflow.onclick = (event) => {
@@ -881,6 +920,13 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
       event.stopPropagation();
       const index = Number(toggleBtn.getAttribute('data-wf-index') || '-1');
       toggleWorkflowItem(index);
+      return;
+    }
+
+    const loadMoreButton = target.closest('[data-runtime-load-more="workflow"]');
+    if (loadMoreButton) {
+      increaseRuntimeVisibleCount(state.activeConversationId, 'workflow', totalCount);
+      renderWorkflowTab(runtime, false);
       return;
     }
 
@@ -929,8 +975,12 @@ function rawEventDirectionClass(entry: string | RawEventEntry | null | undefined
   return direction === 'sent' ? 'sent' : 'received';
 }
 
-function renderRawTab(runtime) {
+function renderRawTab(runtime, stickToBottom = true) {
+  const totalCount = Array.isArray(runtime.raw) ? runtime.raw.length : 0;
+  const visibleCount = ensureRuntimeVisibleCount(state.activeConversationId, 'raw', totalCount);
+  const startIndex = Math.max(0, totalCount - visibleCount);
   const html = (runtime.raw || [])
+    .slice(startIndex)
     .map((entry) => {
       const formatted = formatRawEventLine(entry);
       if (!formatted) {
@@ -949,21 +999,52 @@ function renderRawTab(runtime) {
     })
     .filter(Boolean)
     .join('');
-  el.tabRaw.innerHTML = html || `<div class="tip">${escapeHtml(t('runtimeTipRaw'))}</div>`;
-  el.tabRaw.scrollTop = el.tabRaw.scrollHeight;
+  el.tabRaw.innerHTML = [
+    renderRuntimePaginationBar('raw', totalCount, visibleCount),
+    html || `<div class="tip">${escapeHtml(t('runtimeTipRaw'))}</div>`,
+  ].join('');
+  el.tabRaw.onclick = (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const button = target.closest('[data-runtime-load-more="raw"]');
+    if (!button) {
+      return;
+    }
+    increaseRuntimeVisibleCount(state.activeConversationId, 'raw', totalCount);
+    renderRawTab(runtime, false);
+  };
+  if (stickToBottom) {
+    el.tabRaw.scrollTop = el.tabRaw.scrollHeight;
+  }
 }
 
-function renderRuntime() {
+function renderActiveRuntimeTab(runtime: RuntimeState, stickToBottom = true) {
+  if (state.activeTab === 'structured') {
+    renderStructuredTab(runtime, stickToBottom);
+    return;
+  }
+  if (state.activeTab === 'raw') {
+    renderRawTab(runtime, stickToBottom);
+    return;
+  }
+  renderWorkflowTab(runtime, stickToBottom);
+}
+
+function renderRuntime(stickToBottom = true) {
   if (!hasActiveConversation()) {
-    el.tabStructured.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStructured'))}</div>`;
-    el.tabWorkflow.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipWorkflow'))}</div>`;
-    el.tabRaw.textContent = t('runtimeTipRaw');
+    if (state.activeTab === 'structured') {
+      el.tabStructured.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStructured'))}</div>`;
+    } else if (state.activeTab === 'raw') {
+      el.tabRaw.textContent = t('runtimeTipRaw');
+    } else {
+      el.tabWorkflow.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipWorkflow'))}</div>`;
+    }
     return;
   }
   const runtime = ensureRuntime(state.activeConversationId);
-  renderStructuredTab(runtime);
-  renderWorkflowTab(runtime);
-  renderRawTab(runtime);
+  renderActiveRuntimeTab(runtime, stickToBottom);
 }
 
 function renderRunButtons() {
@@ -1252,7 +1333,7 @@ function renderAll(options: RenderAllOptions = {}) {
   renderSettings();
   renderHeader();
   renderChat(stickChatToBottom);
-  renderRuntime();
+  renderRuntime(stickChatToBottom);
   renderRunButtons();
   renderComposerDraft();
   renderTabs();

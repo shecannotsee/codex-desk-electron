@@ -36,6 +36,7 @@ import {
   loadUiPrefs,
   localizeKnownText,
   pruneComposerAttachments,
+  pruneRuntimeVisibleCounts,
   syncChatVisibleCount,
   saveUiPrefs,
   setComposerAttachments,
@@ -295,6 +296,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     }
   });
   pruneChatVisibleCounts([...validIds]);
+  pruneRuntimeVisibleCounts([...validIds]);
   pruneConversationDrafts([...validIds]);
   pruneComposerAttachments([...validIds]);
 
@@ -374,19 +376,19 @@ function flushScheduledRender() {
     renderChatTransientPanels({ stickToBottom: stickChatToBottom });
   }
   if (jobs.runtime) {
-    renderRuntime();
+    renderRuntime(stickChatToBottom);
   } else {
     if (!hasActiveConversation() && (jobs.runtimeStructured || jobs.runtimeWorkflow || jobs.runtimeRaw)) {
-      renderRuntime();
+      renderRuntime(stickChatToBottom);
     } else {
       const runtime = hasActiveConversation() ? ensureRuntime(state.activeConversationId) : null;
-      if (jobs.runtimeStructured && runtime) {
+      if (jobs.runtimeStructured && runtime && state.activeTab === 'structured') {
         renderStructuredTab(runtime);
       }
-      if (jobs.runtimeWorkflow && runtime) {
+      if (jobs.runtimeWorkflow && runtime && state.activeTab === 'workflow') {
         renderWorkflowTab(runtime, stickChatToBottom);
       }
-      if (jobs.runtimeRaw && runtime) {
+      if (jobs.runtimeRaw && runtime && state.activeTab === 'raw') {
         renderRawTab(runtime);
       }
     }

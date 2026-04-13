@@ -4,7 +4,12 @@ const readline = require('node:readline');
 const os = require('node:os');
 
 const { getCodexChildEnv } = require('./shell_env');
-const { splitShellArgs, stripAnsi } = require('./codex_runner');
+const {
+  splitShellArgs,
+  stripAnsi,
+  parseUsagePayload,
+  resolveUsageTokenFields,
+} = require('./codex_cli_gateway');
 
 function toSnakeCase(value) {
   return String(value || '')
@@ -20,66 +25,6 @@ function normalizeAssistantCompareText(text) {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-}
-
-function isUsageLikeObject(node) {
-  if (!node || typeof node !== 'object') {
-    return false;
-  }
-  const keys = [
-    'input_tokens',
-    'inputTokens',
-    'prompt_tokens',
-    'promptTokens',
-    'cached_input_tokens',
-    'cachedInputTokens',
-    'cached_tokens',
-    'cachedTokens',
-    'output_tokens',
-    'outputTokens',
-    'completion_tokens',
-    'completionTokens',
-    'total_tokens',
-    'totalTokens',
-  ];
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(node, key)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function deepFindUsagePayload(root, maxNodes = 200) {
-  if (!root || typeof root !== 'object') {
-    return null;
-  }
-  const queue = [root];
-  const visited = new Set();
-  let scanned = 0;
-  while (queue.length) {
-    const node = queue.shift();
-    if (!node || typeof node !== 'object') {
-      continue;
-    }
-    if (visited.has(node)) {
-      continue;
-    }
-    visited.add(node);
-    scanned += 1;
-    if (scanned > maxNodes) {
-      break;
-    }
-    if (isUsageLikeObject(node)) {
-      return node;
-    }
-    for (const value of Object.values(node)) {
-      if (value && typeof value === 'object') {
-        queue.push(value);
-      }
-    }
-  }
-  return null;
 }
 
 class CodexAppServerRunner extends EventEmitter {
@@ -456,27 +401,16 @@ class CodexAppServerRunner extends EventEmitter {
   }
 
   _extractUsagePayload(payload) {
-    return deepFindUsagePayload(payload);
+    return parseUsagePayload(payload);
   }
 
   _emitUsageMeta(usage) {
-    const inputTokensRaw = usage.input_tokens
-      ?? usage.inputTokens
-      ?? usage.prompt_tokens
-      ?? usage.promptTokens;
-    const cachedInputTokensRaw = usage.cached_input_tokens
-      ?? usage.cachedInputTokens
-      ?? usage.input_tokens_details?.cached_tokens
-      ?? usage.inputTokensDetails?.cachedTokens
-      ?? usage.prompt_tokens_details?.cached_tokens
-      ?? usage.promptTokensDetails?.cachedTokens
-      ?? usage.cached_tokens
-      ?? usage.cachedTokens;
-    const outputTokensRaw = usage.output_tokens
-      ?? usage.outputTokens
-      ?? usage.completion_tokens
-      ?? usage.completionTokens;
-    const totalTokensRaw = usage.total_tokens ?? usage.totalTokens ?? usage.total;
+    const {
+      inputTokensRaw,
+      cachedInputTokensRaw,
+      outputTokensRaw,
+      totalTokensRaw,
+    } = resolveUsageTokenFields(usage);
     this.lastUsage = {
       inputTokens: Number(inputTokensRaw ?? 0) || 0,
       cachedInputTokens: Number(cachedInputTokensRaw ?? 0) || 0,

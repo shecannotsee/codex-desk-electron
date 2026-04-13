@@ -4,13 +4,14 @@ const os = require('node:os');
 const readline = require('node:readline');
 
 const { getCodexChildEnv } = require('./shell_env');
+const {
+  stripAnsi,
+  splitShellArgs,
+  parseUsagePayload,
+  resolveUsageTokenFields,
+} = require('./codex_cli_gateway');
 
-const ANSI_PATTERN = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 const HEADER_FIELD_RE = /^([\w ]+):\s*(.+)$/;
-
-function stripAnsi(text) {
-  return String(text || '').replace(ANSI_PATTERN, '');
-}
 
 function normalizeAssistantCompareText(text) {
   return String(text || '')
@@ -20,80 +21,6 @@ function normalizeAssistantCompareText(text) {
     .trim();
 }
 
-function splitShellArgs(commandText) {
-  const input = String(commandText || '').trim();
-  if (!input) {
-    return [];
-  }
-  const result = [];
-  const re = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^\s]+)/g;
-  let match = null;
-  while ((match = re.exec(input)) !== null) {
-    const token = match[1] ?? match[2] ?? match[3] ?? '';
-    result.push(token.replace(/\\(["'\\])/g, '$1'));
-  }
-  return result;
-}
-
-function isUsageLikeObject(node) {
-  if (!node || typeof node !== 'object') {
-    return false;
-  }
-  const keys = [
-    'input_tokens',
-    'inputTokens',
-    'prompt_tokens',
-    'promptTokens',
-    'cached_input_tokens',
-    'cachedInputTokens',
-    'cached_tokens',
-    'cachedTokens',
-    'output_tokens',
-    'outputTokens',
-    'completion_tokens',
-    'completionTokens',
-    'total_tokens',
-    'totalTokens',
-  ];
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(node, key)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function deepFindUsagePayload(root, maxNodes = 200) {
-  if (!root || typeof root !== 'object') {
-    return null;
-  }
-  const queue = [root];
-  const visited = new Set();
-  let scanned = 0;
-  while (queue.length) {
-    const node = queue.shift();
-    if (!node || typeof node !== 'object') {
-      continue;
-    }
-    if (visited.has(node)) {
-      continue;
-    }
-    visited.add(node);
-    scanned += 1;
-    if (scanned > maxNodes) {
-      break;
-    }
-    if (isUsageLikeObject(node)) {
-      return node;
-    }
-    for (const value of Object.values(node)) {
-      if (value && typeof value === 'object') {
-        queue.push(value);
-      }
-    }
-  }
-  return null;
-}
 
 class CodexRunner extends EventEmitter {
   constructor({ commandText, prompt, attachments = [], workdir, sessionId = '', useNativeMemory = true }) {
@@ -725,23 +652,12 @@ class CodexRunner extends EventEmitter {
   }
 
   _emitUsageMeta(usage) {
-    const inputTokensRaw = usage.input_tokens
-      ?? usage.inputTokens
-      ?? usage.prompt_tokens
-      ?? usage.promptTokens;
-    const cachedInputTokensRaw = usage.cached_input_tokens
-      ?? usage.cachedInputTokens
-      ?? usage.input_tokens_details?.cached_tokens
-      ?? usage.inputTokensDetails?.cachedTokens
-      ?? usage.prompt_tokens_details?.cached_tokens
-      ?? usage.promptTokensDetails?.cachedTokens
-      ?? usage.cached_tokens
-      ?? usage.cachedTokens;
-    const outputTokensRaw = usage.output_tokens
-      ?? usage.outputTokens
-      ?? usage.completion_tokens
-      ?? usage.completionTokens;
-    const totalTokensRaw = usage.total_tokens ?? usage.totalTokens ?? usage.total;
+    const {
+      inputTokensRaw,
+      cachedInputTokensRaw,
+      outputTokensRaw,
+      totalTokensRaw,
+    } = resolveUsageTokenFields(usage);
     this.lastUsage = {
       inputTokens: Number(inputTokensRaw ?? 0) || 0,
       cachedInputTokens: Number(cachedInputTokensRaw ?? 0) || 0,
@@ -758,7 +674,7 @@ class CodexRunner extends EventEmitter {
   }
 
   _extractUsagePayload(payload) {
-    return deepFindUsagePayload(payload);
+    return parseUsagePayload(payload);
   }
 
   _extractResponseMessageText(response) {

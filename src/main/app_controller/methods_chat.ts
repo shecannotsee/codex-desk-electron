@@ -1,7 +1,8 @@
 const fs = require('node:fs');
 
 const { nowTs, getConversation, sortedConversations } = require('../conversation_service');
-const { CodexRunner, splitShellArgs } = require('../codex_runner');
+const { CodexRunner } = require('../codex_runner');
+const { splitShellArgs } = require('../codex_cli_gateway');
 const { CodexAppServerRunner } = require('../codex_app_server_runner');
 const { normalizePreview } = require('./shared');
 

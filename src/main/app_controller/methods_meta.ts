@@ -3,7 +3,11 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
 
-const { splitShellArgs, stripAnsi } = require('../codex_runner');
+const {
+  splitShellArgs,
+  stripAnsi,
+  normalizeExecOptionsForProbe,
+} = require('../codex_cli_gateway');
 const { getConversation } = require('../conversation_service');
 const { getCodexChildEnv } = require('../shell_env');
 
@@ -116,48 +120,7 @@ const metaMethods = {
   },
 
   _normalizeExecOptionsForProbe(parts) {
-    if (parts.length < 2 || parts[0] !== 'codex' || parts[1] !== 'exec') {
-      return [parts[0] || 'codex', ...parts.slice(1)];
-    }
-
-    const args = parts.slice(2);
-    const opts = [];
-    const optionsWithValueKeep = new Set([
-      '--config', '-c', '--model', '-m', '--profile', '-p', '--sandbox', '-s',
-      '--cd', '-C', '--add-dir', '--output-schema', '--enable', '--disable',
-    ]);
-
-    for (let i = 0; i < args.length; i += 1) {
-      const token = String(args[i] || '');
-
-      if (token === 'resume') {
-        if (i + 1 < args.length && !String(args[i + 1] || '').startsWith('-')) {
-          i += 1;
-        }
-        continue;
-      }
-
-      if (token === '--json' || token === '--last' || token === '--all') {
-        continue;
-      }
-
-      if (token === '--color' || token === '--output-last-message' || token === '-o') {
-        if (i + 1 < args.length) {
-          i += 1;
-        }
-        continue;
-      }
-
-      if (optionsWithValueKeep.has(token) && i + 1 < args.length) {
-        opts.push(token, String(args[i + 1] || ''));
-        i += 1;
-        continue;
-      }
-
-      opts.push(token);
-    }
-
-    return ['codex', 'exec', ...opts];
+    return normalizeExecOptionsForProbe(parts);
   },
 
   _extractModelFromJsonOutput(text) {

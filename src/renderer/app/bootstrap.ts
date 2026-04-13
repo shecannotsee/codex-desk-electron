@@ -75,6 +75,8 @@ import {
   renderHeader,
   renderLayout,
   renderLocaleTexts,
+  patchConversationListItem,
+  pruneConversationRenderCaches,
   renderConversationList,
   renderRawTab,
   renderRunButtons,
@@ -82,6 +84,7 @@ import {
   renderSettings,
   renderStructuredTab,
   renderTabs,
+  updateConversationListActiveState,
   renderQueuePopover,
   renderWorkflowTab,
   setRendererCallbacks,
@@ -299,6 +302,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
   pruneRuntimeVisibleCounts([...validIds]);
   pruneConversationDrafts([...validIds]);
   pruneComposerAttachments([...validIds]);
+  pruneConversationRenderCaches([...validIds]);
 
   if (!state.activeConversationId && state.conversations.length) {
     state.activeConversationId = state.conversations[0].id;
@@ -485,7 +489,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       break;
     case 'runtime-phase':
       ensureRuntime(id).phase = String(event.phase || '');
-      renderJobs.conversationList = true;
+      if (!patchConversationListItem(id)) {
+        renderJobs.conversationList = true;
+      }
       if (isActiveConversation) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
@@ -506,7 +512,9 @@ function applyEvent(event: AppEvent | null | undefined) {
         phase: '空闲',
         startedAt: null,
       };
-      renderJobs.conversationList = true;
+      if (!patchConversationListItem(id)) {
+        renderJobs.conversationList = true;
+      }
       if (isActiveConversation) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
@@ -562,7 +570,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       } else {
         state.runningConversationIds.delete(id);
       }
-      renderJobs.conversationList = true;
+      if (!patchConversationListItem(id)) {
+        renderJobs.conversationList = true;
+      }
       if (isActiveConversation) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
@@ -576,7 +586,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       } else if (Number(event.count || 0) <= 0) {
         state.queuedMessagesByConversation[id] = [];
       }
-      renderJobs.conversationList = true;
+      if (!patchConversationListItem(id)) {
+        renderJobs.conversationList = true;
+      }
       if (isActiveConversation) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
@@ -1216,12 +1228,23 @@ async function init() {
     renderAll,
     renderSettings,
   });
+  const switchConversationAndRender = async (id: string) => {
+    const previousActiveId = state.activeConversationId;
+    const snapshot = await codexdesk.switchConversation(id);
+    applySnapshot(snapshot);
+    if (!updateConversationListActiveState(previousActiveId, state.activeConversationId)) {
+      renderConversationList();
+    }
+    renderSettings();
+    renderHeader();
+    renderChat(true);
+    renderRuntime(true);
+    renderRunButtons();
+    renderComposerDraft();
+    renderTabs();
+  };
   setRendererCallbacks({
-    onConversationSelected: async (id: string) => {
-      const snapshot = await codexdesk.switchConversation(id);
-      applySnapshot(snapshot);
-      renderAll({ stickChatToBottom: true });
-    },
+    onConversationSelected: switchConversationAndRender,
   });
 
   loadUiPrefs();
@@ -2719,6 +2742,19 @@ async function init() {
 
   el.sidebarSearchInput.addEventListener('input', () => {
     renderConversationList();
+  });
+
+  el.conversationList.addEventListener('click', async (event) => {
+    const target = getEventElementTarget(event);
+    const item = target?.closest<HTMLElement>('.conversation-item[data-id]');
+    if (!item) {
+      return;
+    }
+    const id = String(item.getAttribute('data-id') || '').trim();
+    if (!id) {
+      return;
+    }
+    await switchConversationAndRender(id);
   });
 
   el.btnSidebarNewConv.addEventListener('click', () => {

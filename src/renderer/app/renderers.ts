@@ -666,6 +666,25 @@ function formatUsageCostFull(costUsd: number | null | undefined): string {
   return `$${value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}`;
 }
 
+function buildUsageFromMeta(conversationId: string): MessageUsage | null {
+  const meta = ensureMeta(conversationId);
+  const inputTokens = parseUsageNumber(meta['输入Tokens']);
+  const cachedInputTokens = parseUsageNumber(meta['缓存输入Tokens']);
+  const outputTokens = parseUsageNumber(meta['输出Tokens']);
+  const totalTokens = parseUsageNumber(meta['总Tokens']);
+  const model = String(meta['模型'] || '').trim();
+  if (inputTokens <= 0 && cachedInputTokens <= 0 && outputTokens <= 0 && totalTokens <= 0) {
+    return null;
+  }
+  return {
+    ...(model && model !== '-' ? { model } : {}),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    ...(totalTokens > 0 ? { totalTokens } : {}),
+  };
+}
+
 function updateUsageMetaValue(node: HTMLElement | null | undefined, rawValue: unknown, titleKey: string) {
   if (!node) {
     return;
@@ -701,7 +720,9 @@ function renderMessageUsageFooter(conversation: ConversationSummary, latestAssis
   if (item.role !== 'assistant') {
     return '';
   }
-  const usage = item?.usage && typeof item.usage === 'object' ? item.usage : null;
+  const usage = item?.usage && typeof item.usage === 'object'
+    ? item.usage
+    : (index === latestAssistantIndex ? buildUsageFromMeta(conversation.id) : null);
   if (!usage) {
     return '';
   }

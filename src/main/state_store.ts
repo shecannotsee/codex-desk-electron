@@ -79,6 +79,23 @@ function parseMessages(rawMessages) {
     const text = String(item.text || '');
     if ((role === 'user' || role === 'assistant') && text) {
       const message: any = { role, text };
+      const rawUsage = item.usage;
+      if (rawUsage && typeof rawUsage === 'object') {
+        const inputTokens = toNumber(rawUsage.inputTokens ?? rawUsage.input_tokens, 0);
+        const cachedInputTokens = toNumber(rawUsage.cachedInputTokens ?? rawUsage.cached_input_tokens, 0);
+        const outputTokens = toNumber(rawUsage.outputTokens ?? rawUsage.output_tokens, 0);
+        const totalTokens = toNumber(rawUsage.totalTokens ?? rawUsage.total_tokens, 0);
+        const model = String(rawUsage.model || '').trim();
+        if (inputTokens > 0 || cachedInputTokens > 0 || outputTokens > 0 || totalTokens > 0) {
+          message.usage = {
+            ...(model ? { model } : {}),
+            inputTokens,
+            cachedInputTokens,
+            outputTokens,
+            ...(totalTokens > 0 ? { totalTokens } : {}),
+          };
+        }
+      }
       const createdAt = toNumber(item.createdAt ?? item.created_at ?? item.timestamp ?? item.time, 0);
       if (createdAt > 0) {
         message.createdAt = createdAt;

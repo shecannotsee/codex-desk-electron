@@ -473,7 +473,7 @@ function renderAttachmentChips(attachments: MessageAttachment[] = [], removable 
     const name = attachmentName(item);
     const path = String(item?.path || '').trim();
     const removeButton = removable
-      ? `<button type="button" class="composer-attachment-remove" data-attachment-index="${escapeHtml(index)}" aria-label="${escapeHtml(t('attachmentRemove'))}" title="${escapeHtml(t('attachmentRemove'))}">×</button>`
+      ? `<button type="button" class="composer-attachment-remove" data-attachment-index="${String(index)}" aria-label="${escapeHtml(t('attachmentRemove'))}" title="${escapeHtml(t('attachmentRemove'))}">×</button>`
       : '';
     return [
       `<div class="${removable ? 'composer-attachment-chip' : 'msg-attachment-chip'}" title="${escapeHtml(path || name)}">`,

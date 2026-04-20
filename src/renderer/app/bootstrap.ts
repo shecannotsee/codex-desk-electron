@@ -4,6 +4,7 @@ import type {
   AppEvent,
   AppSnapshot,
   CloseGuardPayload,
+  ConversationSwitchPayload,
   ConfirmDialogOptions,
   ImportSessionPreview,
   MessageAttachment,
@@ -107,6 +108,9 @@ function getEventNodeTarget(event: Event): Node | null {
 let noticeLayer: HTMLElement | null = null;
 let noticeHideTimer = 0;
 let noticeClearTimer = 0;
+const MAX_RUNTIME_EVENTS = 500;
+const MAX_RUNTIME_WORKFLOW = 500;
+const MAX_RUNTIME_RAW = 1000;
 
 function ensureNoticeLayer(): HTMLElement {
   const host = el.focusRow || el.workspace || document.body;
@@ -120,6 +124,28 @@ function ensureNoticeLayer(): HTMLElement {
   host.appendChild(layer);
   noticeLayer = layer;
   return layer;
+}
+
+function trimRuntimeList<T>(items: T[] = [], limit = 1): T[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  const cappedLimit = Math.max(1, Number(limit) || 1);
+  if (items.length <= cappedLimit) {
+    return items;
+  }
+  items.splice(0, items.length - cappedLimit);
+  return items;
+}
+
+function trimRuntimeState(runtime: RuntimeState | null | undefined): RuntimeState | null | undefined {
+  if (!runtime || typeof runtime !== 'object') {
+    return runtime;
+  }
+  trimRuntimeList(runtime.events, MAX_RUNTIME_EVENTS);
+  trimRuntimeList(runtime.workflow, MAX_RUNTIME_WORKFLOW);
+  trimRuntimeList(runtime.raw, MAX_RUNTIME_RAW);
+  return runtime;
 }
 
 function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'info') {
@@ -328,6 +354,9 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
   state.activeConversationId = String(snapshot.activeConversationId || '');
   state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
   state.runtimeByConversation = snapshot.runtimeByConversation || {};
+  Object.values(state.runtimeByConversation).forEach((runtime) => {
+    trimRuntimeState(runtime);
+  });
   state.metaByConversation = snapshot.metaByConversation || {};
   state.runningConversationIds = new Set(Array.isArray(snapshot.runningConversationIds) ? snapshot.runningConversationIds : []);
   state.queuedCountByConversation = snapshot.queuedCountByConversation || {};
@@ -366,6 +395,62 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     const total = Array.isArray(conv?.messages) ? conv.messages.length : 0;
     ensureChatVisibleCount(conv.id, total);
   });
+}
+
+function applyConversationSwitchPayload(payload: ConversationSwitchPayload | null | undefined) {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+
+  state.settings = {
+    commandText: payload.settings?.commandText || state.settings.commandText || '',
+    workdir: payload.settings?.workdir || state.settings.workdir || '',
+    defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
+  };
+
+  const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();
+  const nextConversation = payload.conversation;
+  if (nextConversation && typeof nextConversation === 'object' && String(nextConversation.id || '').trim()) {
+    const conversationId = String(nextConversation.id || '').trim();
+    const idx = state.conversations.findIndex((item) => item.id === conversationId);
+    const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
+      ? state.conversations[idx].messages.length
+      : 0;
+    if (idx >= 0) {
+      state.conversations[idx] = nextConversation;
+    } else {
+      state.conversations.push(nextConversation);
+    }
+    syncChatVisibleCount(conversationId, Array.isArray(nextConversation.messages) ? nextConversation.messages.length : 0, previousTotal);
+  }
+
+  state.activeConversationId = nextActiveId;
+
+  if (nextActiveId) {
+    if (payload.runtime && typeof payload.runtime === 'object') {
+      state.runtimeByConversation[nextActiveId] = payload.runtime;
+      trimRuntimeState(state.runtimeByConversation[nextActiveId]);
+    }
+    if (payload.meta && typeof payload.meta === 'object') {
+      state.metaByConversation[nextActiveId] = payload.meta;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'queuedCount')) {
+      state.queuedCountByConversation[nextActiveId] = Number(payload.queuedCount || 0);
+      if (Array.isArray(payload.queuedMessages)) {
+        state.queuedMessagesByConversation[nextActiveId] = payload.queuedMessages;
+      } else if (state.queuedCountByConversation[nextActiveId] <= 0) {
+        state.queuedMessagesByConversation[nextActiveId] = [];
+      }
+    }
+  }
+
+  if (Array.isArray(payload.runningConversationIds)) {
+    state.runningConversationIds = new Set(payload.runningConversationIds);
+  }
+
+  if (!state.activeConversationId && state.conversations.length) {
+    state.activeConversationId = state.conversations[0].id;
+  }
 }
 
 function createRenderJobs(): RenderJobs {
@@ -492,6 +577,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       const runtimeItem = (event.item || {}) as RuntimeEventItem;
       if (!isDuplicateRuntimeEvent(runtime, runtimeItem)) {
         runtime.events.push(runtimeItem);
+        trimRuntimeState(runtime);
       }
       if (isActiveConversation && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
@@ -513,6 +599,7 @@ function applyEvent(event: AppEvent | null | undefined) {
     }
     case 'runtime-workflow-append':
       ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
+      trimRuntimeState(state.runtimeByConversation[id]);
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
         if (state.activeTab === 'workflow') {
@@ -538,6 +625,7 @@ function applyEvent(event: AppEvent | null | undefined) {
     }
     case 'runtime-raw-append':
       ensureRuntime(id).raw.push((event.line || '') as string | RawEventEntry);
+      trimRuntimeState(state.runtimeByConversation[id]);
       if (isActiveConversation && state.activeTab === 'raw') {
         renderJobs.runtimeRaw = true;
       }
@@ -1285,8 +1373,8 @@ async function init() {
   });
   const switchConversationAndRender = async (id: string) => {
     const previousActiveId = state.activeConversationId;
-    const snapshot = await codexdesk.switchConversation(id);
-    applySnapshot(snapshot);
+    const payload = await codexdesk.switchConversation(id);
+    applyConversationSwitchPayload(payload);
     if (!updateConversationListActiveState(previousActiveId, state.activeConversationId)) {
       renderConversationList();
     }
@@ -1503,8 +1591,8 @@ async function init() {
     if (!targetId || targetId === state.activeConversationId) {
       return;
     }
-    const snapshot = await codexdesk.switchConversation(targetId);
-    applySnapshot(snapshot);
+    const payload = await codexdesk.switchConversation(targetId);
+    applyConversationSwitchPayload(payload);
     renderAll({ stickChatToBottom: true });
   };
 

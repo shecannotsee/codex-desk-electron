@@ -13,6 +13,21 @@ function isCompletedPhase(phaseText) {
   return ['已完成', '完成', 'completed', 'success', 'done'].some((item) => text.includes(item));
 }
 
+const MAX_RUNTIME_EVENTS = 500;
+const MAX_RUNTIME_WORKFLOW = 500;
+const MAX_RUNTIME_RAW = 1000;
+
+function pushBounded(list, item, limit) {
+  if (!Array.isArray(list)) {
+    return;
+  }
+  list.push(item);
+  const overflow = list.length - Math.max(1, Number(limit) || 1);
+  if (overflow > 0) {
+    list.splice(0, overflow);
+  }
+}
+
 const runtimeMethods = {
   _emit(event) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
@@ -22,6 +37,10 @@ const runtimeMethods = {
   },
 
   _persist() {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
     this.stateStorage.saveState({
       commandText: this.commandText,
       workdir: this.workdir,
@@ -30,6 +49,17 @@ const runtimeMethods = {
       conversations: this.conversations,
       metaByConversation: this.metaByConversation,
     });
+  },
+
+  _schedulePersist(delay = 180) {
+    const wait = Math.max(0, Number(delay) || 0);
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+    }
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      this._persist();
+    }, wait);
   },
 
   _defaultWorkdir() {
@@ -176,6 +206,32 @@ const runtimeMethods = {
     this._emit({ type: 'runtime-phase', conversationId, phase });
   },
 
+  _conversationSwitchPayload(conversationId) {
+    const activeId = String(conversationId || this.activeConversationId || '').trim();
+    const conv = activeId ? getConversation(this.conversations, activeId) : null;
+    const runtime = activeId ? this.runtimeStore.ensure(activeId) : null;
+    return {
+      settings: {
+        commandText: this.commandText,
+        workdir: activeId ? this._resolveConversationWorkdir(activeId) : this._defaultWorkdir(),
+        defaultWorkdir: this._defaultWorkdir(),
+      },
+      activeConversationId: activeId,
+      conversation: conv || null,
+      runtime: runtime ? {
+        workflow: [...runtime.workflow],
+        events: [...runtime.events],
+        raw: [...runtime.raw],
+        phase: runtime.phase,
+        startedAt: runtime.startedAt,
+      } : null,
+      meta: activeId ? { ...this._ensureMeta(activeId) } : null,
+      runningConversationIds: Array.from(this.runners.keys()),
+      queuedCount: activeId ? this._pendingQueueSize(activeId) : 0,
+      queuedMessages: activeId ? this._queuedItemsForUi(activeId) : [],
+    };
+  },
+
   _appendStructuredEvent(conversationId, level, message) {
     this.structuredEventSeq += 1;
     const runtime = this.runtimeStore.ensure(conversationId);
@@ -185,7 +241,7 @@ const runtimeMethods = {
       message: String(message || ''),
       timestamp: tsLabel(),
     };
-    runtime.events.push(item);
+    pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
     this._emit({ type: 'runtime-event-append', conversationId, item });
   },
 
@@ -204,7 +260,7 @@ const runtimeMethods = {
       message: `运行中回复: ${normalizePreview(body, 180)}`,
       timestamp: tsLabel(),
     };
-    runtime.events.push(item);
+    pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
     this._emit({ type: 'runtime-event-append', conversationId, item });
   },
 
@@ -240,7 +296,7 @@ const runtimeMethods = {
       preview: normalizePreview(userText),
       timestamp: tsLabel(),
     };
-    runtime.workflow.push(item);
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
@@ -317,7 +373,7 @@ const runtimeMethods = {
       body,
       timestamp: tsLabel(),
     };
-    runtime.workflow.push(item);
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
@@ -340,7 +396,7 @@ const runtimeMethods = {
       status,
       timestamp: tsLabel(),
     };
-    runtime.workflow.push(item);
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
     this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
@@ -389,7 +445,7 @@ const runtimeMethods = {
       timestamp: tsLabel(),
     };
     const runtime = this.runtimeStore.ensure(conversationId);
-    runtime.raw.push(item);
+    pushBounded(runtime.raw, item, MAX_RUNTIME_RAW);
     this._emit({ type: 'runtime-raw-append', conversationId, line: item });
   },
 
@@ -517,7 +573,7 @@ const runtimeMethods = {
   switchConversation(conversationId) {
     const target = getConversation(this.conversations, conversationId);
     if (!target) {
-      return this.snapshot();
+      return this._conversationSwitchPayload(this.activeConversationId);
     }
     const runtime = this.runtimeStore.ensure(target.id);
     if (!this._isConversationRunning(target.id) && this._pendingQueueSize(target.id) <= 0 && isCompletedPhase(runtime.phase)) {
@@ -526,9 +582,9 @@ const runtimeMethods = {
     }
     if (target.id !== this.activeConversationId) {
       this.activeConversationId = target.id;
-      this._persist();
+      this._schedulePersist();
     }
-    return this.snapshot();
+    return this._conversationSwitchPayload(target.id);
   },
 
   createConversation(options: { workdir?: string } = {}) {

@@ -86,6 +86,7 @@ class AppController {
     this.stepIndexByRunner = new Map();
     this.roundIndexByRunner = new Map();
     this.structuredEventSeq = 0;
+    this.persistTimer = null;
 
     for (const conv of this.conversations) {
       this.runtimeStore.ensure(conv.id);

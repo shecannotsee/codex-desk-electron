@@ -132,6 +132,18 @@ export interface AppSnapshot {
   [key: string]: unknown;
 }
 
+export interface ConversationSwitchPayload {
+  settings?: Partial<SettingsState>;
+  activeConversationId?: string;
+  conversation?: ConversationSummary | null;
+  runtime?: RuntimeState | null;
+  meta?: MetaState | null;
+  runningConversationIds?: string[];
+  queuedCount?: number;
+  queuedMessages?: QueuedMessageItem[];
+  [key: string]: unknown;
+}
+
 export interface AppEvent {
   type: string;
   conversationId?: string;
@@ -258,7 +270,7 @@ export interface CodexDeskApi {
   getSnapshot(): Promise<AppSnapshot>;
   updateSettings(payload: unknown): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
-  switchConversation(conversationId: string): Promise<AppSnapshot>;
+  switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
   createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
   pickImportSession(): Promise<GenericResult>;
   importSessionFromFile(filePath: string, continuationMode: string, workdirChoice?: ImportWorkdirChoice): Promise<GenericResult>;

@@ -351,6 +351,8 @@ export interface UiElementRefs {
   phaseChip: HTMLElement;
   queueChip: HTMLButtonElement;
   queueCount: HTMLElement;
+  currentTimeChip: HTMLElement;
+  currentTimeValue: HTMLElement;
   queuePopover: HTMLElement;
   queuePopoverTitle: HTMLElement;
   queuePopoverBody: HTMLElement;

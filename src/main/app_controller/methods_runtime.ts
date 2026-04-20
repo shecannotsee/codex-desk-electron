@@ -477,8 +477,13 @@ const runtimeMethods = {
     if (previewState?.timer) {
       clearTimeout(previewState.timer);
     }
+    const waitNoticeState = this.requestWaitNoticeByRunner.get(runner);
+    if (waitNoticeState?.timer) {
+      clearTimeout(waitNoticeState.timer);
+    }
     this.assistantBufferByRunner.delete(runner);
     this.assistantStreamPreviewByRunner.delete(runner);
+    this.requestWaitNoticeByRunner.delete(runner);
     this.userMessageByRunner.delete(runner);
     this.stepIndexByRunner.delete(runner);
     this.roundIndexByRunner.delete(runner);

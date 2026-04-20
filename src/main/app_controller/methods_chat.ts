@@ -8,6 +8,7 @@ const { normalizePreview } = require('./shared');
 
 const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;
 const ASSISTANT_STREAM_PREVIEW_MIN_GROWTH = 32;
+const REQUEST_WAIT_NOTICE_INTERVAL_MS = 30000;
 
 function formatTimingDuration(ms) {
   const value = Math.max(0, Number(ms) || 0);
@@ -153,6 +154,63 @@ const chatMethods = {
     }
     clearTimeout(previewState.timer);
     previewState.timer = null;
+  },
+
+  _startRequestWaitNotice(conversationId, runner, phase = '') {
+    const startedAt = Date.now();
+    const nextNoticeAt = startedAt + REQUEST_WAIT_NOTICE_INTERVAL_MS;
+    this.requestWaitNoticeByRunner.set(runner, {
+      conversationId,
+      startedAt,
+      nextNoticeAt,
+      latestPhase: String(phase || '').trim(),
+      latestStep: '',
+      timer: null,
+    });
+    this._scheduleRequestWaitNotice(runner);
+  },
+
+  _scheduleRequestWaitNotice(runner) {
+    const noticeState = this.requestWaitNoticeByRunner.get(runner);
+    if (!noticeState || noticeState.timer) {
+      return;
+    }
+    const delayMs = Math.max(100, noticeState.nextNoticeAt - Date.now());
+    noticeState.timer = setTimeout(() => {
+      const currentState = this.requestWaitNoticeByRunner.get(runner);
+      if (!currentState) {
+        return;
+      }
+      currentState.timer = null;
+      const elapsedMs = Math.max(REQUEST_WAIT_NOTICE_INTERVAL_MS, Date.now() - currentState.startedAt);
+      const latestStep = normalizePreview(currentState.latestStep || '');
+      const latestPhase = normalizePreview(currentState.latestPhase || '');
+      const detail = latestStep
+        ? `，当前步骤：${latestStep}`
+        : latestPhase
+          ? `，当前状态：${latestPhase}`
+          : '';
+      this._appendStructuredEvent(
+        currentState.conversationId,
+        'hint',
+        `请求诊断: 当前请求已处理 ${formatTimingDuration(elapsedMs)}${detail}`,
+      );
+      currentState.nextNoticeAt += REQUEST_WAIT_NOTICE_INTERVAL_MS;
+      this._scheduleRequestWaitNotice(runner);
+    }, delayMs);
+  },
+
+  _updateRequestWaitNoticeState(runner, updates = {}) {
+    const noticeState = this.requestWaitNoticeByRunner.get(runner);
+    if (!noticeState || !updates || typeof updates !== 'object') {
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'phase')) {
+      noticeState.latestPhase = String(updates['phase'] || '').trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'step')) {
+      noticeState.latestStep = String(updates['step'] || '').trim();
+    }
   },
 
   _emitStreamingAssistantUpdate(conversationId, runner, text) {
@@ -497,14 +555,7 @@ const chatMethods = {
     this._setPhase(targetId, '准备中...');
     this._setStartedAt(targetId, Date.now());
 
-    const persistStartedAt = Date.now();
-    this._appendStructuredEvent(targetId, 'hint', '请求诊断: 开始持久化发送前状态');
     this._persist();
-    this._appendStructuredEvent(
-      targetId,
-      'hint',
-      `请求诊断: 发送前状态持久化完成，用时 ${formatTimingDuration(Date.now() - persistStartedAt)}`,
-    );
 
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;
@@ -570,8 +621,10 @@ const chatMethods = {
     }
     this.stepIndexByRunner.set(runner, 0);
     this.roundIndexByRunner.set(runner, roundIndex);
+    this._startRequestWaitNotice(targetId, runner, runtime.phase);
 
     runner.on('status', (phase) => {
+      this._updateRequestWaitNoticeState(runner, { phase });
       this._setPhase(targetId, phase);
     });
 
@@ -635,6 +688,7 @@ const chatMethods = {
       this.stepIndexByRunner.set(runner, stepIndex);
 
       const textStep = `R${currentRound}-S${stepIndex}. ${String(step || '').trim()}`;
+      this._updateRequestWaitNoticeState(runner, { step: textStep });
       this._appendWorkflowStep(targetId, textStep);
 
       let summary = String(step || '').replace(/\s+/g, ' ').trim();
@@ -688,13 +742,13 @@ const chatMethods = {
 
       if (result.exitCode === 0) {
         runtimeState.phase = '已完成';
-        this._appendStructuredEvent(targetId, 'success', `任务完成，用时 ${result.durationSeconds.toFixed(1)}s`);
+        this._appendStructuredEvent(targetId, 'success', '任务完成');
       } else {
         runtimeState.phase = '失败';
         this._appendStructuredEvent(
           targetId,
           'error',
-          `任务失败，退出码 ${result.exitCode}，用时 ${result.durationSeconds.toFixed(1)}s`,
+          `任务失败，退出码 ${result.exitCode}`,
         );
       }
 

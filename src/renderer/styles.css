@@ -676,6 +676,30 @@ button:hover:not(:disabled) {
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.24);
 }
 
+.current-time-chip {
+  flex: 0 0 auto;
+  justify-content: center;
+  border: 1px solid #d2deea;
+  border-radius: 999px;
+  padding: 0 12px;
+  min-height: 34px;
+  max-width: 220px;
+  color: #46627a;
+  background: #f5f8fc;
+  font-size: calc(12px * var(--chat-font-scale));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.current-time-chip #current-time-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
 .queue-popover {
   position: absolute;
   top: 46px;
@@ -3512,6 +3536,12 @@ html[data-theme='dark'] .model-meta-chip,
 html[data-theme='dark'] .session-id-button,
 html[data-theme='dark'] #meta-model-value,
 html[data-theme='dark'] #session-id {
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .current-time-chip {
+  border-color: #38506a;
+  background: rgba(38, 56, 74, 0.72);
   color: #d7e6f5;
 }
 

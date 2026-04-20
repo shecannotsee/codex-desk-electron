@@ -83,6 +83,7 @@ class AppController {
     this.assistantBufferByRunner = new Map();
     this.assistantStreamPreviewByRunner = new Map();
     this.userMessageByRunner = new Map();
+    this.requestWaitNoticeByRunner = new Map();
     this.stepIndexByRunner = new Map();
     this.roundIndexByRunner = new Map();
     this.structuredEventSeq = 0;

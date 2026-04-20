@@ -27,6 +27,14 @@ function normalizeAssistantCompareText(text) {
     .trim();
 }
 
+function formatTimingDuration(ms) {
+  const value = Math.max(0, Number(ms) || 0);
+  if (value < 1000) {
+    return `${Math.round(value)}ms`;
+  }
+  return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+}
+
 class CodexAppServerRunner extends EventEmitter {
   constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
     super();
@@ -50,6 +58,8 @@ class CodexAppServerRunner extends EventEmitter {
     this.rawLines = [];
     this.lastUsage = null;
     this.lastModel = '';
+    this.requestStartedAt = 0;
+    this.firstOutputLogged = false;
   }
 
   stop() {
@@ -101,6 +111,8 @@ class CodexAppServerRunner extends EventEmitter {
 
   async run() {
     const startMs = Date.now();
+    this.requestStartedAt = startMs;
+    this.firstOutputLogged = false;
 
     try {
       const settings = this._parseCommandSettings();
@@ -109,6 +121,7 @@ class CodexAppServerRunner extends EventEmitter {
       this.emit('event', 'hint', `启动 app-server: ${cmd.join(' ')}`);
 
       this._spawnServer(cmd);
+      const initializeStartedAt = Date.now();
       await this._sendRequest('initialize', {
         clientInfo: {
           name: 'codex_desk_electron',
@@ -117,8 +130,15 @@ class CodexAppServerRunner extends EventEmitter {
         },
       });
       this._sendNotification('initialized', {});
+      this.emit('event', 'hint', `请求诊断: initialize 完成，用时 ${formatTimingDuration(Date.now() - initializeStartedAt)}`);
 
       let threadResponse = null;
+      const threadAction = this.mode === 'fork'
+        ? 'thread.fork'
+        : this.mode === 'resume'
+          ? 'thread.resume'
+          : 'thread.start';
+      const threadStartedAt = Date.now();
       if (this.mode === 'fork') {
         threadResponse = await this._sendRequest('thread/fork', {
           threadId: this.sessionId,
@@ -132,6 +152,7 @@ class CodexAppServerRunner extends EventEmitter {
           ...(settings.model ? { model: settings.model } : {}),
         }) as any;
       }
+      this.emit('event', 'hint', `请求诊断: ${threadAction} 完成，用时 ${formatTimingDuration(Date.now() - threadStartedAt)}`);
 
       const thread = threadResponse?.thread || {};
       const threadId = String(thread.id || threadResponse?.threadId || threadResponse?.id || '').trim();
@@ -153,6 +174,7 @@ class CodexAppServerRunner extends EventEmitter {
         this.emit('event', 'hint', `已创建原生会话: ${threadId}`);
       }
 
+      const turnStartedAt = Date.now();
       const turnResponse = await this._sendRequest('turn/start', {
         threadId,
         input: [{ type: 'text', text: this.prompt }],
@@ -161,6 +183,7 @@ class CodexAppServerRunner extends EventEmitter {
         sandboxPolicy: settings.sandboxPolicy,
         ...(settings.model ? { model: settings.model } : {}),
       }) as any;
+      this.emit('event', 'hint', `请求诊断: turn.start 完成，用时 ${formatTimingDuration(Date.now() - turnStartedAt)}`);
 
       const turnId = String(turnResponse?.turn?.id || turnResponse?.turnId || '').trim();
       if (!turnId) {
@@ -346,6 +369,10 @@ class CodexAppServerRunner extends EventEmitter {
       const delta = String(params?.delta || '');
       if (delta) {
         this.assistantChunks.push(delta);
+        if (!this.firstOutputLogged) {
+          this.firstOutputLogged = true;
+          this.emit('event', 'hint', `请求诊断: 收到首个输出，距发送已 ${formatTimingDuration(Date.now() - this.requestStartedAt)}`);
+        }
         this.emit('assistant_delta', delta);
         this.emit('status', '正在输出回复...');
       }

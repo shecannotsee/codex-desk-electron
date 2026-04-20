@@ -21,6 +21,13 @@ function normalizeAssistantCompareText(text) {
     .trim();
 }
 
+function formatTimingDuration(ms) {
+  const value = Math.max(0, Number(ms) || 0);
+  if (value < 1000) {
+    return `${Math.round(value)}ms`;
+  }
+  return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+}
 
 class CodexRunner extends EventEmitter {
   constructor({ commandText, prompt, attachments = [], workdir, sessionId = '', useNativeMemory = true }) {
@@ -40,6 +47,8 @@ class CodexRunner extends EventEmitter {
     this.stopped = false;
     this.lastUsage = null;
     this.lastModel = '';
+    this.requestStartedAt = 0;
+    this.firstOutputLogged = false;
   }
 
   stop() {
@@ -52,6 +61,8 @@ class CodexRunner extends EventEmitter {
 
   async run() {
     const startMs = Date.now();
+    this.requestStartedAt = startMs;
+    this.firstOutputLogged = false;
     const rawLines = [];
     const assistantChunks = [];
     let sessionResetSuggested = false;
@@ -77,7 +88,9 @@ class CodexRunner extends EventEmitter {
       this._emitCodexVersion(cmd);
       this._emitModelFromCommand(cmd);
 
+      const subprocessStartedAt = Date.now();
       let exitCode = await this._runSubprocess(cmd, rawLines, assistantChunks);
+      this.emit('event', 'hint', `请求诊断: codex exec 进程结束，用时 ${formatTimingDuration(Date.now() - subprocessStartedAt)}`);
       let cleanOutput = rawLines.join('\n').trim();
 
       if (exitCode !== 0 && this.useNativeMemory && this.sessionId) {
@@ -145,6 +158,10 @@ class CodexRunner extends EventEmitter {
         }
         rawLines.push(cleanLine);
         this.emit('raw_line', cleanLine);
+        if (!this.firstOutputLogged) {
+          this.firstOutputLogged = true;
+          this.emit('event', 'hint', `请求诊断: 收到首行输出，距发送已 ${formatTimingDuration(Date.now() - this.requestStartedAt)}`);
+        }
         this._handleOutputLine(cleanLine, assistantChunks);
       };
 

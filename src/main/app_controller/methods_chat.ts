@@ -9,6 +9,14 @@ const { normalizePreview } = require('./shared');
 const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;
 const ASSISTANT_STREAM_PREVIEW_MIN_GROWTH = 32;
 
+function formatTimingDuration(ms) {
+  const value = Math.max(0, Number(ms) || 0);
+  if (value < 1000) {
+    return `${Math.round(value)}ms`;
+  }
+  return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+}
+
 function normalizeAssistantRuntimeText(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
@@ -489,7 +497,14 @@ const chatMethods = {
     this._setPhase(targetId, '准备中...');
     this._setStartedAt(targetId, Date.now());
 
+    const persistStartedAt = Date.now();
+    this._appendStructuredEvent(targetId, 'hint', '请求诊断: 开始持久化发送前状态');
     this._persist();
+    this._appendStructuredEvent(
+      targetId,
+      'hint',
+      `请求诊断: 发送前状态持久化完成，用时 ${formatTimingDuration(Date.now() - persistStartedAt)}`,
+    );
 
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;

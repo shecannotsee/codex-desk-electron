@@ -19,5 +19,8 @@
     "@types/node": "^25.5.2",
     "electron": "^37.2.0",
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "katex": "^0.16.45"
   }
 }

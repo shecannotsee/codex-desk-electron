@@ -4280,6 +4280,16 @@ html[data-theme='dark'] .msg-running-step-panel ol li::marker {
   color: #7d8e9e;
 }
 
+html[data-theme='dark'] .msg-bubble strong,
+html[data-theme='dark'] .runtime-step-body strong,
+html[data-theme='dark'] .msg-running-step-panel strong,
+html[data-theme='dark'] .msg-bubble b,
+html[data-theme='dark'] .runtime-step-body b,
+html[data-theme='dark'] .msg-running-step-panel b {
+  color: #eef4fa;
+  font-weight: 750;
+}
+
 html[data-theme='dark'] .md-task-checkbox {
   border-color: #5f7386;
   background: #151b20;
@@ -4296,6 +4306,15 @@ html[data-theme='dark'] .msg-running-step-panel blockquote {
   border-left-color: #536474;
   background: rgba(28, 36, 44, 0.58);
   color: #9eacb9;
+}
+
+html[data-theme='dark'] .msg-bubble blockquote strong,
+html[data-theme='dark'] .runtime-step-body blockquote strong,
+html[data-theme='dark'] .msg-running-step-panel blockquote strong,
+html[data-theme='dark'] .msg-bubble blockquote b,
+html[data-theme='dark'] .runtime-step-body blockquote b,
+html[data-theme='dark'] .msg-running-step-panel blockquote b {
+  color: #dce7f0;
 }
 
 html[data-theme='dark'] .md-admonition {
@@ -4343,9 +4362,9 @@ html[data-theme='dark'] .md-math-fallback {
 html[data-theme='dark'] .msg-bubble code,
 html[data-theme='dark'] .runtime-step-body code,
 html[data-theme='dark'] .msg-running-step-panel code {
-  border-color: #36424c;
-  background: #161c22;
-  color: #b8c7d4;
+  border-color: rgba(99, 126, 151, 0.42);
+  background: rgba(44, 58, 72, 0.72);
+  color: #d6e2ee;
 }
 
 html[data-theme='dark'] .msg-bubble del,

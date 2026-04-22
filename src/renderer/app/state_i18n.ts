@@ -1274,90 +1274,92 @@ function renderMarkdownAdmonition(kind, content, context: MarkdownRenderContext 
 }
 
 function renderInline(text, context: MarkdownRenderContext = { references: new Map() }) {
-  const parts = String(text || '').split(/(`[^`]+`)/g);
-  return parts.map((part) => {
-    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-      const code = escapeHtml(part.slice(1, -1));
-      return `<code>${code}</code>`;
+  const codeTokens: string[] = [];
+  const input = String(text || '').replace(/`([^`\n]+)`/g, (_, codeText) => {
+    const token = `@@MD_CODE_${codeTokens.length}@@`;
+    codeTokens.push(`<code>${escapeHtml(codeText)}</code>`);
+    return token;
+  });
+  const escapeTokens: string[] = [];
+  const escapedMarkdown = input.replace(/\\([\\`*_~{}\[\]()#+\-.!|>])/g, (_, escapedChar) => {
+    const token = `@@MD_ESC_${escapeTokens.length}@@`;
+    escapeTokens.push(escapeHtml(escapedChar));
+    return token;
+  });
+  const linkTokens: string[] = [];
+  const pushLinkToken = (html) => {
+    const token = `@@MD_LINK_${linkTokens.length}@@`;
+    linkTokens.push(html);
+    return token;
+  };
+  const mathTokens: string[] = [];
+  const pushMathToken = (html) => {
+    const token = `@@MD_MATH_${mathTokens.length}@@`;
+    mathTokens.push(html);
+    return token;
+  };
+  const mathLinked = escapedMarkdown.replace(/(?<!\$)\$([^\s$](?:[^$\n]|\\\$)*?[^\s$])\$(?!\$)/g, (_, expression) => (
+    pushMathToken(renderMarkdownMath(expression, false))
+  ));
+  const linked = mathLinked
+    .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (_, label, target) => (
+      pushLinkToken(renderMarkdownLink(escapeHtml(label), target))
+    ))
+    .replace(/\[([^\]]+)\]\[([^\]]+)\]/g, (_, label, refLabel) => {
+      const referenceTarget = context.references.get(normalizeMarkdownReferenceLabel(refLabel));
+      return referenceTarget
+        ? pushLinkToken(renderMarkdownLink(escapeHtml(label), referenceTarget))
+        : `[${label}][${refLabel}]`;
+    })
+    .replace(/\[([^\]]+)\]\[\]/g, (_, label) => {
+      const referenceTarget = context.references.get(normalizeMarkdownReferenceLabel(label));
+      return referenceTarget
+        ? pushLinkToken(renderMarkdownLink(escapeHtml(label), referenceTarget))
+        : `[${label}][]`;
+    });
+  const autoLinkedUrls = linked.replace(/https?:\/\/[^\s<]+/gi, (rawUrl, offset, whole) => {
+    const previous = offset > 0 ? whole[offset - 1] : '';
+    if (previous === '"' || previous === '\'' || previous === '=' || previous === '@') {
+      return rawUrl;
     }
-    const escapeTokens: string[] = [];
-    const escapedMarkdown = String(part).replace(/\\([\\`*_~{}\[\]()#+\-.!|>])/g, (_, escapedChar) => {
-      const token = `@@MD_ESC_${escapeTokens.length}@@`;
-      escapeTokens.push(escapeHtml(escapedChar));
-      return token;
-    });
-    const linkTokens: string[] = [];
-    const pushLinkToken = (html) => {
-      const token = `@@MD_LINK_${linkTokens.length}@@`;
-      linkTokens.push(html);
-      return token;
-    };
-    const mathTokens: string[] = [];
-    const pushMathToken = (html) => {
-      const token = `@@MD_MATH_${mathTokens.length}@@`;
-      mathTokens.push(html);
-      return token;
-    };
-    const mathLinked = escapedMarkdown.replace(/(?<!\$)\$([^\s$](?:[^$\n]|\\\$)*?[^\s$])\$(?!\$)/g, (_, expression) => (
-      pushMathToken(renderMarkdownMath(expression, false))
-    ));
-    const linked = mathLinked
-      .replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (_, label, target) => (
-        pushLinkToken(renderMarkdownLink(escapeHtml(label), target))
-      ))
-      .replace(/\[([^\]]+)\]\[([^\]]+)\]/g, (_, label, refLabel) => {
-        const referenceTarget = context.references.get(normalizeMarkdownReferenceLabel(refLabel));
-        return referenceTarget
-          ? pushLinkToken(renderMarkdownLink(escapeHtml(label), referenceTarget))
-          : `[${label}][${refLabel}]`;
-      })
-      .replace(/\[([^\]]+)\]\[\]/g, (_, label) => {
-        const referenceTarget = context.references.get(normalizeMarkdownReferenceLabel(label));
-        return referenceTarget
-          ? pushLinkToken(renderMarkdownLink(escapeHtml(label), referenceTarget))
-          : `[${label}][]`;
-      });
-    const autoLinkedUrls = linked.replace(/https?:\/\/[^\s<]+/gi, (rawUrl, offset, input) => {
-      const previous = offset > 0 ? input[offset - 1] : '';
-      if (previous === '"' || previous === '\'' || previous === '=' || previous === '@') {
-        return rawUrl;
-      }
-      const { body, tail } = splitMarkdownAutoLinkTail(rawUrl);
-      if (!body) {
-        return rawUrl;
-      }
-      return `${pushLinkToken(renderMarkdownLink(escapeHtml(body), body))}${tail}`;
-    });
-    const autoLinked = autoLinkedUrls.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, (rawEmail, offset, input) => {
-      const previous = offset > 0 ? input[offset - 1] : '';
-      if (/[A-Z0-9._%+-]/i.test(previous) || previous === '/' || previous === '"' || previous === '\'') {
-        return rawEmail;
-      }
-      const next = offset + rawEmail.length < input.length ? input[offset + rawEmail.length] : '';
-      if (/[A-Z0-9._%+-]/i.test(next)) {
-        return rawEmail;
-      }
-      const { body, tail } = splitMarkdownAutoLinkTail(rawEmail);
-      if (!body) {
-        return rawEmail;
-      }
-      return `${pushLinkToken(renderMarkdownLink(escapeHtml(body), body))}${tail}`;
-    });
-    let escaped = escapeHtml(autoLinked);
-    linkTokens.forEach((html, index) => {
-      escaped = escaped.replace(`@@MD_LINK_${index}@@`, html);
-    });
-    mathTokens.forEach((html, index) => {
-      escaped = escaped.replace(`@@MD_MATH_${index}@@`, html);
-    });
-    escaped = escaped.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
-    escaped = escaped.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
-    escaped = escaped.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<i>$1</i>');
-    escapeTokens.forEach((html, index) => {
-      escaped = escaped.replace(`@@MD_ESC_${index}@@`, html);
-    });
-    return escaped;
-  }).join('');
+    const { body, tail } = splitMarkdownAutoLinkTail(rawUrl);
+    if (!body) {
+      return rawUrl;
+    }
+    return `${pushLinkToken(renderMarkdownLink(escapeHtml(body), body))}${tail}`;
+  });
+  const autoLinked = autoLinkedUrls.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, (rawEmail, offset, whole) => {
+    const previous = offset > 0 ? whole[offset - 1] : '';
+    if (/[A-Z0-9._%+-]/i.test(previous) || previous === '/' || previous === '"' || previous === '\'') {
+      return rawEmail;
+    }
+    const next = offset + rawEmail.length < whole.length ? whole[offset + rawEmail.length] : '';
+    if (/[A-Z0-9._%+-]/i.test(next)) {
+      return rawEmail;
+    }
+    const { body, tail } = splitMarkdownAutoLinkTail(rawEmail);
+    if (!body) {
+      return rawEmail;
+    }
+    return `${pushLinkToken(renderMarkdownLink(escapeHtml(body), body))}${tail}`;
+  });
+  let escaped = escapeHtml(autoLinked);
+  linkTokens.forEach((html, index) => {
+    escaped = escaped.replace(`@@MD_LINK_${index}@@`, html);
+  });
+  mathTokens.forEach((html, index) => {
+    escaped = escaped.replace(`@@MD_MATH_${index}@@`, html);
+  });
+  escaped = escaped.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+  escaped = escaped.replace(/\*\*((?:(?!\*\*).|\n)+?)\*\*/g, '<b>$1</b>');
+  escaped = escaped.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<i>$1</i>');
+  codeTokens.forEach((html, index) => {
+    escaped = escaped.replace(`@@MD_CODE_${index}@@`, html);
+  });
+  escapeTokens.forEach((html, index) => {
+    escaped = escaped.replace(`@@MD_ESC_${index}@@`, html);
+  });
+  return escaped;
 }
 
 function isMarkdownTableSeparator(text) {

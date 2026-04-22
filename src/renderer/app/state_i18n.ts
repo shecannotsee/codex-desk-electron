@@ -1160,8 +1160,14 @@ function renderInline(text) {
       const code = escapeHtml(part.slice(1, -1));
       return `<code>${code}</code>`;
     }
+    const escapeTokens: string[] = [];
+    const escapedMarkdown = String(part).replace(/\\([\\`*_~{}\[\]()#+\-.!|>])/g, (_, escapedChar) => {
+      const token = `@@MD_ESC_${escapeTokens.length}@@`;
+      escapeTokens.push(escapeHtml(escapedChar));
+      return token;
+    });
     const linkTokens: string[] = [];
-    const linked = String(part).replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (_, label, target) => {
+    const linked = escapedMarkdown.replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (_, label, target) => {
       const token = `@@MD_LINK_${linkTokens.length}@@`;
       linkTokens.push(renderMarkdownLink(escapeHtml(label), target));
       return token;
@@ -1170,8 +1176,12 @@ function renderInline(text) {
     linkTokens.forEach((html, index) => {
       escaped = escaped.replace(`@@MD_LINK_${index}@@`, html);
     });
+    escaped = escaped.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
     escaped = escaped.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
     escaped = escaped.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<i>$1</i>');
+    escapeTokens.forEach((html, index) => {
+      escaped = escaped.replace(`@@MD_ESC_${index}@@`, html);
+    });
     return escaped;
   }).join('');
 }

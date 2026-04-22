@@ -1736,12 +1736,13 @@ body.composer-resizing .composer-resize-handle::before {
 .msg-assistant h1,
 .msg-assistant h2,
 .msg-assistant h3 {
-  color: #86efac;
+  color: #d8e6f3;
 }
 
 .msg-assistant blockquote {
-  border-left-color: #60a5fa;
-  background: rgba(59, 130, 246, 0.1);
+  border-left-color: #5b86aa;
+  background: rgba(91, 134, 170, 0.16);
+  color: #d7e3ef;
 }
 
 .msg-assistant ul li::marker,
@@ -2041,7 +2042,7 @@ body.composer-resizing .composer-resize-handle::before {
 .runtime-step-body h3,
 .msg-running-step-panel h3 {
   margin: 10px 0 6px 0;
-  color: #e5e7eb;
+  color: #25384a;
 }
 
 .msg-bubble.msg-assistant h1,
@@ -2050,7 +2051,7 @@ body.composer-resizing .composer-resize-handle::before {
 .msg-running-step-panel h1,
 .msg-running-step-panel h2,
 .msg-running-step-panel h3 {
-  color: #86efac;
+  color: #2b5f87;
 }
 
 .msg-bubble ul,
@@ -2072,15 +2073,17 @@ body.composer-resizing .composer-resize-handle::before {
 .msg-running-step-panel blockquote {
   margin: 6px 0;
   padding: 6px 10px;
-  border-left: 0;
+  border-left: 4px solid #8db5d8;
   border-radius: 10px;
-  color: #cbd5e1;
+  color: #2d4358;
+  background: #f3f8fc;
 }
 
 .msg-bubble.msg-assistant blockquote,
 .msg-running-step-panel blockquote {
-  border-left-color: #60a5fa;
-  background: rgba(59, 130, 246, 0.1);
+  border-left-color: #7da9cf;
+  background: #eef6fc;
+  color: #2d4358;
 }
 
 .msg-bubble code,
@@ -2091,6 +2094,14 @@ body.composer-resizing .composer-resize-handle::before {
   padding: 1px 4px;
   border-radius: 4px;
   font-family: inherit;
+}
+
+.msg-bubble del,
+.runtime-step-body del,
+.msg-running-step-panel del {
+  color: #64748b;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 0.08em;
 }
 
 .msg-bubble pre,
@@ -3976,6 +3987,33 @@ html[data-theme='dark'] .msg-running-step-panel {
 
 html[data-theme='dark'] .msg-running-step {
   color: #d3e1ef;
+}
+
+html[data-theme='dark'] .msg-assistant blockquote,
+html[data-theme='dark'] .msg-running-step-panel blockquote {
+  border-left-color: #4f7190;
+  background: rgba(21, 34, 49, 0.84);
+  color: #aebfd0;
+}
+
+html[data-theme='dark'] .msg-assistant blockquote strong,
+html[data-theme='dark'] .msg-assistant blockquote b {
+  color: #d2dfec;
+}
+
+html[data-theme='dark'] .msg-assistant blockquote em,
+html[data-theme='dark'] .msg-assistant blockquote i {
+  color: #b8c8d7;
+}
+
+html[data-theme='dark'] .msg-assistant blockquote a {
+  color: #8dbde8;
+}
+
+html[data-theme='dark'] .msg-assistant blockquote code {
+  border-color: #3b5269;
+  background: rgba(13, 23, 36, 0.86);
+  color: #c5d6e6;
 }
 
 html[data-theme='dark'] .runtime-step-round {

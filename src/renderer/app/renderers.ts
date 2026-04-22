@@ -334,23 +334,8 @@ function pruneConversationRenderCaches(validConversationIds: string[] = []) {
   lastConversationListRenderSignature = '';
 }
 
-function renderHeader() {
+function renderCurrentTimeDisplay() {
   const now = new Date();
-  const conv = currentConversation();
-  const meta = conv
-    ? ensureMeta(state.activeConversationId)
-    : {
-      模型: '-',
-      会话ID: '-',
-    };
-  const normalizeMetaValue = (value: unknown): string => {
-    const text = String(value ?? '').trim();
-    if (!text || text === '-') {
-      return '';
-    }
-    return text;
-  };
-
   const padClockPart = (value: number): string => String(value).padStart(2, '0');
   const offsetMinutes = -now.getTimezoneOffset();
   const offsetSign = offsetMinutes >= 0 ? '+' : '-';
@@ -367,6 +352,24 @@ function renderHeader() {
   if (el.currentTimeChip) {
     el.currentTimeChip.title = timeZoneName ? `${timeZoneName} ${tzOffsetLabel}` : tzOffsetLabel;
   }
+}
+
+function renderHeader() {
+  renderCurrentTimeDisplay();
+  const conv = currentConversation();
+  const meta = conv
+    ? ensureMeta(state.activeConversationId)
+    : {
+      模型: '-',
+      会话ID: '-',
+    };
+  const normalizeMetaValue = (value: unknown): string => {
+    const text = String(value ?? '').trim();
+    if (!text || text === '-') {
+      return '';
+    }
+    return text;
+  };
 
   el.chatTitle.textContent = conv ? conv.title : '-';
   const sid = normalizeMetaValue(meta['会话ID']) || normalizeMetaValue(conv?.sessionId) || '-';
@@ -392,6 +395,13 @@ function renderHeader() {
   el.queueChip.classList.toggle('hidden', queue <= 0);
   if (el.queuePopoverTitle) {
     el.queuePopoverTitle.textContent = t('queuedRepliesTitle');
+  }
+  if (el.queuePopoverClear) {
+    el.queuePopoverClear.textContent = t('queuedUndoAll');
+    el.queuePopoverClear.disabled = queue <= 0;
+    el.queuePopoverClear.classList.toggle('hidden', queue <= 0);
+    el.queuePopoverClear.setAttribute('aria-label', t('queuedUndoAll'));
+    el.queuePopoverClear.title = t('queuedUndoAll');
   }
   if (el.queuePopoverClose) {
     el.queuePopoverClose.textContent = '×';
@@ -1125,11 +1135,15 @@ function renderQueuedMessagesPanel(conversationId: string): string {
     const body = String(item?.text || item?.preview || '').trim();
     const attachmentCount = Array.isArray(item?.attachments) ? item.attachments.length : 0;
     const attachmentMeta = attachmentCount > 0 ? ` | ${t('attachmentCount', { count: attachmentCount })}` : '';
+    const queuedMessageId = String(item?.id || '').trim();
     return [
       '<div class="queued-preview-item">',
       '<div class="queued-preview-item-head">',
+      '<div class="queued-preview-item-head-main">',
       `<span class="title">${escapeHtml(title)}</span>`,
       `<span class="meta">${escapeHtml(source)} | ${escapeHtml(t('queuedAt'))} ${escapeHtml(queuedAt)}${escapeHtml(attachmentMeta)}</span>`,
+      '</div>',
+      `<button class="queued-preview-item-remove" type="button" data-queued-message-id="${escapeHtml(queuedMessageId)}" data-queued-index="${index + 1}" aria-label="${escapeHtml(t('queuedUndo'))}">${escapeHtml(t('queuedUndo'))}</button>`,
       '</div>',
       `<div class="queued-preview-item-body">${escapeHtml(body)}</div>`,
       '</div>',
@@ -1676,6 +1690,7 @@ export {
   formatQueuedAt,
   renderQueuedMessagesPanel,
   renderQueuePopover,
+  renderCurrentTimeDisplay,
   renderWorkflowTab,
   renderRawTab,
   renderRuntime,

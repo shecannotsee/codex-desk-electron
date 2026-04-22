@@ -120,8 +120,9 @@ const runtimeMethods = {
     return queue.map((item, index) => {
       const rawText = String(item?.text || '');
       const queuedAt = Number(item?.queuedAt || 0);
+      const queuedMessageId = String(item?.id || '').trim();
       return {
-        id: `q-${conversationId}-${queuedAt || Date.now()}-${index + 1}`,
+        id: queuedMessageId || `q-${conversationId}-${queuedAt || Date.now()}-${index + 1}`,
         index: index + 1,
         text: rawText,
         preview: normalizePreview(rawText, 200),
@@ -147,6 +148,63 @@ const runtimeMethods = {
       count: this._pendingQueueSize(conversationId),
       items: this._queuedItemsForUi(conversationId),
     });
+  },
+
+  cancelQueuedMessage(conversationId, queuedMessageId, queuedIndex) {
+    const id = String(conversationId || this.activeConversationId || '').trim();
+    if (!id) {
+      return { error: '请先新建对话。', snapshot: this.snapshot() };
+    }
+    const queue = this._getPendingQueue(id);
+    if (!queue.length) {
+      return { error: '当前没有排队消息。', snapshot: this.snapshot() };
+    }
+
+    const targetMessageId = String(queuedMessageId || '').trim();
+    let targetIndex = targetMessageId
+      ? queue.findIndex((item) => String(item?.id || '').trim() === targetMessageId)
+      : -1;
+    if (targetIndex < 0) {
+      const fallbackIndex = Number(queuedIndex);
+      if (Number.isInteger(fallbackIndex) && fallbackIndex > 0 && fallbackIndex <= queue.length) {
+        targetIndex = fallbackIndex - 1;
+      }
+    }
+    if (targetIndex < 0 || targetIndex >= queue.length) {
+      return { error: '未找到要撤销的排队消息。', snapshot: this.snapshot() };
+    }
+
+    const [removed] = queue.splice(targetIndex, 1);
+    this._emitQueueUpdated(id);
+    if (removed && String(removed.text || '').trim()) {
+      this._appendStructuredEvent(
+        id,
+        'hint',
+        `已撤销排队消息: ${normalizePreview(String(removed.text || ''), 120)}`,
+      );
+    } else {
+      this._appendStructuredEvent(id, 'hint', '已撤销一条排队消息');
+    }
+    this._persist();
+    return { ok: true, snapshot: this.snapshot() };
+  },
+
+  cancelAllQueuedMessages(conversationId) {
+    const id = String(conversationId || this.activeConversationId || '').trim();
+    if (!id) {
+      return { error: '请先新建对话。', snapshot: this.snapshot() };
+    }
+    const queue = this._getPendingQueue(id);
+    if (!queue.length) {
+      return { error: '当前没有排队消息。', snapshot: this.snapshot() };
+    }
+
+    const removedCount = queue.length;
+    queue.length = 0;
+    this._emitQueueUpdated(id);
+    this._appendStructuredEvent(id, 'hint', `已撤销全部排队消息（${removedCount} 条）`);
+    this._persist();
+    return { ok: true, snapshot: this.snapshot() };
   },
 
   _startNextQueuedMessage(conversationId) {

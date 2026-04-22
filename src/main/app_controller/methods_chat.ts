@@ -8,15 +8,7 @@ const { normalizePreview } = require('./shared');
 
 const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;
 const ASSISTANT_STREAM_PREVIEW_MIN_GROWTH = 32;
-const REQUEST_WAIT_NOTICE_INTERVAL_MS = 30000;
-
-function formatTimingDuration(ms) {
-  const value = Math.max(0, Number(ms) || 0);
-  if (value < 1000) {
-    return `${Math.round(value)}ms`;
-  }
-  return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
-}
+const REQUEST_WAIT_NOTICE_INTERVAL_MS = 10000;
 
 function normalizeAssistantRuntimeText(text) {
   return String(text || '')
@@ -156,61 +148,38 @@ const chatMethods = {
     previewState.timer = null;
   },
 
-  _startRequestWaitNotice(conversationId, runner, phase = '') {
-    const startedAt = Date.now();
-    const nextNoticeAt = startedAt + REQUEST_WAIT_NOTICE_INTERVAL_MS;
-    this.requestWaitNoticeByRunner.set(runner, {
+  _startRequestWaitNotice(conversationId, runner) {
+    const noticeState = {
       conversationId,
-      startedAt,
-      nextNoticeAt,
-      latestPhase: String(phase || '').trim(),
-      latestStep: '',
+      responded: false,
       timer: null,
-    });
-    this._scheduleRequestWaitNotice(runner);
-  },
-
-  _scheduleRequestWaitNotice(runner) {
-    const noticeState = this.requestWaitNoticeByRunner.get(runner);
-    if (!noticeState || noticeState.timer) {
-      return;
-    }
-    const delayMs = Math.max(100, noticeState.nextNoticeAt - Date.now());
+    };
     noticeState.timer = setTimeout(() => {
       const currentState = this.requestWaitNoticeByRunner.get(runner);
-      if (!currentState) {
+      if (!currentState || currentState.responded) {
         return;
       }
       currentState.timer = null;
-      const elapsedMs = Math.max(REQUEST_WAIT_NOTICE_INTERVAL_MS, Date.now() - currentState.startedAt);
-      const latestStep = normalizePreview(currentState.latestStep || '');
-      const latestPhase = normalizePreview(currentState.latestPhase || '');
-      const detail = latestStep
-        ? `，当前步骤：${latestStep}`
-        : latestPhase
-          ? `，当前状态：${latestPhase}`
-          : '';
       this._appendStructuredEvent(
         currentState.conversationId,
         'hint',
-        `请求诊断: 当前请求已处理 ${formatTimingDuration(elapsedMs)}${detail}`,
+        `请求诊断: 请求已发送 ${Math.round(REQUEST_WAIT_NOTICE_INTERVAL_MS / 1000)}s，暂未收到响应`,
       );
-      currentState.nextNoticeAt += REQUEST_WAIT_NOTICE_INTERVAL_MS;
-      this._scheduleRequestWaitNotice(runner);
-    }, delayMs);
+    }, REQUEST_WAIT_NOTICE_INTERVAL_MS);
+    this.requestWaitNoticeByRunner.set(runner, noticeState);
   },
 
-  _updateRequestWaitNoticeState(runner, updates = {}) {
+  _markRequestWaitNoticeResponded(runner) {
     const noticeState = this.requestWaitNoticeByRunner.get(runner);
-    if (!noticeState || !updates || typeof updates !== 'object') {
-      return;
+    if (!noticeState || noticeState.responded) {
+      return false;
     }
-    if (Object.prototype.hasOwnProperty.call(updates, 'phase')) {
-      noticeState.latestPhase = String(updates['phase'] || '').trim();
+    noticeState.responded = true;
+    if (noticeState.timer) {
+      clearTimeout(noticeState.timer);
+      noticeState.timer = null;
     }
-    if (Object.prototype.hasOwnProperty.call(updates, 'step')) {
-      noticeState.latestStep = String(updates['step'] || '').trim();
-    }
+    return true;
   },
 
   _emitStreamingAssistantUpdate(conversationId, runner, text) {
@@ -501,6 +470,7 @@ const chatMethods = {
     if (this._isConversationRunning(targetId)) {
       const queue = this._getPendingQueue(targetId);
       queue.push({
+        id: `q-${targetId}-${Date.now()}-${this.pendingQueueItemSeq += 1}`,
         text: userText,
         attachments: normalizedAttachments,
         appendUserMessage: Boolean(appendUserMessage),
@@ -621,10 +591,9 @@ const chatMethods = {
     }
     this.stepIndexByRunner.set(runner, 0);
     this.roundIndexByRunner.set(runner, roundIndex);
-    this._startRequestWaitNotice(targetId, runner, runtime.phase);
+    this._startRequestWaitNotice(targetId, runner);
 
     runner.on('status', (phase) => {
-      this._updateRequestWaitNoticeState(runner, { phase });
       this._setPhase(targetId, phase);
     });
 
@@ -633,10 +602,12 @@ const chatMethods = {
     });
 
     runner.on('raw_line', (line) => {
+      this._markRequestWaitNoticeResponded(runner);
       this._appendRawJsonLine(targetId, line);
     });
 
     runner.on('meta', (key, value) => {
+      this._markRequestWaitNoticeResponded(runner);
       const meta = this._ensureMeta(targetId);
       meta[key] = value;
 
@@ -659,6 +630,7 @@ const chatMethods = {
     });
 
     runner.on('assistant_delta', (delta) => {
+      this._markRequestWaitNoticeResponded(runner);
       const current = this.assistantBufferByRunner.get(runner) || '';
       const next = current + String(delta || '');
       this.assistantBufferByRunner.set(runner, next);
@@ -668,6 +640,7 @@ const chatMethods = {
     });
 
     runner.on('assistant_update', (payload) => {
+      this._markRequestWaitNoticeResponded(runner);
       const text = normalizeAssistantRuntimeText(payload?.text || '');
       if (!text) {
         return;
@@ -683,12 +656,12 @@ const chatMethods = {
     });
 
     runner.on('step', (step) => {
+      this._markRequestWaitNoticeResponded(runner);
       const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
       const stepIndex = (this.stepIndexByRunner.get(runner) || 0) + 1;
       this.stepIndexByRunner.set(runner, stepIndex);
 
       const textStep = `R${currentRound}-S${stepIndex}. ${String(step || '').trim()}`;
-      this._updateRequestWaitNoticeState(runner, { step: textStep });
       this._appendWorkflowStep(targetId, textStep);
 
       let summary = String(step || '').replace(/\s+/g, ' ').trim();
@@ -762,7 +735,18 @@ const chatMethods = {
       this._setPhase(targetId, runtimeState.phase || '空闲');
       this._releaseRunner(targetId, runner);
       this._persist();
-      this._startNextQueuedMessage(targetId);
+      if (result.exitCode === 0) {
+        this._startNextQueuedMessage(targetId);
+        return;
+      }
+      const pendingQueueSize = this._pendingQueueSize(targetId);
+      if (pendingQueueSize > 0) {
+        this._appendStructuredEvent(
+          targetId,
+          'warn',
+          `当前任务非正常结束，剩余 ${pendingQueueSize} 条排队消息已停止自动执行`,
+        );
+      }
     });
 
     runner.run();

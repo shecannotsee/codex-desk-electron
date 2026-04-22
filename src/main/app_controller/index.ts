@@ -80,6 +80,7 @@ class AppController {
     this.runners = new Map();
     this.preferAppServerByConversation = {};
     this.pendingQueueByConversation = new Map();
+    this.pendingQueueItemSeq = 0;
     this.assistantBufferByRunner = new Map();
     this.assistantStreamPreviewByRunner = new Map();
     this.userMessageByRunner = new Map();

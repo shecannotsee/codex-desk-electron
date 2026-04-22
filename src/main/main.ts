@@ -883,6 +883,18 @@ function registerIpc() {
     return controller.retryLastMessage(String(payload?.conversationId || ''));
   });
 
+  ipcMain.handle('chat:cancel-queued-message', async (_, payload) => {
+    return controller.cancelQueuedMessage(
+      String(payload?.conversationId || ''),
+      String(payload?.queuedMessageId || ''),
+      Number(payload?.queuedIndex || 0),
+    );
+  });
+
+  ipcMain.handle('chat:cancel-all-queued-messages', async (_, payload) => {
+    return controller.cancelAllQueuedMessages(String(payload?.conversationId || ''));
+  });
+
   ipcMain.handle('shell:open-path', async (_, payload) => {
     return openLocalPath(payload?.path);
   });

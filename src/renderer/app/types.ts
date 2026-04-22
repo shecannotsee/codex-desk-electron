@@ -286,6 +286,8 @@ export interface CodexDeskApi {
   sendMessage(conversationId: string, text: string, attachments?: MessageAttachment[]): Promise<GenericResult>;
   insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
+  cancelQueuedMessage(conversationId: string, queuedMessageId: string, queuedIndex?: number): Promise<GenericResult>;
+  cancelAllQueuedMessages(conversationId: string): Promise<GenericResult>;
   getPathForFile(file: File): string;
   openPath(targetPath: string): Promise<GenericResult>;
   setMenuLanguage(language: Language): Promise<unknown>;
@@ -356,6 +358,7 @@ export interface UiElementRefs {
   queuePopover: HTMLElement;
   queuePopoverTitle: HTMLElement;
   queuePopoverBody: HTMLElement;
+  queuePopoverClear: HTMLButtonElement;
   queuePopoverClose: HTMLButtonElement;
   btnQuickSettings: HTMLButtonElement;
   labelQuickSettings: HTMLElement;

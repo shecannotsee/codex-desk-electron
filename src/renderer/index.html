@@ -197,7 +197,10 @@
       <section id="queue-popover" class="queue-popover hidden" role="dialog" aria-modal="false" aria-labelledby="queue-popover-title">
         <div class="queue-popover-head">
           <div id="queue-popover-title" class="queue-popover-title">待执行排队消息</div>
-          <button id="queue-popover-close" class="queue-popover-close" type="button" aria-label="关闭">×</button>
+          <div class="queue-popover-actions">
+            <button id="queue-popover-clear" class="queue-popover-clear" type="button">全部撤销</button>
+            <button id="queue-popover-close" class="queue-popover-close" type="button" aria-label="关闭">×</button>
+          </div>
         </div>
         <div id="queue-popover-body" class="queue-popover-body"></div>
       </section>

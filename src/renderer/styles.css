@@ -729,10 +729,41 @@ button:hover:not(:disabled) {
   gap: 12px;
 }
 
+.queue-popover-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .queue-popover-title {
   font-size: 13px;
   font-weight: 800;
   color: #35526b;
+}
+
+.queue-popover-clear {
+  appearance: none;
+  border: 1px solid #e6c3c2;
+  border-radius: 999px;
+  min-height: 28px;
+  padding: 0 10px;
+  background: #fff4f4;
+  color: #a5524d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.queue-popover-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(207, 143, 138, 0.22);
+}
+
+.queue-popover-clear:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
 .queue-popover-close {
@@ -1773,6 +1804,13 @@ body.composer-resizing .composer-resize-handle::before {
   gap: calc(8px * var(--chat-font-scale));
 }
 
+.queued-preview-item-head-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: calc(2px * var(--chat-font-scale));
+}
+
 .queued-preview-item-head .title {
   color: #2a5f8f;
   font-size: calc(12px * var(--chat-font-scale));
@@ -1783,6 +1821,37 @@ body.composer-resizing .composer-resize-handle::before {
   color: #6d849b;
   font-size: calc(11px * var(--chat-font-scale));
   flex-shrink: 0;
+}
+
+.queued-preview-item-remove {
+  appearance: none;
+  flex: 0 0 auto;
+  min-height: calc(26px * var(--chat-font-scale));
+  padding: 0 calc(10px * var(--chat-font-scale));
+  border: 1px solid #d9c2c0;
+  border-radius: 999px;
+  background: #fff5f5;
+  color: #a94f4a;
+  font-size: calc(12px * var(--chat-font-scale));
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.queued-preview-item-remove:hover:not(:disabled) {
+  border-color: #cf8f8a;
+  background: #ffe8e7;
+}
+
+.queued-preview-item-remove:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(207, 143, 138, 0.22);
+}
+
+.queued-preview-item-remove:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
 .queued-preview-item-body {
@@ -4015,6 +4084,17 @@ html[data-theme='dark'] .queued-preview-item-head .meta {
   color: #9fb4c8;
 }
 
+html[data-theme='dark'] .queued-preview-item-remove {
+  border-color: #6f3d3a;
+  background: #2d1718;
+  color: #f4b8b2;
+}
+
+html[data-theme='dark'] .queued-preview-item-remove:hover:not(:disabled) {
+  border-color: #a85e59;
+  background: #3b1d1f;
+}
+
 html[data-theme='dark'] .queue-popover {
   border-color: #24384c;
   background: rgba(10, 18, 29, 0.96);
@@ -4023,6 +4103,12 @@ html[data-theme='dark'] .queue-popover {
 
 html[data-theme='dark'] .queue-popover-title {
   color: #dbeafe;
+}
+
+html[data-theme='dark'] .queue-popover-clear {
+  border-color: #6f3d3a;
+  background: #2d1718;
+  color: #f4b8b2;
 }
 
 html[data-theme='dark'] .queue-popover-close {

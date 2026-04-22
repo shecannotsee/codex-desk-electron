@@ -27,6 +27,14 @@ contextBridge.exposeInMainWorld('codexdesk', {
   sendMessage: (conversationId, text, attachments = []) => ipcRenderer.invoke('chat:send', { conversationId, text, attachments }),
   insertMessage: (conversationId, text) => ipcRenderer.invoke('chat:insert', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
+  cancelQueuedMessage: (conversationId, queuedMessageId, queuedIndex) => ipcRenderer.invoke('chat:cancel-queued-message', {
+    conversationId,
+    queuedMessageId,
+    queuedIndex,
+  }),
+  cancelAllQueuedMessages: (conversationId) => ipcRenderer.invoke('chat:cancel-all-queued-messages', {
+    conversationId,
+  }),
   getPathForFile: (file) => {
     try {
       return String(webUtils.getPathForFile(file) || '');

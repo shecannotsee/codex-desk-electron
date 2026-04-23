@@ -716,7 +716,7 @@ function registerIpc() {
   }));
 
   ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
-  ipcMain.handle('app:test-telegram-notification', async () => controller.testTelegramNotification());
+  ipcMain.handle('app:test-notification-provider', async () => controller.testNotificationProvider());
   ipcMain.handle('app:pick-workdir', async (_, payload) => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { ok: false, error: '窗口不可用' };

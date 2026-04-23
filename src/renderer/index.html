@@ -97,18 +97,27 @@
                       <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，Telegram 通知会带上这个标识。</div>
                     </div>
                     <div class="quick-settings-form-card">
+                      <div class="quick-settings-inline-label" data-i18n-key="notificationProviderLabel">通讯工具</div>
+                      <div class="quick-settings-segmented">
+                        <button id="qs-notification-provider-telegram" type="button" class="quick-settings-pill active" data-i18n-key="providerTelegram">Telegram</button>
+                      </div>
+                      <div class="quick-settings-form-hint" data-i18n-key="notificationProviderHint">当前先支持 Telegram，后续可在这里扩展更多 provider。</div>
+                    </div>
+                    <div class="quick-settings-form-card">
                       <label class="quick-settings-checkbox" for="qs-telegram-enabled">
                         <input id="qs-telegram-enabled" type="checkbox" />
-                        <span id="label-qs-telegram-enabled" data-i18n-key="telegramEnabled">启用 Telegram 完成通知</span>
+                        <span id="label-qs-telegram-enabled" data-i18n-key="telegramEnabled">启用 Telegram 结果通知</span>
                       </label>
                       <label class="quick-settings-form-label" for="qs-telegram-bot-token-input" data-i18n-key="telegramBotToken">Bot Token</label>
-                      <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="填入 BotFather 生成的 Token" />
+                      <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存 Token" />
+                      <div id="qs-telegram-token-status" class="quick-settings-form-hint">当前未保存 Bot Token</div>
                       <label class="quick-settings-form-label" for="qs-telegram-chat-id-input" data-i18n-key="telegramChatId">Chat ID</label>
                       <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入接收通知的 chat id" />
-                      <div class="quick-settings-form-hint" data-i18n-key="telegramHint">通知会以对话 ID 为主标识，名称只用于快速识别。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramHint">通知会推送成功与失败结果。对话 ID 仍是主标识，名称只用于快速识别。</div>
                       <div class="quick-settings-form-actions">
                         <button id="qs-telegram-save" type="button" class="quick-settings-inline-action" data-i18n-key="saveSettings">保存配置</button>
-                        <button id="qs-telegram-test" type="button" class="quick-settings-inline-action" data-i18n-key="testTelegramNotification">发送测试通知</button>
+                        <button id="qs-telegram-test" type="button" class="quick-settings-inline-action" data-i18n-key="testNotificationProvider">发送测试通知</button>
+                        <button id="qs-telegram-clear-token" type="button" class="quick-settings-inline-action" data-i18n-key="telegramClearToken">清除已保存 Token</button>
                       </div>
                     </div>
                   </section>

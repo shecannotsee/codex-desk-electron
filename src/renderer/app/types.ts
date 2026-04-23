@@ -8,11 +8,21 @@ export interface AppInfo {
   version: string;
 }
 
+export type NotificationProvider = 'telegram';
+
 export interface TelegramSettingsState {
   enabled: boolean;
-  botToken: string;
   chatId: string;
   hasBotToken?: boolean;
+  botTokenHash?: string;
+  botTokenFingerprint?: string;
+}
+
+export interface NotificationSettingsState {
+  activeProvider: NotificationProvider;
+  providers: {
+    telegram: TelegramSettingsState;
+  };
 }
 
 export interface SettingsState {
@@ -21,7 +31,7 @@ export interface SettingsState {
   defaultWorkdir: string;
   useNativeMemory?: boolean;
   deviceIdentity: string;
-  telegram: TelegramSettingsState;
+  notifications: NotificationSettingsState;
 }
 
 export interface UiState {
@@ -279,7 +289,7 @@ export interface CodexDeskApi {
   getAppInfo(): Promise<Partial<AppInfo>>;
   getSnapshot(): Promise<AppSnapshot>;
   updateSettings(payload: unknown): Promise<GenericResult>;
-  testTelegramNotification(): Promise<GenericResult>;
+  testNotificationProvider(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
   createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
@@ -396,12 +406,15 @@ export interface UiElementRefs {
   labelRootThemeToggle: HTMLElement;
   qsRootThemeSwitch: HTMLElement;
   qsDeviceIdentityInput: HTMLInputElement;
+  qsNotificationProviderTelegram: HTMLButtonElement;
   qsTelegramEnabled: HTMLInputElement;
   labelQsTelegramEnabled: HTMLElement;
   qsTelegramBotTokenInput: HTMLInputElement;
   qsTelegramChatIdInput: HTMLInputElement;
+  qsTelegramTokenStatus: HTMLElement;
   qsTelegramSave: HTMLButtonElement;
   qsTelegramTest: HTMLButtonElement;
+  qsTelegramClearToken: HTMLButtonElement;
   i18nNodes: HTMLElement[];
   commandInput: HTMLInputElement;
   workdirInput: HTMLInputElement;

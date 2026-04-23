@@ -737,32 +737,42 @@ const chatMethods = {
       this._setPhase(targetId, runtimeState.phase || '空闲');
       this._releaseRunner(targetId, runner);
       this._persist();
-      if (result.exitCode === 0) {
-        this.notifyTelegramConversationCompleted(targetId, {
+      const normalizedExitCode = Number(result.exitCode || 0);
+      this.notifyConversationResult(targetId, normalizedExitCode === 0
+        ? {
+          status: 'completed',
           userText: completedUserText,
           assistantText: finalText,
+        }
+        : {
+          status: 'failed',
+          userText: completedUserText,
+          assistantText: finalText,
+          errorText: finalText || `任务失败，退出码 ${normalizedExitCode}`,
+          exitCode: normalizedExitCode,
         }).then((notifyResult) => {
-          if (!notifyResult || notifyResult.skipped) {
-            return;
-          }
-          if (notifyResult.ok) {
-            this._appendStructuredEvent(targetId, 'hint', 'Telegram 通知已发送');
-          } else {
-            this._appendStructuredEvent(
-              targetId,
-              'warn',
-              `Telegram 通知发送失败: ${String(notifyResult.error || 'unknown error')}`,
-            );
-          }
-          this._persist();
-        }).catch((error) => {
+        if (!notifyResult || notifyResult.skipped) {
+          return;
+        }
+        if (notifyResult.ok) {
+          this._appendStructuredEvent(targetId, 'hint', '通知已发送');
+        } else {
           this._appendStructuredEvent(
             targetId,
             'warn',
-            `Telegram 通知发送失败: ${error?.message || String(error)}`,
+            `通知发送失败: ${String(notifyResult.error || 'unknown error')}`,
           );
-          this._persist();
-        });
+        }
+        this._persist();
+      }).catch((error) => {
+        this._appendStructuredEvent(
+          targetId,
+          'warn',
+          `通知发送失败: ${error?.message || String(error)}`,
+        );
+        this._persist();
+      });
+      if (normalizedExitCode === 0) {
         this._startNextQueuedMessage(targetId);
         return;
       }

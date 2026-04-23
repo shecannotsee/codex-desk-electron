@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   getAppInfo: () => ipcRenderer.invoke('app:get-info'),
   getSnapshot: () => ipcRenderer.invoke('app:get-snapshot'),
   updateSettings: (payload) => ipcRenderer.invoke('app:update-settings', payload),
-  testTelegramNotification: () => ipcRenderer.invoke('app:test-telegram-notification'),
+  testNotificationProvider: () => ipcRenderer.invoke('app:test-notification-provider'),
   pickWorkdir: (payload) => ipcRenderer.invoke('app:pick-workdir', payload),
 
   switchConversation: (conversationId) => ipcRenderer.invoke('conversation:switch', { conversationId }),

@@ -9,6 +9,7 @@ import type {
   ImportSessionPreview,
   MessageAttachment,
   ImportWorkdirChoice,
+  NotificationSettingsState,
   RawEventEntry,
   RenderJobs,
   RuntimeEventItem,
@@ -186,13 +187,41 @@ function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'in
   }, visibleMs);
 }
 
+function normalizeTelegramProviderState(raw: any, fallback: any = {}) {
+  const tokenHash = String(raw?.botTokenHash ?? fallback?.botTokenHash ?? '').trim();
+  return {
+    enabled: Boolean(raw?.enabled ?? fallback?.enabled),
+    chatId: String(raw?.chatId ?? fallback?.chatId ?? '').trim(),
+    hasBotToken: Boolean(raw?.hasBotToken ?? fallback?.hasBotToken ?? tokenHash),
+    botTokenHash: tokenHash,
+    botTokenFingerprint: String(raw?.botTokenFingerprint ?? fallback?.botTokenFingerprint ?? '').trim(),
+  };
+}
+
+function normalizeNotificationSettingsState(raw: any, fallback: any = {}): NotificationSettingsState {
+  const nextActiveProvider = String(raw?.activeProvider ?? fallback?.activeProvider ?? 'telegram').trim().toLowerCase();
+  return {
+    activeProvider: nextActiveProvider === 'telegram' ? 'telegram' : 'telegram',
+    providers: {
+      telegram: normalizeTelegramProviderState(
+        raw?.providers?.telegram ?? raw?.telegram,
+        fallback?.providers?.telegram ?? fallback?.telegram,
+      ),
+    },
+  };
+}
+
 function collectNotificationSettingsPayload() {
+  const botToken = String(el.qsTelegramBotTokenInput?.value || '').trim();
   return {
     deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
-    telegram: {
-      enabled: Boolean(el.qsTelegramEnabled?.checked),
-      botToken: String(el.qsTelegramBotTokenInput?.value || '').trim(),
-      chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
+    notifications: {
+      activeProvider: 'telegram',
+      telegram: {
+        enabled: Boolean(el.qsTelegramEnabled?.checked),
+        chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
+        ...(botToken ? { botToken } : {}),
+      },
     },
   };
 }
@@ -206,6 +235,9 @@ async function saveNotificationSettings(options: { silent?: boolean } = {}) {
     return null;
   }
   applySnapshot(result?.snapshot || result);
+  if (el.qsTelegramBotTokenInput) {
+    el.qsTelegramBotTokenInput.value = '';
+  }
   renderSettings();
   if (!options.silent) {
     showAppNotice(t('settingsSaved'), 'success');
@@ -379,15 +411,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     workdir: snapshot.settings?.workdir || '',
     defaultWorkdir: snapshot.settings?.defaultWorkdir || snapshot.settings?.workdir || '',
     deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
-    telegram: {
-      enabled: Boolean(snapshot.settings?.telegram?.enabled),
-      botToken: String(snapshot.settings?.telegram?.botToken || '').trim(),
-      chatId: String(snapshot.settings?.telegram?.chatId || '').trim(),
-      hasBotToken: Boolean(
-        snapshot.settings?.telegram?.hasBotToken
-        ?? String(snapshot.settings?.telegram?.botToken || '').trim(),
-      ),
-    },
+    notifications: normalizeNotificationSettingsState(snapshot.settings?.notifications, state.settings.notifications),
   };
   state.activeConversationId = String(snapshot.activeConversationId || '');
   state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
@@ -445,16 +469,7 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
     workdir: payload.settings?.workdir || state.settings.workdir || '',
     defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
     deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),
-    telegram: {
-      enabled: Boolean(payload.settings?.telegram?.enabled ?? state.settings.telegram?.enabled),
-      botToken: String((payload.settings?.telegram?.botToken ?? state.settings.telegram?.botToken) || '').trim(),
-      chatId: String((payload.settings?.telegram?.chatId ?? state.settings.telegram?.chatId) || '').trim(),
-      hasBotToken: Boolean(
-        payload.settings?.telegram?.hasBotToken
-        ?? state.settings.telegram?.hasBotToken
-        ?? String((payload.settings?.telegram?.botToken ?? state.settings.telegram?.botToken) || '').trim()
-      ),
-    },
+    notifications: normalizeNotificationSettingsState(payload.settings?.notifications, state.settings.notifications),
   };
 
   const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();
@@ -2717,18 +2732,53 @@ async function init() {
     });
   }
 
+  if (el.qsNotificationProviderTelegram) {
+    el.qsNotificationProviderTelegram.addEventListener('click', () => {
+      state.settings.notifications.activeProvider = 'telegram';
+      renderSettings();
+    });
+  }
+
   if (el.qsTelegramTest) {
     el.qsTelegramTest.addEventListener('click', async () => {
       const saved = await saveNotificationSettings({ silent: true });
       if (!saved) {
         return;
       }
-      const result = await codexdesk.testTelegramNotification();
+      const result = await codexdesk.testNotificationProvider();
       if (result?.ok) {
         showAppNotice(t('telegramTestSuccess'), 'success');
         return;
       }
       showAppNotice(localizeKnownText(String(result?.error || 'Telegram 通知发送失败')), 'error');
+    });
+  }
+
+  if (el.qsTelegramClearToken) {
+    el.qsTelegramClearToken.addEventListener('click', async () => {
+      const result = await codexdesk.updateSettings({
+        deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
+        notifications: {
+          activeProvider: 'telegram',
+          telegram: {
+            enabled: Boolean(el.qsTelegramEnabled?.checked),
+            chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
+            clearBotToken: true,
+          },
+        },
+      });
+      if (result?.error) {
+        window.alert(localizeKnownText(result.error));
+        applySnapshot(result?.snapshot || {});
+        renderAll();
+        return;
+      }
+      if (el.qsTelegramBotTokenInput) {
+        el.qsTelegramBotTokenInput.value = '';
+      }
+      applySnapshot(result?.snapshot || result);
+      renderSettings();
+      showAppNotice(t('settingsSaved'), 'success');
     });
   }
 

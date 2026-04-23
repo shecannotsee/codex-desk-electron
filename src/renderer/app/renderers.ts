@@ -448,16 +448,27 @@ function renderSettings() {
     el.qsDeviceIdentityInput.value = String(state.settings.deviceIdentity || '').trim();
     el.qsDeviceIdentityInput.title = String(state.settings.deviceIdentity || '').trim();
   }
+  const activeNotificationProvider = String(state.settings.notifications?.activeProvider || 'telegram').trim().toLowerCase();
+  const telegramSettings = state.settings.notifications?.providers?.telegram;
+  if (el.qsNotificationProviderTelegram) {
+    el.qsNotificationProviderTelegram.classList.toggle('active', activeNotificationProvider === 'telegram');
+  }
   if (el.qsTelegramEnabled) {
-    el.qsTelegramEnabled.checked = Boolean(state.settings.telegram?.enabled);
+    el.qsTelegramEnabled.checked = Boolean(telegramSettings?.enabled);
   }
   if (el.qsTelegramBotTokenInput) {
-    el.qsTelegramBotTokenInput.value = String(state.settings.telegram?.botToken || '').trim();
+    el.qsTelegramBotTokenInput.title = t('telegramBotTokenPlaceholder');
   }
   if (el.qsTelegramChatIdInput) {
-    const chatId = String(state.settings.telegram?.chatId || '').trim();
+    const chatId = String(telegramSettings?.chatId || '').trim();
     el.qsTelegramChatIdInput.value = chatId;
     el.qsTelegramChatIdInput.title = chatId || '-';
+  }
+  if (el.qsTelegramTokenStatus) {
+    const fingerprint = String(telegramSettings?.botTokenFingerprint || '').trim();
+    el.qsTelegramTokenStatus.textContent = fingerprint
+      ? t('telegramTokenSaved', { fingerprint })
+      : t('telegramTokenMissing');
   }
   const perm = resolvePermissionSummary();
   if (el.permissionInput) {
@@ -481,11 +492,14 @@ function renderSettings() {
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
   }
   const hasTelegramConfig = Boolean(
-    String(state.settings.telegram?.botToken || '').trim()
-    && String(state.settings.telegram?.chatId || '').trim(),
+    telegramSettings?.hasBotToken
+    && String(telegramSettings?.chatId || '').trim(),
   );
   if (el.qsTelegramTest) {
     el.qsTelegramTest.disabled = !hasTelegramConfig;
+  }
+  if (el.qsTelegramClearToken) {
+    el.qsTelegramClearToken.disabled = !Boolean(telegramSettings?.hasBotToken);
   }
 }
 

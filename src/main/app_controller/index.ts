@@ -1,7 +1,7 @@
 const { createAppStateStorage } = require('../storage');
 const { RuntimeStore } = require('../runtime_store');
 const { nowTs } = require('../conversation_service');
-const { TelegramBotModule } = require('../telegram_bridge');
+const { NotificationCenter } = require('../notification_bridge');
 
 const { runtimeMethods } = require('./methods_runtime');
 const { metaMethods } = require('./methods_meta');
@@ -58,15 +58,18 @@ class AppController {
     this.workdir = loaded.workdir;
     this.useNativeMemory = true;
     this.deviceIdentity = String(loaded.deviceIdentity || '').trim();
-    this.telegram = loaded.telegram && typeof loaded.telegram === 'object'
-      ? { ...loaded.telegram }
+    this.notifications = loaded.notifications && typeof loaded.notifications === 'object'
+      ? { ...loaded.notifications }
       : {
-        enabled: false,
-        botToken: '',
-        chatId: '',
+        activeProvider: 'telegram',
+        telegram: {
+          enabled: false,
+          botToken: '',
+          chatId: '',
+        },
       };
-    this.telegramBot = new TelegramBotModule({
-      settings: this.telegram,
+    this.notificationCenter = new NotificationCenter({
+      settings: this.notifications,
       deviceIdentity: this.deviceIdentity,
     });
 

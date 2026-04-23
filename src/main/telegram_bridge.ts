@@ -1,6 +1,8 @@
 const {
+  hashSecret,
   normalizeIdentity,
   normalizeTelegramSettings,
+  toSecretFingerprint,
 } = require('./state_store');
 const { spawn } = require('node:child_process');
 
@@ -161,22 +163,34 @@ function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
   });
 }
 
-function buildConversationCompletedMessage({
+function buildConversationResultMessage({
   deviceIdentity = '',
+  status = 'completed',
   conversationId = '',
   sessionId = '',
   conversationTitle = '',
   userText = '',
   assistantText = '',
+  errorText = '',
+  exitCode = '',
 }) {
+  const normalizedStatus = String(status || '').trim().toLowerCase() === 'failed'
+    ? 'failed'
+    : 'completed';
+  const title = normalizedStatus === 'failed' ? '对话失败' : '对话完成';
   const lines = [
-    `Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} 对话完成`,
+    `Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${title}`,
     `对话ID: ${String(conversationId || '').trim() || '-'}`,
     `原生会话ID: ${String(sessionId || '').trim() || '-'}`,
     `名称: ${String(conversationTitle || '').trim() || '-'}`,
     `用户: ${normalizeTelegramText(userText, 320) || '-'}`,
-    `回复: ${normalizeTelegramText(assistantText, 700) || '-'}`,
   ];
+  if (normalizedStatus === 'failed') {
+    lines.push(`退出码: ${String(exitCode || '').trim() || '-'}`);
+    lines.push(`错误: ${normalizeTelegramText(errorText, 700) || '-'}`);
+  } else {
+    lines.push(`回复: ${normalizeTelegramText(assistantText, 700) || '-'}`);
+  }
   return lines.join('\n');
 }
 
@@ -199,7 +213,18 @@ async function sendTelegramMessage(settings, messageText) {
 }
 
 async function sendConversationCompletedNotification(settings, payload) {
-  const message = buildConversationCompletedMessage(payload || {});
+  const message = buildConversationResultMessage({
+    ...(payload || {}),
+    status: 'completed',
+  });
+  return sendTelegramMessage(settings, message);
+}
+
+async function sendConversationFailedNotification(settings, payload) {
+  const message = buildConversationResultMessage({
+    ...(payload || {}),
+    status: 'failed',
+  });
   return sendTelegramMessage(settings, message);
 }
 
@@ -232,7 +257,7 @@ class TelegramBotModule {
     if (Object.prototype.hasOwnProperty.call(options, 'deviceIdentity')) {
       this.deviceIdentity = normalizeIdentity(options.deviceIdentity || '');
     }
-    return this.snapshot({ includeSecrets: true });
+    return this.snapshot();
   }
 
   getSettings() {
@@ -243,14 +268,15 @@ class TelegramBotModule {
     return normalizeIdentity(this.deviceIdentity || '');
   }
 
-  snapshot(options: any = {}) {
-    const includeSecrets = Boolean(options.includeSecrets);
+  snapshot() {
     const settings = this.getSettings();
+    const tokenHash = settings.botToken ? hashSecret(settings.botToken) : String(settings.botTokenHash || '').trim();
     return {
       enabled: Boolean(settings.enabled),
-      botToken: includeSecrets ? settings.botToken : '',
       chatId: String(settings.chatId || '').trim(),
-      hasBotToken: Boolean(String(settings.botToken || '').trim()),
+      hasBotToken: Boolean(tokenHash),
+      botTokenHash: tokenHash,
+      botTokenFingerprint: toSecretFingerprint(tokenHash),
       deviceIdentity: this.getDeviceIdentity(),
     };
   }
@@ -274,6 +300,25 @@ class TelegramBotModule {
     });
   }
 
+  async sendConversationFailed(payload: any = {}, settingsOverride = null) {
+    const settings = settingsOverride ? normalizeTelegramSettings(settingsOverride) : this.getSettings();
+    if (!settings.enabled) {
+      return { ok: false, skipped: true, reason: 'disabled' };
+    }
+    return sendConversationFailedNotification(settings, {
+      ...payload,
+      deviceIdentity: normalizeIdentity(payload?.deviceIdentity || this.deviceIdentity),
+    });
+  }
+
+  async sendConversationResult(payload: any = {}, settingsOverride = null) {
+    const normalizedStatus = String(payload?.status || '').trim().toLowerCase();
+    if (normalizedStatus === 'failed') {
+      return this.sendConversationFailed(payload, settingsOverride);
+    }
+    return this.sendConversationCompleted(payload, settingsOverride);
+  }
+
   async testConnection(options: any = {}) {
     const settings = normalizeTelegramSettings({
       ...(options.settings ? options.settings : this.getSettings()),
@@ -287,12 +332,13 @@ class TelegramBotModule {
 module.exports = {
   TELEGRAM_API_BASE,
   TelegramBotModule,
-  buildConversationCompletedMessage,
+  buildConversationResultMessage,
   buildTelegramApiUrl,
   normalizeTelegramText,
   resolveSystemProxyUrl,
   postTelegram,
   sendTelegramMessage,
   sendConversationCompletedNotification,
+  sendConversationFailedNotification,
   testTelegramConnection,
 };

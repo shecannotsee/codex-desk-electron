@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const { newConversation, nowTs, sortedConversations } = require('./conversation_service');
 const { resolveRepoRoot } = require('./project_paths');
@@ -14,15 +15,37 @@ const LEGACY_DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
 const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox';
 const MAX_PERSISTED_MESSAGES = 2000;
 const DEFAULT_DEVICE_IDENTITY = '';
+const DEFAULT_NOTIFICATION_PROVIDER = 'telegram';
+const DEFAULT_SECRETS_PATH = path.join(APP_DATA_DIR, 'secrets.electron.json');
 
 function normalizeIdentity(raw) {
   return String(raw || '').trim();
+}
+
+function hashSecret(raw) {
+  const value = String(raw || '').trim();
+  if (!value) {
+    return '';
+  }
+  return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function toSecretFingerprint(rawOrHash) {
+  const value = String(rawOrHash || '').trim();
+  if (!value) {
+    return '';
+  }
+  const hash = /^[a-f0-9]{64}$/i.test(value) ? value.toLowerCase() : hashSecret(value);
+  return hash ? hash.slice(0, 12) : '';
 }
 
 function defaultTelegramSettings() {
   return {
     enabled: false,
     botToken: '',
+    hasBotToken: false,
+    botTokenHash: '',
+    botTokenFingerprint: '',
     chatId: '',
   };
 }
@@ -34,7 +57,68 @@ function normalizeTelegramSettings(rawSettings) {
   }
   base.enabled = Boolean(rawSettings.enabled);
   base.botToken = String(rawSettings.botToken || rawSettings.bot_token || '').trim();
+  base.botTokenHash = String(rawSettings.botTokenHash || rawSettings.bot_token_hash || '').trim().toLowerCase();
   base.chatId = String(rawSettings.chatId || rawSettings.chat_id || '').trim();
+  const derivedHash = base.botToken ? hashSecret(base.botToken) : base.botTokenHash;
+  base.botTokenHash = derivedHash;
+  base.botTokenFingerprint = toSecretFingerprint(derivedHash);
+  base.hasBotToken = Boolean(base.botToken || derivedHash || rawSettings.hasBotToken);
+  return base;
+}
+
+function normalizeNotificationProvider(rawProvider) {
+  const provider = String(rawProvider || '').trim().toLowerCase();
+  if (provider === 'telegram') {
+    return provider;
+  }
+  return DEFAULT_NOTIFICATION_PROVIDER;
+}
+
+function defaultNotificationSettings() {
+  return {
+    activeProvider: DEFAULT_NOTIFICATION_PROVIDER,
+    telegram: defaultTelegramSettings(),
+  };
+}
+
+function normalizeNotificationSettings(rawSettings) {
+  const base = defaultNotificationSettings();
+  if (!rawSettings || typeof rawSettings !== 'object') {
+    return base;
+  }
+  base.activeProvider = normalizeNotificationProvider(
+    rawSettings.activeProvider
+    || rawSettings.provider
+    || rawSettings.kind,
+  );
+  const rawProviders = rawSettings.providers && typeof rawSettings.providers === 'object'
+    ? rawSettings.providers
+    : {};
+  base.telegram = normalizeTelegramSettings(
+    rawSettings.telegram
+    || rawProviders.telegram
+    || {},
+  );
+  return base;
+}
+
+function defaultNotificationSecrets() {
+  return {
+    telegram: {
+      botToken: '',
+    },
+  };
+}
+
+function normalizeNotificationSecrets(rawSecrets) {
+  const base = defaultNotificationSecrets();
+  if (!rawSecrets || typeof rawSecrets !== 'object') {
+    return base;
+  }
+  const telegram = rawSecrets.telegram && typeof rawSecrets.telegram === 'object'
+    ? rawSecrets.telegram
+    : {};
+  base.telegram.botToken = String(telegram.botToken || telegram.bot_token || '').trim();
   return base;
 }
 
@@ -197,8 +281,9 @@ function normalizeMeta(rawMeta, sessionId = '') {
 class StateStore {
   [key: string]: any;
 
-  constructor(statePath = DEFAULT_STATE_PATH) {
+  constructor(statePath = DEFAULT_STATE_PATH, secretsPath = DEFAULT_SECRETS_PATH) {
     this.path = statePath;
+    this.secretsPath = secretsPath;
   }
 
   _defaultState() {
@@ -207,7 +292,7 @@ class StateStore {
       workdir: normalizeWorkdir(''),
       useNativeMemory: true,
       deviceIdentity: DEFAULT_DEVICE_IDENTITY,
-      telegram: defaultTelegramSettings(),
+      notifications: defaultNotificationSettings(),
       activeConversationId: '',
       conversations: [],
     };
@@ -229,8 +314,20 @@ class StateStore {
     return null;
   }
 
+  _writeJsonFile(filePath, payload, mode = null) {
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+    if (mode != null) {
+      try {
+        fs.chmodSync(filePath, mode);
+      } catch {
+        // ignore chmod failures on unsupported filesystems
+      }
+    }
+  }
+
   load() {
     let data = this._readStateFile(this.path);
+    let secretData = this._readStateFile(this.secretsPath);
 
     // Backward-compatible migration: use legacy home path when new project-local path is absent.
     if (!data && this.path === DEFAULT_STATE_PATH) {
@@ -245,7 +342,22 @@ class StateStore {
     const workdir = normalizeWorkdir(data.workdir);
     const useNativeMemory = true;
     const deviceIdentity = normalizeIdentity(data.deviceIdentity || data.deviceId || DEFAULT_DEVICE_IDENTITY);
-    const telegram = normalizeTelegramSettings(data.telegram);
+    const secretNotifications = normalizeNotificationSecrets(
+      secretData?.notifications && typeof secretData.notifications === 'object'
+        ? secretData.notifications
+        : secretData,
+    );
+    const notifications = normalizeNotificationSettings({
+      activeProvider: data.notifications?.activeProvider || data.notificationProvider || data.notification_provider,
+      telegram: {
+        ...(data.telegram && typeof data.telegram === 'object' ? data.telegram : {}),
+        ...(data.notifications?.telegram && typeof data.notifications.telegram === 'object' ? data.notifications.telegram : {}),
+        botToken: secretNotifications.telegram.botToken
+          || data.notifications?.telegram?.botToken
+          || data.telegram?.botToken
+          || '',
+      },
+    });
 
     const conversations = [];
     const metaByConversation = {};
@@ -299,7 +411,7 @@ class StateStore {
       workdir,
       useNativeMemory,
       deviceIdentity,
-      telegram,
+      notifications,
       activeConversationId,
       conversations,
       metaByConversation,
@@ -324,7 +436,13 @@ class StateStore {
       workdir: normalizeWorkdir(state.workdir),
       useNativeMemory: Boolean(state.useNativeMemory),
       deviceIdentity: normalizeIdentity(state.deviceIdentity || ''),
-      telegram: normalizeTelegramSettings(state.telegram),
+      notifications: normalizeNotificationSettings(
+        state.notifications
+        || {
+          activeProvider: state.notificationProvider,
+          telegram: state.telegram,
+        },
+      ),
       activeConversationId,
       conversations: conversations.map((item) => ({
         id: item.id,
@@ -343,7 +461,29 @@ class StateStore {
       }, {}),
     };
 
-    fs.writeFileSync(this.path, JSON.stringify(payload, null, 2), 'utf-8');
+    const normalizedNotifications = normalizeNotificationSettings(payload.notifications);
+    payload.notifications = {
+      activeProvider: normalizedNotifications.activeProvider,
+      telegram: {
+        enabled: Boolean(normalizedNotifications.telegram.enabled),
+        botToken: '',
+        chatId: String(normalizedNotifications.telegram.chatId || '').trim(),
+        hasBotToken: Boolean(normalizedNotifications.telegram.hasBotToken),
+        botTokenHash: normalizedNotifications.telegram.botTokenHash,
+        botTokenFingerprint: normalizedNotifications.telegram.botTokenFingerprint,
+      },
+    };
+
+    const secretsPayload = {
+      notifications: {
+        telegram: {
+          botToken: String(normalizedNotifications.telegram.botToken || '').trim(),
+        },
+      },
+    };
+
+    this._writeJsonFile(this.path, payload);
+    this._writeJsonFile(this.secretsPath, secretsPayload, 0o600);
   }
 }
 
@@ -353,9 +493,18 @@ module.exports = {
   APP_DATA_DIR,
   LEGACY_STATE_PATH,
   DEFAULT_STATE_PATH,
+  DEFAULT_SECRETS_PATH,
+  DEFAULT_NOTIFICATION_PROVIDER,
   normalizeWorkdir,
   normalizeIdentity,
+  hashSecret,
+  toSecretFingerprint,
   defaultTelegramSettings,
   normalizeTelegramSettings,
+  defaultNotificationSettings,
+  normalizeNotificationProvider,
+  normalizeNotificationSettings,
+  defaultNotificationSecrets,
+  normalizeNotificationSecrets,
   StateStore,
 };

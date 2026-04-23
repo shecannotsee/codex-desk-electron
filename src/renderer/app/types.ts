@@ -432,12 +432,9 @@ export interface UiElementRefs {
   createConversationModal: HTMLElement;
   createConversationTitle: HTMLElement;
   createConversationMessage: HTMLElement;
-  createConversationDefaultLabel: HTMLElement;
-  createConversationDefaultInput: HTMLInputElement;
-  createConversationSelectedLabel: HTMLElement;
-  createConversationSelectedInput: HTMLInputElement;
+  createConversationWorkdirLabel: HTMLElement;
+  createConversationWorkdirInput: HTMLInputElement;
   createConversationBrowse: HTMLButtonElement;
-  createConversationUseDefault: HTMLButtonElement;
   createConversationCancel: HTMLButtonElement;
   createConversationConfirm: HTMLButtonElement;
   importWorkdirModal: HTMLElement;

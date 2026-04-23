@@ -807,36 +807,30 @@ function askRenameTitle(initialValue): Promise<string | null> {
 function askCreateConversationWorkdir(): Promise<string | null> {
   return new Promise((resolve) => {
     const modal = el.createConversationModal;
-    const defaultInput = el.createConversationDefaultInput;
-    const selectedInput = el.createConversationSelectedInput;
+    const workdirInput = el.createConversationWorkdirInput;
     const browseBtn = el.createConversationBrowse;
-    const useDefaultBtn = el.createConversationUseDefault;
     const cancelBtn = el.createConversationCancel;
     const confirmBtn = el.createConversationConfirm;
-    if (!modal || !defaultInput || !selectedInput || !browseBtn || !useDefaultBtn || !cancelBtn || !confirmBtn) {
+    if (!modal || !workdirInput || !browseBtn || !cancelBtn || !confirmBtn) {
       resolve('');
       return;
     }
 
     const defaultWorkdir = String(state.settings.defaultWorkdir || state.settings.workdir || '').trim();
-    let selectedWorkdir = '';
+    let selectedWorkdir = defaultWorkdir;
 
-    const syncSelectedInput = () => {
-      selectedInput.value = selectedWorkdir;
-      selectedInput.title = selectedWorkdir || defaultWorkdir || '-';
-      useDefaultBtn.disabled = !selectedWorkdir;
+    const syncWorkdirInput = () => {
+      workdirInput.value = selectedWorkdir;
+      workdirInput.title = selectedWorkdir || '-';
     };
 
-    defaultInput.value = defaultWorkdir;
-    defaultInput.title = defaultWorkdir || '-';
-    syncSelectedInput();
+    syncWorkdirInput();
     modal.classList.remove('hidden');
     browseBtn.focus();
 
     const cleanup = () => {
       modal.classList.add('hidden');
       browseBtn.removeEventListener('click', onBrowse);
-      useDefaultBtn.removeEventListener('click', onUseDefault);
       cancelBtn.removeEventListener('click', onCancel);
       confirmBtn.removeEventListener('click', onConfirm);
       modal.removeEventListener('click', onBackdrop);
@@ -853,11 +847,6 @@ function askCreateConversationWorkdir(): Promise<string | null> {
       resolve(selectedWorkdir);
     };
 
-    const onUseDefault = () => {
-      selectedWorkdir = '';
-      syncSelectedInput();
-    };
-
     const onBrowse = async () => {
       const result = await codexdesk.pickWorkdir({
         defaultPath: selectedWorkdir || defaultWorkdir,
@@ -870,7 +859,7 @@ function askCreateConversationWorkdir(): Promise<string | null> {
         return;
       }
       selectedWorkdir = String(result?.directoryPath || '').trim();
-      syncSelectedInput();
+      syncWorkdirInput();
     };
 
     const onBackdrop = (event) => {
@@ -892,7 +881,6 @@ function askCreateConversationWorkdir(): Promise<string | null> {
     };
 
     browseBtn.addEventListener('click', onBrowse);
-    useDefaultBtn.addEventListener('click', onUseDefault);
     cancelBtn.addEventListener('click', onCancel);
     confirmBtn.addEventListener('click', onConfirm);
     modal.addEventListener('click', onBackdrop);

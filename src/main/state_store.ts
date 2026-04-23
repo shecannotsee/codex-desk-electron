@@ -102,6 +102,73 @@ function normalizeNotificationSettings(rawSettings) {
   return base;
 }
 
+function normalizeConversationBindings(rawBindings) {
+  const base = {};
+  if (!rawBindings || typeof rawBindings !== 'object') {
+    return base;
+  }
+  for (const [key, value] of Object.entries(rawBindings)) {
+    const chatId = String(key || '').trim();
+    const conversationId = String(value || '').trim();
+    if (!chatId || !conversationId) {
+      continue;
+    }
+    base[chatId] = conversationId;
+  }
+  return base;
+}
+
+function defaultTelegramRemoteControlSettings() {
+  return {
+    enabled: false,
+    allowedChatId: '',
+    lastUpdateId: 0,
+    selectedConversationByChat: {},
+  };
+}
+
+function normalizeTelegramRemoteControlSettings(rawSettings) {
+  const base = defaultTelegramRemoteControlSettings();
+  if (!rawSettings || typeof rawSettings !== 'object') {
+    return base;
+  }
+  base.enabled = Boolean(rawSettings.enabled);
+  base.allowedChatId = String(rawSettings.allowedChatId || rawSettings.allowed_chat_id || '').trim();
+  base.lastUpdateId = Math.max(0, Number(rawSettings.lastUpdateId ?? rawSettings.last_update_id ?? 0) || 0);
+  base.selectedConversationByChat = normalizeConversationBindings(
+    rawSettings.selectedConversationByChat || rawSettings.selected_conversation_by_chat,
+  );
+  return base;
+}
+
+function defaultRemoteControlSettings() {
+  return {
+    activeProvider: DEFAULT_NOTIFICATION_PROVIDER,
+    telegram: defaultTelegramRemoteControlSettings(),
+  };
+}
+
+function normalizeRemoteControlSettings(rawSettings) {
+  const base = defaultRemoteControlSettings();
+  if (!rawSettings || typeof rawSettings !== 'object') {
+    return base;
+  }
+  base.activeProvider = normalizeNotificationProvider(
+    rawSettings.activeProvider
+    || rawSettings.provider
+    || rawSettings.kind,
+  );
+  const rawProviders = rawSettings.providers && typeof rawSettings.providers === 'object'
+    ? rawSettings.providers
+    : {};
+  base.telegram = normalizeTelegramRemoteControlSettings(
+    rawSettings.telegram
+    || rawProviders.telegram
+    || {},
+  );
+  return base;
+}
+
 function defaultNotificationSecrets() {
   return {
     telegram: {
@@ -293,6 +360,7 @@ class StateStore {
       useNativeMemory: true,
       deviceIdentity: DEFAULT_DEVICE_IDENTITY,
       notifications: defaultNotificationSettings(),
+      remoteControl: defaultRemoteControlSettings(),
       activeConversationId: '',
       conversations: [],
     };
@@ -356,8 +424,9 @@ class StateStore {
           || data.notifications?.telegram?.botToken
           || data.telegram?.botToken
           || '',
-      },
+        },
     });
+    const remoteControl = normalizeRemoteControlSettings(data.remoteControl || data.remote_control);
 
     const conversations = [];
     const metaByConversation = {};
@@ -412,6 +481,7 @@ class StateStore {
       useNativeMemory,
       deviceIdentity,
       notifications,
+      remoteControl,
       activeConversationId,
       conversations,
       metaByConversation,
@@ -443,6 +513,13 @@ class StateStore {
           telegram: state.telegram,
         },
       ),
+      remoteControl: normalizeRemoteControlSettings(
+        state.remoteControl
+        || {
+          activeProvider: state.remoteControlProvider,
+          telegram: state.telegramRemoteControl,
+        },
+      ),
       activeConversationId,
       conversations: conversations.map((item) => ({
         id: item.id,
@@ -462,6 +539,7 @@ class StateStore {
     };
 
     const normalizedNotifications = normalizeNotificationSettings(payload.notifications);
+    const normalizedRemoteControl = normalizeRemoteControlSettings(payload.remoteControl);
     payload.notifications = {
       activeProvider: normalizedNotifications.activeProvider,
       telegram: {
@@ -471,6 +549,15 @@ class StateStore {
         hasBotToken: Boolean(normalizedNotifications.telegram.hasBotToken),
         botTokenHash: normalizedNotifications.telegram.botTokenHash,
         botTokenFingerprint: normalizedNotifications.telegram.botTokenFingerprint,
+      },
+    };
+    payload.remoteControl = {
+      activeProvider: normalizedRemoteControl.activeProvider,
+      telegram: {
+        enabled: Boolean(normalizedRemoteControl.telegram.enabled),
+        allowedChatId: String(normalizedRemoteControl.telegram.allowedChatId || '').trim(),
+        lastUpdateId: Math.max(0, Number(normalizedRemoteControl.telegram.lastUpdateId || 0) || 0),
+        selectedConversationByChat: normalizeConversationBindings(normalizedRemoteControl.telegram.selectedConversationByChat),
       },
     };
 
@@ -504,6 +591,10 @@ module.exports = {
   defaultNotificationSettings,
   normalizeNotificationProvider,
   normalizeNotificationSettings,
+  defaultTelegramRemoteControlSettings,
+  normalizeTelegramRemoteControlSettings,
+  defaultRemoteControlSettings,
+  normalizeRemoteControlSettings,
   defaultNotificationSecrets,
   normalizeNotificationSecrets,
   StateStore,

@@ -10,6 +10,7 @@ import type {
   MessageAttachment,
   ImportWorkdirChoice,
   NotificationSettingsState,
+  RemoteControlSettingsState,
   RawEventEntry,
   RenderJobs,
   RuntimeEventItem,
@@ -211,6 +212,28 @@ function normalizeNotificationSettingsState(raw: any, fallback: any = {}): Notif
   };
 }
 
+function normalizeTelegramRemoteControlState(raw: any, fallback: any = {}) {
+  return {
+    enabled: Boolean(raw?.enabled ?? fallback?.enabled),
+    allowedChatId: String(raw?.allowedChatId ?? fallback?.allowedChatId ?? '').trim(),
+    effectiveAllowedChatId: String(raw?.effectiveAllowedChatId ?? fallback?.effectiveAllowedChatId ?? '').trim(),
+    usesNotificationChatId: Boolean(raw?.usesNotificationChatId ?? fallback?.usesNotificationChatId ?? true),
+  };
+}
+
+function normalizeRemoteControlSettingsState(raw: any, fallback: any = {}): RemoteControlSettingsState {
+  const nextActiveProvider = String(raw?.activeProvider ?? fallback?.activeProvider ?? 'telegram').trim().toLowerCase();
+  return {
+    activeProvider: nextActiveProvider === 'telegram' ? 'telegram' : 'telegram',
+    providers: {
+      telegram: normalizeTelegramRemoteControlState(
+        raw?.providers?.telegram ?? raw?.telegram,
+        fallback?.providers?.telegram ?? fallback?.telegram,
+      ),
+    },
+  };
+}
+
 function collectNotificationSettingsPayload() {
   const botToken = String(el.qsTelegramBotTokenInput?.value || '').trim();
   return {
@@ -221,6 +244,13 @@ function collectNotificationSettingsPayload() {
         enabled: Boolean(el.qsTelegramEnabled?.checked),
         chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
         ...(botToken ? { botToken } : {}),
+      },
+    },
+    remoteControl: {
+      activeProvider: 'telegram',
+      telegram: {
+        enabled: Boolean(el.qsTelegramRemoteControlEnabled?.checked),
+        allowedChatId: String(el.qsTelegramAllowedChatIdInput?.value || '').trim(),
       },
     },
   };
@@ -412,6 +442,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     defaultWorkdir: snapshot.settings?.defaultWorkdir || snapshot.settings?.workdir || '',
     deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
     notifications: normalizeNotificationSettingsState(snapshot.settings?.notifications, state.settings.notifications),
+    remoteControl: normalizeRemoteControlSettingsState(snapshot.settings?.remoteControl, state.settings.remoteControl),
   };
   state.activeConversationId = String(snapshot.activeConversationId || '');
   state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
@@ -470,6 +501,7 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
     defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
     deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),
     notifications: normalizeNotificationSettingsState(payload.settings?.notifications, state.settings.notifications),
+    remoteControl: normalizeRemoteControlSettingsState(payload.settings?.remoteControl, state.settings.remoteControl),
   };
 
   const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();

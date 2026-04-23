@@ -114,6 +114,13 @@
                       <label class="quick-settings-form-label" for="qs-telegram-chat-id-input" data-i18n-key="telegramChatId">Chat ID</label>
                       <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入接收通知的 chat id" />
                       <div class="quick-settings-form-hint" data-i18n-key="telegramHint">通知会推送成功与失败结果。对话 ID 仍是主标识，名称只用于快速识别。</div>
+                      <label class="quick-settings-checkbox" for="qs-telegram-remote-control-enabled">
+                        <input id="qs-telegram-remote-control-enabled" type="checkbox" />
+                        <span id="label-qs-telegram-remote-control-enabled" data-i18n-key="telegramRemoteControlEnabled">启用 Telegram 远程发消息</span>
+                      </label>
+                      <label class="quick-settings-form-label" for="qs-telegram-allowed-chat-id-input" data-i18n-key="telegramAllowedChatId">远程控制 Chat ID</label>
+                      <input id="qs-telegram-allowed-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="留空则复用通知 Chat ID" />
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramRemoteControlHint">开启后，可在 Telegram 中用 /list、/use、/new 选择对话，并直接发送文本到当前绑定对话。</div>
                       <div class="quick-settings-form-actions">
                         <button id="qs-telegram-save" type="button" class="quick-settings-inline-action" data-i18n-key="saveSettings">保存配置</button>
                         <button id="qs-telegram-test" type="button" class="quick-settings-inline-action" data-i18n-key="testNotificationProvider">发送测试通知</button>

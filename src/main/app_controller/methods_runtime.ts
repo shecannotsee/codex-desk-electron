@@ -4,9 +4,11 @@ const { buildExportFileName, exportConversationJsonl } = require('../session_exp
 const {
   normalizeIdentity,
   normalizeNotificationSettings,
+  normalizeRemoteControlSettings,
   normalizeWorkdir,
 } = require('../state_store');
 const { NotificationCenter } = require('../notification_bridge');
+const { RemoteControlCenter } = require('../remote_control_bridge');
 const { normalizePreview, tsLabel } = require('./shared');
 const fs = require('node:fs');
 
@@ -47,12 +49,14 @@ const runtimeMethods = {
       this.persistTimer = null;
     }
     this._syncNotificationCenter();
+    this._syncRemoteControlCenter();
     this.stateStorage.saveState({
       commandText: this.commandText,
       workdir: this.workdir,
       useNativeMemory: this.useNativeMemory,
       deviceIdentity: this.deviceIdentity,
       notifications: this.notifications,
+      remoteControl: this.remoteControl,
       activeConversationId: this.activeConversationId,
       conversations: this.conversations,
       metaByConversation: this.metaByConversation,
@@ -96,6 +100,205 @@ const runtimeMethods = {
       deviceIdentity: normalizedIdentity,
     });
     return this.notificationCenter;
+  },
+
+  _remoteControlHandlers() {
+    return {
+      updateState: async (patch = {}) => this._updateRemoteControlTelegramState(patch),
+      listConversations: async (limit = 10) => this._listRemoteControlConversations(limit),
+      getSelectedConversation: async (chatId, options = {}) => this._getRemoteControlSelectedConversation(chatId, options),
+      selectConversation: async (chatId, ref) => this._selectRemoteControlConversation(chatId, ref),
+      createConversation: async (chatId) => this._createRemoteControlConversation(chatId),
+      stopCurrentConversation: async (chatId) => this._stopRemoteControlConversation(chatId),
+      sendMessageToSelectedConversation: async (chatId, text) => this._sendRemoteControlMessage(chatId, text),
+    };
+  },
+
+  _syncRemoteControlCenter() {
+    const normalizedRemoteControl = normalizeRemoteControlSettings(this.remoteControl);
+    this.remoteControl = normalizedRemoteControl;
+    if (!this.remoteControlCenter) {
+      this.remoteControlCenter = new RemoteControlCenter({
+        telegramSettings: this.notifications?.telegram || {},
+        settings: normalizedRemoteControl,
+        deviceIdentity: this.deviceIdentity,
+        handlers: this._remoteControlHandlers(),
+      });
+      return this.remoteControlCenter;
+    }
+    this.remoteControlCenter.updateConfig({
+      telegramSettings: this.notifications?.telegram || {},
+      settings: normalizedRemoteControl,
+      deviceIdentity: this.deviceIdentity,
+      handlers: this._remoteControlHandlers(),
+    });
+    return this.remoteControlCenter;
+  },
+
+  _remoteControlConversationEntries() {
+    return sortedConversations(this.conversations).map((conv) => {
+      const runtime = this.runtimeStore.ensure(conv.id);
+      return {
+        id: conv.id,
+        title: conv.title,
+        phase: String(runtime?.phase || '空闲').trim() || '空闲',
+        queuedCount: this._pendingQueueSize(conv.id),
+        updatedAt: Number(conv.updatedAt || 0) || 0,
+      };
+    });
+  },
+
+  _resolveRemoteControlConversationRef(ref) {
+    const raw = String(ref || '').trim();
+    if (!raw) {
+      return null;
+    }
+    const entries = this._remoteControlConversationEntries();
+    const exact = entries.find((item) => item.id === raw);
+    if (exact) {
+      return exact;
+    }
+    const index = Number(raw);
+    if (Number.isInteger(index) && index >= 1 && index <= entries.length) {
+      return entries[index - 1];
+    }
+    return null;
+  },
+
+  async _updateRemoteControlTelegramState(patch = {}) {
+    const control = normalizeRemoteControlSettings(this.remoteControl);
+    control.telegram = {
+      ...control.telegram,
+      ...(patch && typeof patch === 'object' ? patch : {}),
+    };
+    this.remoteControl = control;
+    this._syncRemoteControlCenter();
+    this._schedulePersist(40);
+    return control.telegram;
+  },
+
+  _getRemoteControlSelectedConversationId(chatId, { allowFallback = false } = {}) {
+    const normalizedChatId = String(chatId || '').trim();
+    const control = normalizeRemoteControlSettings(this.remoteControl);
+    const selectedMap = control.telegram.selectedConversationByChat || {};
+    const selectedId = String(selectedMap[normalizedChatId] || '').trim();
+    if (selectedId && getConversation(this.conversations, selectedId)) {
+      return selectedId;
+    }
+    if (!allowFallback) {
+      return '';
+    }
+    const activeId = String(this.activeConversationId || '').trim();
+    if (activeId && getConversation(this.conversations, activeId)) {
+      return activeId;
+    }
+    return '';
+  },
+
+  async _bindRemoteControlConversation(chatId, conversationId) {
+    const normalizedChatId = String(chatId || '').trim();
+    const normalizedConversationId = String(conversationId || '').trim();
+    if (!normalizedChatId || !normalizedConversationId) {
+      return false;
+    }
+    const control = normalizeRemoteControlSettings(this.remoteControl);
+    control.telegram.selectedConversationByChat = {
+      ...(control.telegram.selectedConversationByChat || {}),
+      [normalizedChatId]: normalizedConversationId,
+    };
+    this.remoteControl = control;
+    this._syncRemoteControlCenter();
+    this._schedulePersist(30);
+    return true;
+  },
+
+  async _getRemoteControlSelectedConversation(chatId, { allowFallback = false } = {}) {
+    const conversationId = this._getRemoteControlSelectedConversationId(chatId, { allowFallback });
+    if (!conversationId) {
+      return null;
+    }
+    const conv = getConversation(this.conversations, conversationId);
+    if (!conv) {
+      return null;
+    }
+    if (allowFallback) {
+      await this._bindRemoteControlConversation(chatId, conversationId);
+    }
+    const runtime = this.runtimeStore.ensure(conversationId);
+    return {
+      conversationId: conv.id,
+      title: conv.title,
+      phase: String(runtime?.phase || '空闲').trim() || '空闲',
+      queuedCount: this._pendingQueueSize(conv.id),
+    };
+  },
+
+  async _listRemoteControlConversations(limit = 10) {
+    const resolvedLimit = Math.max(1, Math.min(20, Number(limit) || 10));
+    return this._remoteControlConversationEntries().slice(0, resolvedLimit);
+  },
+
+  async _selectRemoteControlConversation(chatId, ref) {
+    const matched = this._resolveRemoteControlConversationRef(ref);
+    if (!matched) {
+      return { ok: false, error: '未找到对应对话。先使用 /list 查看可选项。' };
+    }
+    await this._bindRemoteControlConversation(chatId, matched.id);
+    return {
+      ok: true,
+      conversationId: matched.id,
+      title: matched.title,
+    };
+  },
+
+  async _createRemoteControlConversation(chatId) {
+    const snapshot = this.createConversation();
+    const conversationId = String(snapshot?.activeConversationId || this.activeConversationId || '').trim();
+    const conv = getConversation(this.conversations, conversationId);
+    if (!conversationId || !conv) {
+      return { ok: false, error: '新建对话失败' };
+    }
+    await this._bindRemoteControlConversation(chatId, conversationId);
+    return {
+      ok: true,
+      conversationId,
+      title: conv.title,
+    };
+  },
+
+  async _stopRemoteControlConversation(chatId) {
+    const selected = await this._getRemoteControlSelectedConversation(chatId, { allowFallback: true });
+    if (!selected?.conversationId) {
+      return { ok: false, error: '当前未绑定对话。使用 /list 或 /new。' };
+    }
+    this.stopConversation(selected.conversationId);
+    return {
+      ok: true,
+      conversationId: selected.conversationId,
+      title: selected.title,
+    };
+  },
+
+  async _sendRemoteControlMessage(chatId, text) {
+    const existingSelectedId = this._getRemoteControlSelectedConversationId(chatId, { allowFallback: false });
+    const selected = await this._getRemoteControlSelectedConversation(chatId, { allowFallback: true });
+    if (!selected?.conversationId) {
+      return { ok: false, error: '当前未绑定对话。使用 /list 查看会话，或 /new 新建一个。' };
+    }
+    const result = await this.sendMessage({
+      conversationId: selected.conversationId,
+      text,
+    });
+    if (result?.error) {
+      return { ok: false, error: String(result.error || '发送失败') };
+    }
+    return {
+      ok: true,
+      conversationId: selected.conversationId,
+      title: selected.title,
+      queued: Boolean(result?.queued),
+      autoBound: !existingSelectedId,
+    };
   },
 
   _ensureMeta(conversationId) {
@@ -296,6 +499,7 @@ const runtimeMethods = {
     const conv = activeId ? getConversation(this.conversations, activeId) : null;
     const runtime = activeId ? this.runtimeStore.ensure(activeId) : null;
     const notificationCenter = this._syncNotificationCenter();
+    const remoteControlCenter = this._syncRemoteControlCenter();
     return {
       settings: {
         commandText: this.commandText,
@@ -303,6 +507,7 @@ const runtimeMethods = {
         defaultWorkdir: this._defaultWorkdir(),
         deviceIdentity: notificationCenter.getDeviceIdentity(),
         notifications: notificationCenter.snapshot(),
+        remoteControl: remoteControlCenter.snapshot(),
       },
       activeConversationId: activeId,
       conversation: conv || null,
@@ -611,6 +816,7 @@ const runtimeMethods = {
       ? this._resolveConversationWorkdir(this.activeConversationId)
       : this._defaultWorkdir();
     const notificationCenter = this._syncNotificationCenter();
+    const remoteControlCenter = this._syncRemoteControlCenter();
     return {
       settings: {
         commandText: this.commandText,
@@ -619,6 +825,7 @@ const runtimeMethods = {
         useNativeMemory: this.useNativeMemory,
         deviceIdentity: notificationCenter.getDeviceIdentity(),
         notifications: notificationCenter.snapshot(),
+        remoteControl: remoteControlCenter.snapshot(),
       },
       activeConversationId: this.activeConversationId,
       conversations: sortedConversations(this.conversations),
@@ -686,8 +893,25 @@ const runtimeMethods = {
         telegram: mergedTelegram,
       });
     }
+    if (input.remoteControl && typeof input.remoteControl === 'object') {
+      const incomingTelegram = input.remoteControl.telegram && typeof input.remoteControl.telegram === 'object'
+        ? input.remoteControl.telegram
+        : {};
+      const mergedTelegram = {
+        ...((this.remoteControl && this.remoteControl.telegram && typeof this.remoteControl.telegram === 'object')
+          ? this.remoteControl.telegram
+          : {}),
+        ...incomingTelegram,
+      };
+      this.remoteControl = normalizeRemoteControlSettings({
+        ...(this.remoteControl && typeof this.remoteControl === 'object' ? this.remoteControl : {}),
+        ...input.remoteControl,
+        telegram: mergedTelegram,
+      });
+    }
     this.useNativeMemory = true;
     this._syncNotificationCenter();
+    this._syncRemoteControlCenter();
     this._persist();
     return this.snapshot();
   },
@@ -752,6 +976,12 @@ const runtimeMethods = {
 
   testNotificationProvider() {
     return this._syncNotificationCenter().testActiveProvider();
+  },
+
+  shutdownServices() {
+    if (this.remoteControlCenter && typeof this.remoteControlCenter.stop === 'function') {
+      this.remoteControlCenter.stop();
+    }
   },
 
   previewConversationImportFromSessionFile(filePath) {

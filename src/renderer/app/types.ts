@@ -25,6 +25,20 @@ export interface NotificationSettingsState {
   };
 }
 
+export interface TelegramRemoteControlState {
+  enabled: boolean;
+  allowedChatId: string;
+  effectiveAllowedChatId?: string;
+  usesNotificationChatId?: boolean;
+}
+
+export interface RemoteControlSettingsState {
+  activeProvider: NotificationProvider;
+  providers: {
+    telegram: TelegramRemoteControlState;
+  };
+}
+
 export interface SettingsState {
   commandText: string;
   workdir: string;
@@ -32,6 +46,7 @@ export interface SettingsState {
   useNativeMemory?: boolean;
   deviceIdentity: string;
   notifications: NotificationSettingsState;
+  remoteControl: RemoteControlSettingsState;
 }
 
 export interface UiState {
@@ -412,6 +427,9 @@ export interface UiElementRefs {
   qsTelegramBotTokenInput: HTMLInputElement;
   qsTelegramChatIdInput: HTMLInputElement;
   qsTelegramTokenStatus: HTMLElement;
+  qsTelegramRemoteControlEnabled: HTMLInputElement;
+  labelQsTelegramRemoteControlEnabled: HTMLElement;
+  qsTelegramAllowedChatIdInput: HTMLInputElement;
   qsTelegramSave: HTMLButtonElement;
   qsTelegramTest: HTMLButtonElement;
   qsTelegramClearToken: HTMLButtonElement;

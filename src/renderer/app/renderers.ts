@@ -450,6 +450,7 @@ function renderSettings() {
   }
   const activeNotificationProvider = String(state.settings.notifications?.activeProvider || 'telegram').trim().toLowerCase();
   const telegramSettings = state.settings.notifications?.providers?.telegram;
+  const telegramRemoteControl = state.settings.remoteControl?.providers?.telegram;
   if (el.qsNotificationProviderTelegram) {
     el.qsNotificationProviderTelegram.classList.toggle('active', activeNotificationProvider === 'telegram');
   }
@@ -469,6 +470,15 @@ function renderSettings() {
     el.qsTelegramTokenStatus.textContent = fingerprint
       ? t('telegramTokenSaved', { fingerprint })
       : t('telegramTokenMissing');
+  }
+  if (el.qsTelegramRemoteControlEnabled) {
+    el.qsTelegramRemoteControlEnabled.checked = Boolean(telegramRemoteControl?.enabled);
+  }
+  if (el.qsTelegramAllowedChatIdInput) {
+    const allowedChatId = String(telegramRemoteControl?.allowedChatId || '').trim();
+    const effectiveAllowedChatId = String(telegramRemoteControl?.effectiveAllowedChatId || '').trim();
+    el.qsTelegramAllowedChatIdInput.value = allowedChatId;
+    el.qsTelegramAllowedChatIdInput.title = effectiveAllowedChatId || allowedChatId || '-';
   }
   const perm = resolvePermissionSummary();
   if (el.permissionInput) {
@@ -1567,6 +1577,9 @@ function renderLocaleTexts() {
   }
   if (el.qsTelegramChatIdInput) {
     el.qsTelegramChatIdInput.placeholder = t('telegramChatIdPlaceholder');
+  }
+  if (el.qsTelegramAllowedChatIdInput) {
+    el.qsTelegramAllowedChatIdInput.placeholder = t('telegramAllowedChatIdPlaceholder');
   }
   if (el.labelCommand) {
     el.labelCommand.textContent = `${t('command')}:`;

@@ -2,6 +2,7 @@ const { createAppStateStorage } = require('../storage');
 const { RuntimeStore } = require('../runtime_store');
 const { nowTs } = require('../conversation_service');
 const { NotificationCenter } = require('../notification_bridge');
+const { RemoteControlCenter } = require('../remote_control_bridge');
 
 const { runtimeMethods } = require('./methods_runtime');
 const { metaMethods } = require('./methods_meta');
@@ -68,9 +69,26 @@ class AppController {
           chatId: '',
         },
       };
+    this.remoteControl = loaded.remoteControl && typeof loaded.remoteControl === 'object'
+      ? { ...loaded.remoteControl }
+      : {
+        activeProvider: 'telegram',
+        telegram: {
+          enabled: false,
+          allowedChatId: '',
+          lastUpdateId: 0,
+          selectedConversationByChat: {},
+        },
+      };
     this.notificationCenter = new NotificationCenter({
       settings: this.notifications,
       deviceIdentity: this.deviceIdentity,
+    });
+    this.remoteControlCenter = new RemoteControlCenter({
+      telegramSettings: this.notifications?.telegram || {},
+      settings: this.remoteControl,
+      deviceIdentity: this.deviceIdentity,
+      handlers: this._remoteControlHandlers ? this._remoteControlHandlers() : {},
     });
 
     this.conversations = Array.isArray(loaded.conversations) ? loaded.conversations : [];

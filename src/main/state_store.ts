@@ -49,17 +49,6 @@ function normalizeWorkdir(candidate) {
   const raw = String(candidate || '').trim();
   let nextPath = raw ? path.resolve(raw) : fallback;
 
-  // Migrate historical in-repo defaults to the dedicated workspace directory.
-  if (nextPath === path.resolve(APP_ROOT) && !raw) {
-    nextPath = fallback;
-  }
-  if (nextPath === path.resolve(APP_ROOT) && raw === path.resolve(APP_ROOT)) {
-    nextPath = fallback;
-  }
-  if (nextPath === path.resolve(path.join(APP_ROOT, 'src')) && raw === path.resolve(path.join(APP_ROOT, 'src'))) {
-    nextPath = fallback;
-  }
-
   if (nextPath === fallback) {
     fs.mkdirSync(nextPath, { recursive: true });
   }

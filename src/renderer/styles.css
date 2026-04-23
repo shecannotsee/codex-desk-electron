@@ -3539,6 +3539,77 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   transform: none;
 }
 
+.quick-settings-form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(210, 222, 234, 0.62);
+  background: rgba(51, 144, 236, 0.04);
+}
+
+.quick-settings-form-card:last-child {
+  border-bottom-color: transparent;
+}
+
+.quick-settings-form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #62809c;
+}
+
+.quick-settings-text-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #c9d8e8;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1f3448;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.quick-settings-text-input:focus {
+  border-color: rgba(51, 144, 236, 0.7);
+  box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.12);
+}
+
+.quick-settings-text-input::placeholder {
+  color: #8fa3b7;
+}
+
+.quick-settings-form-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6f89a2;
+}
+
+.quick-settings-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #294056;
+}
+
+.quick-settings-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #3390ec;
+}
+
+.quick-settings-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .quick-settings-toggle-row {
   margin-top: 0;
   border-radius: 0;
@@ -4719,7 +4790,8 @@ html[data-theme='dark'] .quick-settings-category.active {
 
 html[data-theme='dark'] .quick-settings-category,
 html[data-theme='dark'] .quick-settings-item,
-html[data-theme='dark'] .quick-settings-toggle-row {
+html[data-theme='dark'] .quick-settings-toggle-row,
+html[data-theme='dark'] .quick-settings-form-card {
   border-bottom-color: rgba(61, 82, 103, 0.82);
 }
 
@@ -4770,8 +4842,33 @@ html[data-theme='dark'] .quick-settings-inline-label {
   color: #94a3b8;
 }
 
+html[data-theme='dark'] .quick-settings-form-card,
 html[data-theme='dark'] .quick-settings-toggle-row {
   background: rgba(148, 163, 184, 0.08);
+}
+
+html[data-theme='dark'] .quick-settings-form-label,
+html[data-theme='dark'] .quick-settings-form-hint {
+  color: #9db2c7;
+}
+
+html[data-theme='dark'] .quick-settings-checkbox {
+  color: #dbe4f0;
+}
+
+html[data-theme='dark'] .quick-settings-text-input {
+  border-color: #334a60;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e6eef8;
+}
+
+html[data-theme='dark'] .quick-settings-text-input::placeholder {
+  color: #7590aa;
+}
+
+html[data-theme='dark'] .quick-settings-text-input:focus {
+  border-color: rgba(96, 165, 250, 0.68);
+  box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.18);
 }
 
 html[data-theme='dark'] .quick-settings-pill.active {

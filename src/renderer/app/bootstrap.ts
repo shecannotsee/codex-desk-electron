@@ -186,6 +186,33 @@ function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'in
   }, visibleMs);
 }
 
+function collectNotificationSettingsPayload() {
+  return {
+    deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
+    telegram: {
+      enabled: Boolean(el.qsTelegramEnabled?.checked),
+      botToken: String(el.qsTelegramBotTokenInput?.value || '').trim(),
+      chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
+    },
+  };
+}
+
+async function saveNotificationSettings(options: { silent?: boolean } = {}) {
+  const result = await codexdesk.updateSettings(collectNotificationSettingsPayload());
+  if (result?.error) {
+    window.alert(localizeKnownText(result.error));
+    applySnapshot(result?.snapshot || {});
+    renderAll();
+    return null;
+  }
+  applySnapshot(result?.snapshot || result);
+  renderSettings();
+  if (!options.silent) {
+    showAppNotice(t('settingsSaved'), 'success');
+  }
+  return result;
+}
+
 function dragEventHasFiles(event: DragEvent): boolean {
   const types = Array.from(event.dataTransfer?.types || []);
   return types.includes('Files');
@@ -351,6 +378,16 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     commandText: snapshot.settings?.commandText || '',
     workdir: snapshot.settings?.workdir || '',
     defaultWorkdir: snapshot.settings?.defaultWorkdir || snapshot.settings?.workdir || '',
+    deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
+    telegram: {
+      enabled: Boolean(snapshot.settings?.telegram?.enabled),
+      botToken: String(snapshot.settings?.telegram?.botToken || '').trim(),
+      chatId: String(snapshot.settings?.telegram?.chatId || '').trim(),
+      hasBotToken: Boolean(
+        snapshot.settings?.telegram?.hasBotToken
+        ?? String(snapshot.settings?.telegram?.botToken || '').trim(),
+      ),
+    },
   };
   state.activeConversationId = String(snapshot.activeConversationId || '');
   state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
@@ -407,6 +444,17 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
     commandText: payload.settings?.commandText || state.settings.commandText || '',
     workdir: payload.settings?.workdir || state.settings.workdir || '',
     defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
+    deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),
+    telegram: {
+      enabled: Boolean(payload.settings?.telegram?.enabled ?? state.settings.telegram?.enabled),
+      botToken: String((payload.settings?.telegram?.botToken ?? state.settings.telegram?.botToken) || '').trim(),
+      chatId: String((payload.settings?.telegram?.chatId ?? state.settings.telegram?.chatId) || '').trim(),
+      hasBotToken: Boolean(
+        payload.settings?.telegram?.hasBotToken
+        ?? state.settings.telegram?.hasBotToken
+        ?? String((payload.settings?.telegram?.botToken ?? state.settings.telegram?.botToken) || '').trim()
+      ),
+    },
   };
 
   const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();
@@ -1843,6 +1891,7 @@ async function init() {
   const quickSettingsPaneTitleKey = {
     conversation: 'menuConversation',
     runtime: 'menuRuntime',
+    integration: 'menuNotification',
     view: 'menuInterface',
     window: 'menuWindow',
     help: 'menuHelp',
@@ -2344,16 +2393,12 @@ async function init() {
     if (targetNode && el.btnQuickSettings && el.btnQuickSettings.contains(targetNode)) {
       return;
     }
-    hideQuickSettingsMenu();
   });
 
   window.addEventListener('blur', () => {
     hideChatContextMenu();
     hideConversationContextMenu();
     hideQueuePopover();
-    if (!shouldKeepQuickSettingsOpen()) {
-      hideQuickSettingsMenu();
-    }
   });
   window.addEventListener('beforeunload', () => {
     setConversationDraft(state.activeConversationId, el.inputBox?.value || '');
@@ -2663,6 +2708,27 @@ async function init() {
   if (el.btnMetaModel) {
     el.btnMetaModel.addEventListener('click', () => {
       el.btnRefreshModel.click();
+    });
+  }
+
+  if (el.qsTelegramSave) {
+    el.qsTelegramSave.addEventListener('click', async () => {
+      await saveNotificationSettings();
+    });
+  }
+
+  if (el.qsTelegramTest) {
+    el.qsTelegramTest.addEventListener('click', async () => {
+      const saved = await saveNotificationSettings({ silent: true });
+      if (!saved) {
+        return;
+      }
+      const result = await codexdesk.testTelegramNotification();
+      if (result?.ok) {
+        showAppNotice(t('telegramTestSuccess'), 'success');
+        return;
+      }
+      showAppNotice(localizeKnownText(String(result?.error || 'Telegram 通知发送失败')), 'error');
     });
   }
 

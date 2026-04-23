@@ -38,6 +38,10 @@
                     <span data-i18n-key="menuRuntime">运行</span>
                     <span class="quick-settings-chevron">›</span>
                   </button>
+                  <button type="button" class="quick-settings-category" data-pane="integration">
+                    <span data-i18n-key="menuNotification">通知与身份</span>
+                    <span class="quick-settings-chevron">›</span>
+                  </button>
                   <button type="button" class="quick-settings-category" data-pane="view">
                     <span data-i18n-key="menuInterface">界面</span>
                     <span class="quick-settings-chevron">›</span>
@@ -84,6 +88,29 @@
 
                   <section class="quick-settings-pane" data-pane="runtime">
                     <button type="button" class="quick-settings-item" data-action="conversation:clear-runtime" data-i18n-key="clearRuntime">清空右侧运行日志</button>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="integration">
+                    <div class="quick-settings-form-card">
+                      <label class="quick-settings-form-label" for="qs-device-identity-input" data-i18n-key="deviceIdentityLabel">设备身份标识</label>
+                      <input id="qs-device-identity-input" class="quick-settings-text-input" type="text" placeholder="例如: desk-office" />
+                      <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，Telegram 通知会带上这个标识。</div>
+                    </div>
+                    <div class="quick-settings-form-card">
+                      <label class="quick-settings-checkbox" for="qs-telegram-enabled">
+                        <input id="qs-telegram-enabled" type="checkbox" />
+                        <span id="label-qs-telegram-enabled" data-i18n-key="telegramEnabled">启用 Telegram 完成通知</span>
+                      </label>
+                      <label class="quick-settings-form-label" for="qs-telegram-bot-token-input" data-i18n-key="telegramBotToken">Bot Token</label>
+                      <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="填入 BotFather 生成的 Token" />
+                      <label class="quick-settings-form-label" for="qs-telegram-chat-id-input" data-i18n-key="telegramChatId">Chat ID</label>
+                      <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入接收通知的 chat id" />
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramHint">通知会以对话 ID 为主标识，名称只用于快速识别。</div>
+                      <div class="quick-settings-form-actions">
+                        <button id="qs-telegram-save" type="button" class="quick-settings-inline-action" data-i18n-key="saveSettings">保存配置</button>
+                        <button id="qs-telegram-test" type="button" class="quick-settings-inline-action" data-i18n-key="testTelegramNotification">发送测试通知</button>
+                      </div>
+                    </div>
                   </section>
 
                   <section class="quick-settings-pane" data-pane="view">

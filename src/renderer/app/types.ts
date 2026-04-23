@@ -8,10 +8,20 @@ export interface AppInfo {
   version: string;
 }
 
+export interface TelegramSettingsState {
+  enabled: boolean;
+  botToken: string;
+  chatId: string;
+  hasBotToken?: boolean;
+}
+
 export interface SettingsState {
   commandText: string;
   workdir: string;
   defaultWorkdir: string;
+  useNativeMemory?: boolean;
+  deviceIdentity: string;
+  telegram: TelegramSettingsState;
 }
 
 export interface UiState {
@@ -269,6 +279,7 @@ export interface CodexDeskApi {
   getAppInfo(): Promise<Partial<AppInfo>>;
   getSnapshot(): Promise<AppSnapshot>;
   updateSettings(payload: unknown): Promise<GenericResult>;
+  testTelegramNotification(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
   createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
@@ -384,6 +395,13 @@ export interface UiElementRefs {
   qsRootThemeToggle: HTMLButtonElement;
   labelRootThemeToggle: HTMLElement;
   qsRootThemeSwitch: HTMLElement;
+  qsDeviceIdentityInput: HTMLInputElement;
+  qsTelegramEnabled: HTMLInputElement;
+  labelQsTelegramEnabled: HTMLElement;
+  qsTelegramBotTokenInput: HTMLInputElement;
+  qsTelegramChatIdInput: HTMLInputElement;
+  qsTelegramSave: HTMLButtonElement;
+  qsTelegramTest: HTMLButtonElement;
   i18nNodes: HTMLElement[];
   commandInput: HTMLInputElement;
   workdirInput: HTMLInputElement;

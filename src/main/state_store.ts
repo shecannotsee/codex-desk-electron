@@ -13,6 +13,30 @@ const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
 const LEGACY_DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
 const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox';
 const MAX_PERSISTED_MESSAGES = 2000;
+const DEFAULT_DEVICE_IDENTITY = '';
+
+function normalizeIdentity(raw) {
+  return String(raw || '').trim();
+}
+
+function defaultTelegramSettings() {
+  return {
+    enabled: false,
+    botToken: '',
+    chatId: '',
+  };
+}
+
+function normalizeTelegramSettings(rawSettings) {
+  const base = defaultTelegramSettings();
+  if (!rawSettings || typeof rawSettings !== 'object') {
+    return base;
+  }
+  base.enabled = Boolean(rawSettings.enabled);
+  base.botToken = String(rawSettings.botToken || rawSettings.bot_token || '').trim();
+  base.chatId = String(rawSettings.chatId || rawSettings.chat_id || '').trim();
+  return base;
+}
 
 function normalizeCommandText(raw) {
   const text = String(raw || '').trim();
@@ -182,6 +206,8 @@ class StateStore {
       commandText: DEFAULT_COMMAND_TEXT,
       workdir: normalizeWorkdir(''),
       useNativeMemory: true,
+      deviceIdentity: DEFAULT_DEVICE_IDENTITY,
+      telegram: defaultTelegramSettings(),
       activeConversationId: '',
       conversations: [],
     };
@@ -218,6 +244,8 @@ class StateStore {
     const commandText = normalizeCommandText(data.commandText || DEFAULT_COMMAND_TEXT);
     const workdir = normalizeWorkdir(data.workdir);
     const useNativeMemory = true;
+    const deviceIdentity = normalizeIdentity(data.deviceIdentity || data.deviceId || DEFAULT_DEVICE_IDENTITY);
+    const telegram = normalizeTelegramSettings(data.telegram);
 
     const conversations = [];
     const metaByConversation = {};
@@ -270,6 +298,8 @@ class StateStore {
       commandText,
       workdir,
       useNativeMemory,
+      deviceIdentity,
+      telegram,
       activeConversationId,
       conversations,
       metaByConversation,
@@ -293,6 +323,8 @@ class StateStore {
       commandText: normalizeCommandText(state.commandText || ''),
       workdir: normalizeWorkdir(state.workdir),
       useNativeMemory: Boolean(state.useNativeMemory),
+      deviceIdentity: normalizeIdentity(state.deviceIdentity || ''),
+      telegram: normalizeTelegramSettings(state.telegram),
       activeConversationId,
       conversations: conversations.map((item) => ({
         id: item.id,
@@ -322,5 +354,8 @@ module.exports = {
   LEGACY_STATE_PATH,
   DEFAULT_STATE_PATH,
   normalizeWorkdir,
+  normalizeIdentity,
+  defaultTelegramSettings,
+  normalizeTelegramSettings,
   StateStore,
 };

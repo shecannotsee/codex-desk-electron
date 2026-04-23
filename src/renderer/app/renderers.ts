@@ -444,6 +444,21 @@ function renderSettings() {
     el.workdirInput.value = state.settings.workdir || '';
     el.workdirInput.title = state.settings.workdir || '-';
   }
+  if (el.qsDeviceIdentityInput) {
+    el.qsDeviceIdentityInput.value = String(state.settings.deviceIdentity || '').trim();
+    el.qsDeviceIdentityInput.title = String(state.settings.deviceIdentity || '').trim();
+  }
+  if (el.qsTelegramEnabled) {
+    el.qsTelegramEnabled.checked = Boolean(state.settings.telegram?.enabled);
+  }
+  if (el.qsTelegramBotTokenInput) {
+    el.qsTelegramBotTokenInput.value = String(state.settings.telegram?.botToken || '').trim();
+  }
+  if (el.qsTelegramChatIdInput) {
+    const chatId = String(state.settings.telegram?.chatId || '').trim();
+    el.qsTelegramChatIdInput.value = chatId;
+    el.qsTelegramChatIdInput.title = chatId || '-';
+  }
   const perm = resolvePermissionSummary();
   if (el.permissionInput) {
     el.permissionInput.value = perm.text;
@@ -464,6 +479,13 @@ function renderSettings() {
   if (el.qsAppVersion) {
     const rawVersion = String(state.appInfo?.version || '').trim();
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
+  }
+  const hasTelegramConfig = Boolean(
+    String(state.settings.telegram?.botToken || '').trim()
+    && String(state.settings.telegram?.chatId || '').trim(),
+  );
+  if (el.qsTelegramTest) {
+    el.qsTelegramTest.disabled = !hasTelegramConfig;
   }
 }
 
@@ -1522,6 +1544,15 @@ function renderLocaleTexts() {
   }
   if (el.labelRootThemeToggle) {
     el.labelRootThemeToggle.textContent = t('themeDark');
+  }
+  if (el.qsDeviceIdentityInput) {
+    el.qsDeviceIdentityInput.placeholder = t('deviceIdentityPlaceholder');
+  }
+  if (el.qsTelegramBotTokenInput) {
+    el.qsTelegramBotTokenInput.placeholder = t('telegramBotTokenPlaceholder');
+  }
+  if (el.qsTelegramChatIdInput) {
+    el.qsTelegramChatIdInput.placeholder = t('telegramChatIdPlaceholder');
   }
   if (el.labelCommand) {
     el.labelCommand.textContent = `${t('command')}:`;

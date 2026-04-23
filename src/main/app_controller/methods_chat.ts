@@ -675,6 +675,8 @@ const chatMethods = {
       const targetConv = getConversation(this.conversations, targetId);
       const runtimeState = this.runtimeStore.ensure(targetId);
       const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+      const userMessageState = this.userMessageByRunner.get(runner);
+      const completedUserText = String(userMessageState?.message?.text || userText || '').trim();
 
       if (targetConv) {
         if (result.sessionId) {
@@ -736,6 +738,31 @@ const chatMethods = {
       this._releaseRunner(targetId, runner);
       this._persist();
       if (result.exitCode === 0) {
+        this.notifyTelegramConversationCompleted(targetId, {
+          userText: completedUserText,
+          assistantText: finalText,
+        }).then((notifyResult) => {
+          if (!notifyResult || notifyResult.skipped) {
+            return;
+          }
+          if (notifyResult.ok) {
+            this._appendStructuredEvent(targetId, 'hint', 'Telegram 通知已发送');
+          } else {
+            this._appendStructuredEvent(
+              targetId,
+              'warn',
+              `Telegram 通知发送失败: ${String(notifyResult.error || 'unknown error')}`,
+            );
+          }
+          this._persist();
+        }).catch((error) => {
+          this._appendStructuredEvent(
+            targetId,
+            'warn',
+            `Telegram 通知发送失败: ${error?.message || String(error)}`,
+          );
+          this._persist();
+        });
         this._startNextQueuedMessage(targetId);
         return;
       }

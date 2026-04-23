@@ -1,7 +1,12 @@
 const { nowTs, newConversation, getConversation, sortedConversations } = require('../conversation_service');
 const { importSessionJsonl } = require('../session_importer');
 const { buildExportFileName, exportConversationJsonl } = require('../session_exporter');
-const { normalizeWorkdir } = require('../state_store');
+const {
+  normalizeIdentity,
+  normalizeTelegramSettings,
+  normalizeWorkdir,
+} = require('../state_store');
+const { TelegramBotModule } = require('../telegram_bridge');
 const { normalizePreview, tsLabel } = require('./shared');
 const fs = require('node:fs');
 
@@ -41,10 +46,13 @@ const runtimeMethods = {
       clearTimeout(this.persistTimer);
       this.persistTimer = null;
     }
+    this._syncTelegramBot();
     this.stateStorage.saveState({
       commandText: this.commandText,
       workdir: this.workdir,
       useNativeMemory: this.useNativeMemory,
+      deviceIdentity: this.deviceIdentity,
+      telegram: this.telegram,
       activeConversationId: this.activeConversationId,
       conversations: this.conversations,
       metaByConversation: this.metaByConversation,
@@ -69,6 +77,25 @@ const runtimeMethods = {
   _resolveConversationWorkdir(conversationId) {
     const conv = getConversation(this.conversations, conversationId);
     return normalizeWorkdir(conv?.workdir || this._defaultWorkdir());
+  },
+
+  _syncTelegramBot() {
+    const normalizedIdentity = normalizeIdentity(this.deviceIdentity || '');
+    const normalizedTelegram = normalizeTelegramSettings(this.telegram);
+    this.deviceIdentity = normalizedIdentity;
+    this.telegram = normalizedTelegram;
+    if (!this.telegramBot) {
+      this.telegramBot = new TelegramBotModule({
+        settings: normalizedTelegram,
+        deviceIdentity: normalizedIdentity,
+      });
+      return this.telegramBot;
+    }
+    this.telegramBot.updateConfig({
+      settings: normalizedTelegram,
+      deviceIdentity: normalizedIdentity,
+    });
+    return this.telegramBot;
   },
 
   _ensureMeta(conversationId) {
@@ -580,12 +607,15 @@ const runtimeMethods = {
     const activeWorkdir = this.activeConversationId
       ? this._resolveConversationWorkdir(this.activeConversationId)
       : this._defaultWorkdir();
+    const telegramBot = this._syncTelegramBot();
     return {
       settings: {
         commandText: this.commandText,
         workdir: activeWorkdir,
         defaultWorkdir: this._defaultWorkdir(),
         useNativeMemory: this.useNativeMemory,
+        deviceIdentity: telegramBot.getDeviceIdentity(),
+        telegram: telegramBot.snapshot({ includeSecrets: true }),
       },
       activeConversationId: this.activeConversationId,
       conversations: sortedConversations(this.conversations),
@@ -628,7 +658,17 @@ const runtimeMethods = {
     if (typeof input.workdir === 'string') {
       this.workdir = normalizeWorkdir(input.workdir);
     }
+    if (typeof input.deviceIdentity === 'string') {
+      this.deviceIdentity = normalizeIdentity(input.deviceIdentity);
+    }
+    if (input.telegram && typeof input.telegram === 'object') {
+      this.telegram = normalizeTelegramSettings({
+        ...(this.telegram && typeof this.telegram === 'object' ? this.telegram : {}),
+        ...input.telegram,
+      });
+    }
     this.useNativeMemory = true;
+    this._syncTelegramBot();
     this._persist();
     return this.snapshot();
   },
@@ -664,6 +704,30 @@ const runtimeMethods = {
     this._persist();
     this._autoRefreshMetaForConversation(conv.id);
     return this.snapshot();
+  },
+
+  async notifyTelegramConversationCompleted(conversationId, { userText = '', assistantText = '' } = {}) {
+    const telegramBot = this._syncTelegramBot();
+    const telegramSettings = telegramBot.getSettings();
+    if (!telegramSettings.enabled) {
+      return { ok: false, skipped: true, reason: 'disabled' };
+    }
+    const targetConv = getConversation(this.conversations, conversationId);
+    if (!targetConv) {
+      return { ok: false, error: '会话不存在' };
+    }
+    const result = await telegramBot.sendConversationCompleted({
+      conversationId: targetConv.id,
+      sessionId: String(targetConv.sessionId || '').trim(),
+      conversationTitle: targetConv.title,
+      userText,
+      assistantText,
+    });
+    return result;
+  },
+
+  testTelegramNotification() {
+    return this._syncTelegramBot().testConnection();
   },
 
   previewConversationImportFromSessionFile(filePath) {

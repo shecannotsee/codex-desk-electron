@@ -97,12 +97,62 @@
                       <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，发送到通讯工具的消息会带上这个标识。</div>
                     </div>
                     <div class="quick-settings-form-card">
+                      <div class="quick-settings-inline-label" data-i18n-key="securityEntryTitle">凭据保护</div>
+                      <button id="qs-integration-security" type="button" class="quick-settings-item" data-pane-route="integration-security">
+                        <span data-i18n-key="securityPaneTitle">凭据保护</span>
+                        <span class="quick-settings-chevron">›</span>
+                      </button>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityEntryHint">用主密码加密保存 Telegram Bot Token，锁定后需要解锁才能使用。</div>
+                    </div>
+                    <div class="quick-settings-form-card">
                       <div class="quick-settings-inline-label" data-i18n-key="notificationProviderLabel">通讯工具</div>
                       <button id="qs-notification-provider-telegram" type="button" class="quick-settings-item" data-pane-route="integration-telegram">
                         <span data-i18n-key="providerTelegram">Telegram</span>
                         <span class="quick-settings-chevron">›</span>
                       </button>
                       <div class="quick-settings-form-hint" data-i18n-key="notificationProviderHint">选择要配置的通讯工具。</div>
+                    </div>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="integration-security">
+                    <div class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="securityPaneTitle">凭据保护</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityPaneHint">主密码只用于保护本地保存的 Telegram Bot Token。设置后，相关凭据会以加密形式保存在当前设备。</div>
+                      <div class="quick-settings-inline-meta-actions">
+                        <span class="quick-settings-form-label" data-i18n-key="securityStatusLabel">当前状态</span>
+                        <span id="qs-security-status-value" class="quick-settings-static-value">-</span>
+                      </div>
+                    </div>
+                    <div class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="securityUnlockAction">解锁凭据</div>
+                      <label class="quick-settings-form-label" for="qs-security-unlock-input" data-i18n-key="securityUnlockPasswordLabel">主密码</label>
+                      <div class="quick-settings-secret-row">
+                        <input id="qs-security-unlock-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="输入主密码后解锁凭据" />
+                        <button id="qs-security-unlock-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
+                      </div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityLockedHint">当前已锁定。解锁后才可查看、修改或测试已保存的 Telegram Bot Token。</div>
+                      <div class="quick-settings-form-actions">
+                        <button id="qs-security-unlock-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securityUnlockAction">解锁凭据</button>
+                        <button id="qs-security-lock-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityLockAction">立即锁定</button>
+                      </div>
+                    </div>
+                    <div class="quick-settings-form-card quick-settings-action-card">
+                      <div class="quick-settings-form-title" data-i18n-key="securitySetPasswordAction">设置主密码</div>
+                      <label class="quick-settings-form-label" for="qs-security-new-password-input" data-i18n-key="securityNewPasswordLabel">新主密码</label>
+                      <div class="quick-settings-secret-row">
+                        <input id="qs-security-new-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="设置新的本地主密码" />
+                        <button id="qs-security-new-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
+                      </div>
+                      <label class="quick-settings-form-label" for="qs-security-confirm-password-input" data-i18n-key="securityConfirmPasswordLabel">确认主密码</label>
+                      <div class="quick-settings-secret-row">
+                        <input id="qs-security-confirm-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="再次输入主密码" />
+                        <button id="qs-security-confirm-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
+                      </div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securitySetPasswordHint">设置主密码后，后续保存的 Telegram Bot Token 会改为加密保存。</div>
+                      <div class="quick-settings-form-actions">
+                        <button id="qs-security-set-password-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securitySetPasswordAction">设置主密码</button>
+                        <button id="qs-security-change-password-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityChangePasswordAction">修改主密码</button>
+                      </div>
                     </div>
                   </section>
 

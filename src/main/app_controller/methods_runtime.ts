@@ -35,6 +35,17 @@ function pushBounded(list, item, limit) {
   }
 }
 
+function securitySnapshot(controller) {
+  const hasMasterPassword = Boolean(controller?.security?.hasMasterPassword);
+  const unlocked = hasMasterPassword
+    ? Boolean(controller?.security?.unlocked)
+    : true;
+  return {
+    hasMasterPassword,
+    unlocked,
+  };
+}
+
 const runtimeMethods = {
   _emit(event) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
@@ -60,6 +71,9 @@ const runtimeMethods = {
       activeConversationId: this.activeConversationId,
       conversations: this.conversations,
       metaByConversation: this.metaByConversation,
+    }, {
+      vault: this.vault,
+      vaultKey: this.vaultKey,
     });
   },
 
@@ -100,6 +114,49 @@ const runtimeMethods = {
       deviceIdentity: normalizedIdentity,
     });
     return this.notificationCenter;
+  },
+
+  _hasLockedCredentialVault() {
+    return Boolean(this.security?.hasMasterPassword) && !Boolean(this.security?.unlocked);
+  },
+
+  _clearCredentialSecrets() {
+    const nextNotifications = normalizeNotificationSettings(this.notifications);
+    nextNotifications.telegram = {
+      ...nextNotifications.telegram,
+      botToken: '',
+    };
+    this.notifications = nextNotifications;
+
+    const nextRemoteControl = normalizeRemoteControlSettings(this.remoteControl);
+    nextRemoteControl.telegram = {
+      ...nextRemoteControl.telegram,
+      botToken: '',
+    };
+    this.remoteControl = nextRemoteControl;
+  },
+
+  _applyUnlockedCredentialSecrets(secrets: any = {}) {
+    const notificationBotToken = String(secrets?.notifications?.telegram?.botToken || '').trim();
+    const remoteBotToken = String(secrets?.remoteControl?.telegram?.botToken || '').trim();
+    this.notifications = normalizeNotificationSettings({
+      ...(this.notifications && typeof this.notifications === 'object' ? this.notifications : {}),
+      telegram: {
+        ...((this.notifications?.telegram && typeof this.notifications.telegram === 'object')
+          ? this.notifications.telegram
+          : {}),
+        botToken: notificationBotToken,
+      },
+    });
+    this.remoteControl = normalizeRemoteControlSettings({
+      ...(this.remoteControl && typeof this.remoteControl === 'object' ? this.remoteControl : {}),
+      telegram: {
+        ...((this.remoteControl?.telegram && typeof this.remoteControl.telegram === 'object')
+          ? this.remoteControl.telegram
+          : {}),
+        botToken: remoteBotToken,
+      },
+    });
   },
 
   _remoteControlHandlers() {
@@ -581,8 +638,9 @@ const runtimeMethods = {
         workdir: activeId ? this._resolveConversationWorkdir(activeId) : this._defaultWorkdir(),
         defaultWorkdir: this._defaultWorkdir(),
         deviceIdentity: notificationCenter.getDeviceIdentity(),
-        notifications: notificationCenter.snapshot(),
-        remoteControl: remoteControlCenter.snapshot(),
+        notifications: notificationCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
+        remoteControl: remoteControlCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
+        security: securitySnapshot(this),
       },
       activeConversationId: activeId,
       conversation: conv || null,
@@ -899,8 +957,9 @@ const runtimeMethods = {
         defaultWorkdir: this._defaultWorkdir(),
         useNativeMemory: this.useNativeMemory,
         deviceIdentity: notificationCenter.getDeviceIdentity(),
-        notifications: notificationCenter.snapshot(),
-        remoteControl: remoteControlCenter.snapshot(),
+        notifications: notificationCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
+        remoteControl: remoteControlCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
+        security: securitySnapshot(this),
       },
       activeConversationId: this.activeConversationId,
       conversations: sortedConversations(this.conversations),
@@ -937,6 +996,13 @@ const runtimeMethods = {
   },
 
   updateSettings(input) {
+    if (this._hasLockedCredentialVault()) {
+      const nextNotificationToken = String(input?.notifications?.telegram?.botToken || '').trim();
+      const nextRemoteToken = String(input?.remoteControl?.telegram?.botToken || '').trim();
+      if (nextNotificationToken || nextRemoteToken) {
+        return { error: 'Telegram 凭据已锁定，请先解锁', snapshot: this.snapshot() };
+      }
+    }
     if (typeof input.commandText === 'string') {
       this.commandText = input.commandText;
     }
@@ -997,6 +1063,66 @@ const runtimeMethods = {
     return this.snapshot();
   },
 
+  setMasterPassword(password) {
+    if (this.security?.hasMasterPassword && !this.security?.unlocked) {
+      return { ok: false, error: '请先解锁后再修改主密码', snapshot: this.snapshot() };
+    }
+    try {
+      const result = this.stateStorage.setVaultPassword(password);
+      this.vault = result?.vault || this.vault;
+      this.security = {
+        hasMasterPassword: true,
+        unlocked: true,
+      };
+      this.vaultKey = result?.key || null;
+      this._syncNotificationCenter();
+      this._syncRemoteControlCenter();
+      this._persist();
+      return { ok: true, snapshot: this.snapshot() };
+    } catch (error) {
+      return { ok: false, error: error?.message || String(error), snapshot: this.snapshot() };
+    }
+  },
+
+  unlockMasterPassword(password) {
+    if (!this.security?.hasMasterPassword) {
+      return { ok: false, error: '当前还没有设置主密码', snapshot: this.snapshot() };
+    }
+    try {
+      const result = this.stateStorage.unlockSecrets(password);
+      this.vaultKey = result?.key || null;
+      if (!this.vault?.passwordHash || !this.vault?.passwordSalt) {
+        this.vault = this.stateStorage.loadState().vault || this.vault;
+      }
+      this.security = {
+        hasMasterPassword: true,
+        unlocked: true,
+      };
+      this._applyUnlockedCredentialSecrets(result?.secrets || {});
+      this._syncNotificationCenter();
+      this._syncRemoteControlCenter();
+      return { ok: true, snapshot: this.snapshot() };
+    } catch (error) {
+      return { ok: false, error: error?.message || String(error), snapshot: this.snapshot() };
+    }
+  },
+
+  lockMasterPassword() {
+    if (!this.security?.hasMasterPassword) {
+      return { ok: true, snapshot: this.snapshot() };
+    }
+    this.vaultKey = null;
+    this.security = {
+      hasMasterPassword: true,
+      unlocked: false,
+    };
+    this._clearCredentialSecrets();
+    this._syncNotificationCenter();
+    this._syncRemoteControlCenter();
+    this._persist();
+    return { ok: true, snapshot: this.snapshot() };
+  },
+
   switchConversation(conversationId) {
     const target = getConversation(this.conversations, conversationId);
     if (!target) {
@@ -1037,6 +1163,9 @@ const runtimeMethods = {
     errorText = '',
     exitCode = '',
   } = {}) {
+    if (this._hasLockedCredentialVault()) {
+      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+    }
     const notificationCenter = this._syncNotificationCenter();
     const targetConv = getConversation(this.conversations, conversationId);
     if (!targetConv) {
@@ -1056,10 +1185,16 @@ const runtimeMethods = {
   },
 
   testNotificationProvider() {
+    if (this._hasLockedCredentialVault()) {
+      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+    }
     return this._syncNotificationCenter().testActiveProvider();
   },
 
   testRemoteControlProvider() {
+    if (this._hasLockedCredentialVault()) {
+      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+    }
     return this._syncRemoteControlCenter().testActiveProvider();
   },
 

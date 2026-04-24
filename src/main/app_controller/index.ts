@@ -3,6 +3,7 @@ const { RuntimeStore } = require('../runtime_store');
 const { nowTs } = require('../conversation_service');
 const { NotificationCenter } = require('../notification_bridge');
 const { RemoteControlCenter } = require('../remote_control_bridge');
+const { defaultCredentialVault } = require('../state_store');
 
 const { runtimeMethods } = require('./methods_runtime');
 const { metaMethods } = require('./methods_meta');
@@ -59,6 +60,14 @@ class AppController {
     this.workdir = loaded.workdir;
     this.useNativeMemory = true;
     this.deviceIdentity = String(loaded.deviceIdentity || '').trim();
+    this.vault = loaded.vault && typeof loaded.vault === 'object'
+      ? { ...loaded.vault }
+      : defaultCredentialVault();
+    this.security = {
+      hasMasterPassword: Boolean(loaded.security?.hasMasterPassword),
+      unlocked: !Boolean(loaded.security?.hasMasterPassword),
+    };
+    this.vaultKey = null;
     this.notifications = loaded.notifications && typeof loaded.notifications === 'object'
       ? { ...loaded.notifications }
       : {

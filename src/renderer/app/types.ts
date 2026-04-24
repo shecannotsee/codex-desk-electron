@@ -42,6 +42,11 @@ export interface RemoteControlSettingsState {
   };
 }
 
+export interface SecuritySettingsState {
+  hasMasterPassword: boolean;
+  unlocked: boolean;
+}
+
 export interface SettingsState {
   commandText: string;
   workdir: string;
@@ -50,6 +55,7 @@ export interface SettingsState {
   deviceIdentity: string;
   notifications: NotificationSettingsState;
   remoteControl: RemoteControlSettingsState;
+  security: SecuritySettingsState;
 }
 
 export interface UiState {
@@ -311,6 +317,9 @@ export interface CodexDeskApi {
   getSnapshot(): Promise<AppSnapshot>;
   getTelegramLogs(): Promise<GenericResult>;
   updateSettings(payload: unknown): Promise<GenericResult>;
+  setMasterPassword(password: string): Promise<GenericResult>;
+  unlockMasterPassword(password: string): Promise<GenericResult>;
+  lockMasterPassword(): Promise<GenericResult>;
   testNotificationProvider(): Promise<GenericResult>;
   testRemoteControlProvider(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
@@ -430,6 +439,7 @@ export interface UiElementRefs {
   qsRootThemeSwitch: HTMLElement;
   qsDeviceIdentityInput: HTMLInputElement;
   qsNotificationProviderTelegram: HTMLButtonElement;
+  qsIntegrationSecurity: HTMLButtonElement;
   qsTelegramEnabled: HTMLInputElement;
   labelQsTelegramEnabled: HTMLElement;
   qsTelegramBotTokenInput: HTMLInputElement;
@@ -448,6 +458,17 @@ export interface UiElementRefs {
   qsTelegramLogsPath: HTMLInputElement;
   qsTelegramLogsCount: HTMLElement;
   qsTelegramLogsOutput: HTMLTextAreaElement;
+  qsSecurityStatusValue: HTMLElement;
+  qsSecurityUnlockInput: HTMLInputElement;
+  qsSecurityUnlockToggle: HTMLButtonElement;
+  qsSecurityUnlockAction: HTMLButtonElement;
+  qsSecurityLockAction: HTMLButtonElement;
+  qsSecurityNewPasswordInput: HTMLInputElement;
+  qsSecurityNewPasswordToggle: HTMLButtonElement;
+  qsSecurityConfirmPasswordInput: HTMLInputElement;
+  qsSecurityConfirmPasswordToggle: HTMLButtonElement;
+  qsSecuritySetPasswordAction: HTMLButtonElement;
+  qsSecurityChangePasswordAction: HTMLButtonElement;
   i18nNodes: HTMLElement[];
   commandInput: HTMLInputElement;
   workdirInput: HTMLInputElement;

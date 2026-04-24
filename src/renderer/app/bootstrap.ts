@@ -241,6 +241,16 @@ function normalizeRemoteControlSettingsState(raw: any, fallback: any = {}): Remo
   };
 }
 
+function normalizeSecuritySettingsState(raw: any, fallback: any = {}) {
+  const hasMasterPassword = Boolean(raw?.hasMasterPassword ?? fallback?.hasMasterPassword);
+  return {
+    hasMasterPassword,
+    unlocked: hasMasterPassword
+      ? Boolean(raw?.unlocked ?? fallback?.unlocked)
+      : true,
+  };
+}
+
 function collectNotificationSettingsPayload() {
   const botToken = String(el.qsTelegramBotTokenInput?.value || '').trim();
   const remoteBotToken = String(el.qsTelegramRemoteBotTokenInput?.value || '').trim();
@@ -452,6 +462,75 @@ async function refreshTelegramLogs() {
   }
 }
 
+function clearSecurityDraftInputs() {
+  if (el.qsSecurityUnlockInput) {
+    el.qsSecurityUnlockInput.value = '';
+  }
+  if (el.qsSecurityNewPasswordInput) {
+    el.qsSecurityNewPasswordInput.value = '';
+  }
+  if (el.qsSecurityConfirmPasswordInput) {
+    el.qsSecurityConfirmPasswordInput.value = '';
+  }
+}
+
+async function submitMasterPasswordUpdate(mode: 'set' | 'change') {
+  const password = String(el.qsSecurityNewPasswordInput?.value || '');
+  const confirmPassword = String(el.qsSecurityConfirmPasswordInput?.value || '');
+  if (!password.trim()) {
+    showAppNotice(t('securityPasswordEmpty'), 'error');
+    return;
+  }
+  if (password !== confirmPassword) {
+    showAppNotice(t('securityPasswordMismatch'), 'error');
+    return;
+  }
+  const result = await codexdesk.setMasterPassword(password);
+  if (result?.error) {
+    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
+    applySnapshot(result?.snapshot || {});
+    renderAll();
+    return;
+  }
+  applySnapshot(result?.snapshot || result);
+  clearSecurityDraftInputs();
+  renderSettings();
+  showAppNotice(t(mode === 'set' ? 'securitySetPasswordSuccess' : 'securityChangePasswordSuccess'), 'success');
+}
+
+async function unlockMasterPassword() {
+  const password = String(el.qsSecurityUnlockInput?.value || '');
+  if (!password.trim()) {
+    showAppNotice(t('securityPasswordEmpty'), 'error');
+    return;
+  }
+  const result = await codexdesk.unlockMasterPassword(password);
+  if (result?.error) {
+    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
+    applySnapshot(result?.snapshot || {});
+    renderAll();
+    return;
+  }
+  applySnapshot(result?.snapshot || result);
+  clearSecurityDraftInputs();
+  renderSettings();
+  showAppNotice(t('securityUnlockSuccess'), 'success');
+}
+
+async function lockMasterPassword() {
+  const result = await codexdesk.lockMasterPassword();
+  if (result?.error) {
+    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
+    applySnapshot(result?.snapshot || {});
+    renderAll();
+    return;
+  }
+  applySnapshot(result?.snapshot || result);
+  clearSecurityDraftInputs();
+  renderSettings();
+  showAppNotice(t('securityLockSuccess'), 'success');
+}
+
 function dragEventHasFiles(event: DragEvent): boolean {
   const types = Array.from(event.dataTransfer?.types || []);
   return types.includes('Files');
@@ -620,6 +699,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined) {
     deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
     notifications: normalizeNotificationSettingsState(snapshot.settings?.notifications, state.settings.notifications),
     remoteControl: normalizeRemoteControlSettingsState(snapshot.settings?.remoteControl, state.settings.remoteControl),
+    security: normalizeSecuritySettingsState(snapshot.settings?.security, state.settings.security),
   };
   state.activeConversationId = String(snapshot.activeConversationId || '');
   state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
@@ -679,6 +759,7 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
     deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),
     notifications: normalizeNotificationSettingsState(payload.settings?.notifications, state.settings.notifications),
     remoteControl: normalizeRemoteControlSettingsState(payload.settings?.remoteControl, state.settings.remoteControl),
+    security: normalizeSecuritySettingsState(payload.settings?.security, state.settings.security),
   };
 
   const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();
@@ -2116,6 +2197,7 @@ async function init() {
     conversation: 'menuConversation',
     runtime: 'menuRuntime',
     integration: 'menuNotification',
+    'integration-security': 'securityPaneTitle',
     'integration-telegram': 'providerTelegram',
     view: 'menuInterface',
     window: 'menuWindow',
@@ -3019,6 +3101,78 @@ async function init() {
         showAppNotice(localizeKnownText(error instanceof Error ? error.message : String(error)), 'error');
       }
     });
+  }
+
+  if (el.qsSecurityUnlockToggle) {
+    el.qsSecurityUnlockToggle.addEventListener('click', () => {
+      toggleSecretVisibility(el.qsSecurityUnlockInput, el.qsSecurityUnlockToggle);
+    });
+  }
+
+  if (el.qsSecurityNewPasswordToggle) {
+    el.qsSecurityNewPasswordToggle.addEventListener('click', () => {
+      toggleSecretVisibility(el.qsSecurityNewPasswordInput, el.qsSecurityNewPasswordToggle);
+    });
+  }
+
+  if (el.qsSecurityConfirmPasswordToggle) {
+    el.qsSecurityConfirmPasswordToggle.addEventListener('click', () => {
+      toggleSecretVisibility(el.qsSecurityConfirmPasswordInput, el.qsSecurityConfirmPasswordToggle);
+    });
+  }
+
+  if (el.qsSecurityUnlockAction) {
+    el.qsSecurityUnlockAction.addEventListener('click', async () => {
+      await unlockMasterPassword();
+    });
+  }
+
+  if (el.qsSecurityLockAction) {
+    el.qsSecurityLockAction.addEventListener('click', async () => {
+      await lockMasterPassword();
+    });
+  }
+
+  if (el.qsSecuritySetPasswordAction) {
+    el.qsSecuritySetPasswordAction.addEventListener('click', async () => {
+      await submitMasterPasswordUpdate('set');
+    });
+  }
+
+  if (el.qsSecurityChangePasswordAction) {
+    el.qsSecurityChangePasswordAction.addEventListener('click', async () => {
+      await submitMasterPasswordUpdate('change');
+    });
+  }
+
+  if (el.qsSecurityUnlockInput) {
+    el.qsSecurityUnlockInput.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+      event.preventDefault();
+      await unlockMasterPassword();
+    });
+  }
+
+  const runMasterPasswordSubmitFromKeyboard = async (event: KeyboardEvent) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    if (state.settings.security?.hasMasterPassword) {
+      await submitMasterPasswordUpdate('change');
+      return;
+    }
+    await submitMasterPasswordUpdate('set');
+  };
+
+  if (el.qsSecurityNewPasswordInput) {
+    el.qsSecurityNewPasswordInput.addEventListener('keydown', runMasterPasswordSubmitFromKeyboard);
+  }
+
+  if (el.qsSecurityConfirmPasswordInput) {
+    el.qsSecurityConfirmPasswordInput.addEventListener('keydown', runMasterPasswordSubmitFromKeyboard);
   }
 
   if (el.btnSessionId) {

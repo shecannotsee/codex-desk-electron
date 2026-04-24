@@ -70,14 +70,15 @@ class NotificationCenter {
     return this.providers.get(normalizedKind) || null;
   }
 
-  snapshot() {
+  snapshot(options: any = {}) {
     const settings = this.getSettings();
     const telegram = this.getProvider('telegram');
+    const includeSecrets = Boolean(options.includeSecrets);
     const telegramSnapshot = telegram
-      ? telegram.snapshot({ includeSecrets: true })
+      ? telegram.snapshot({ includeSecrets })
       : {
         enabled: Boolean(settings.telegram.enabled),
-        botToken: String(settings.telegram.botToken || '').trim(),
+        botToken: includeSecrets ? String(settings.telegram.botToken || '').trim() : '',
         chatId: String(settings.telegram.chatId || '').trim(),
         hasBotToken: Boolean(settings.telegram.hasBotToken),
         botTokenHash: String(settings.telegram.botTokenHash || '').trim(),

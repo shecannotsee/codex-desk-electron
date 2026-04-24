@@ -12,8 +12,16 @@ class JsonAppStateStorage {
     return this.driver.load();
   }
 
-  saveState(state) {
-    this.driver.save(state);
+  saveState(state, options = {}) {
+    this.driver.save(state, options);
+  }
+
+  unlockSecrets(password) {
+    return this.driver.unlockSecrets(password);
+  }
+
+  setVaultPassword(password) {
+    return this.driver.setVaultPassword(password);
   }
 }
 

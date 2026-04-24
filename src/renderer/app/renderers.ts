@@ -97,6 +97,15 @@ function renderSecretVisibilityToggle(button: HTMLButtonElement | null | undefin
   button.setAttribute('aria-label', label);
 }
 
+function securityStatusLabel() {
+  const hasMasterPassword = Boolean(state.settings.security?.hasMasterPassword);
+  const unlocked = Boolean(state.settings.security?.unlocked);
+  if (!hasMasterPassword) {
+    return t('securityStatusUnset');
+  }
+  return unlocked ? t('securityStatusUnlocked') : t('securityStatusLocked');
+}
+
 interface ModelPricing {
   inputPerMillion: number;
   cachedInputPerMillion: number;
@@ -462,17 +471,26 @@ function renderSettings() {
   const activeNotificationProvider = String(state.settings.notifications?.activeProvider || 'telegram').trim().toLowerCase();
   const telegramSettings = state.settings.notifications?.providers?.telegram;
   const telegramRemoteControl = state.settings.remoteControl?.providers?.telegram;
+  const security = state.settings.security;
+  const canEditSecrets = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
   if (el.qsNotificationProviderTelegram) {
     el.qsNotificationProviderTelegram.classList.toggle('active', activeNotificationProvider === 'telegram');
+  }
+  if (el.qsSecurityStatusValue) {
+    el.qsSecurityStatusValue.textContent = securityStatusLabel();
   }
   if (el.qsTelegramEnabled) {
     el.qsTelegramEnabled.checked = Boolean(telegramSettings?.enabled);
   }
   if (el.qsTelegramBotTokenInput) {
     el.qsTelegramBotTokenInput.value = String(telegramSettings?.botToken || '').trim();
-    el.qsTelegramBotTokenInput.title = t('telegramBotTokenPlaceholder');
+    el.qsTelegramBotTokenInput.title = canEditSecrets ? t('telegramBotTokenPlaceholder') : t('securityLockedHint');
+    el.qsTelegramBotTokenInput.disabled = !canEditSecrets;
   }
   renderSecretVisibilityToggle(el.qsTelegramToggleTokenVisibility, el.qsTelegramBotTokenInput);
+  if (el.qsTelegramToggleTokenVisibility) {
+    el.qsTelegramToggleTokenVisibility.disabled = !canEditSecrets;
+  }
   if (el.qsTelegramChatIdInput) {
     const chatId = String(telegramSettings?.chatId || '').trim();
     el.qsTelegramChatIdInput.value = chatId;
@@ -483,9 +501,13 @@ function renderSettings() {
   }
   if (el.qsTelegramRemoteBotTokenInput) {
     el.qsTelegramRemoteBotTokenInput.value = String(telegramRemoteControl?.botToken || '').trim();
-    el.qsTelegramRemoteBotTokenInput.title = t('telegramRemoteBotTokenPlaceholder');
+    el.qsTelegramRemoteBotTokenInput.title = canEditSecrets ? t('telegramRemoteBotTokenPlaceholder') : t('securityLockedHint');
+    el.qsTelegramRemoteBotTokenInput.disabled = !canEditSecrets;
   }
   renderSecretVisibilityToggle(el.qsTelegramToggleRemoteTokenVisibility, el.qsTelegramRemoteBotTokenInput);
+  if (el.qsTelegramToggleRemoteTokenVisibility) {
+    el.qsTelegramToggleRemoteTokenVisibility.disabled = !canEditSecrets;
+  }
   if (el.qsTelegramAllowedChatIdInput) {
     const allowedChatId = String(telegramRemoteControl?.allowedChatId || '').trim();
     el.qsTelegramAllowedChatIdInput.value = allowedChatId;
@@ -513,7 +535,40 @@ function renderSettings() {
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
   }
   if (el.qsTelegramTest) {
-    el.qsTelegramTest.disabled = false;
+    el.qsTelegramTest.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+  }
+  if (el.qsSecurityUnlockInput) {
+    el.qsSecurityUnlockInput.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+  }
+  renderSecretVisibilityToggle(el.qsSecurityUnlockToggle, el.qsSecurityUnlockInput);
+  if (el.qsSecurityUnlockToggle) {
+    el.qsSecurityUnlockToggle.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+  }
+  if (el.qsSecurityUnlockAction) {
+    el.qsSecurityUnlockAction.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+  }
+  if (el.qsSecurityLockAction) {
+    el.qsSecurityLockAction.disabled = !Boolean(security?.hasMasterPassword) || !Boolean(security?.unlocked);
+  }
+  if (el.qsSecurityNewPasswordInput) {
+    el.qsSecurityNewPasswordInput.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+  }
+  renderSecretVisibilityToggle(el.qsSecurityNewPasswordToggle, el.qsSecurityNewPasswordInput);
+  if (el.qsSecurityNewPasswordToggle) {
+    el.qsSecurityNewPasswordToggle.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+  }
+  if (el.qsSecurityConfirmPasswordInput) {
+    el.qsSecurityConfirmPasswordInput.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+  }
+  renderSecretVisibilityToggle(el.qsSecurityConfirmPasswordToggle, el.qsSecurityConfirmPasswordInput);
+  if (el.qsSecurityConfirmPasswordToggle) {
+    el.qsSecurityConfirmPasswordToggle.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+  }
+  if (el.qsSecuritySetPasswordAction) {
+    el.qsSecuritySetPasswordAction.disabled = Boolean(security?.hasMasterPassword);
+  }
+  if (el.qsSecurityChangePasswordAction) {
+    el.qsSecurityChangePasswordAction.disabled = !Boolean(security?.hasMasterPassword) || !Boolean(security?.unlocked);
   }
 }
 
@@ -1577,16 +1632,29 @@ function renderLocaleTexts() {
     el.qsDeviceIdentityInput.placeholder = t('deviceIdentityPlaceholder');
   }
   if (el.qsTelegramBotTokenInput) {
-    el.qsTelegramBotTokenInput.placeholder = t('telegramBotTokenPlaceholder');
+    el.qsTelegramBotTokenInput.placeholder = state.settings.security?.hasMasterPassword && !state.settings.security?.unlocked
+      ? t('securityLockedHint')
+      : t('telegramBotTokenPlaceholder');
   }
   if (el.qsTelegramRemoteBotTokenInput) {
-    el.qsTelegramRemoteBotTokenInput.placeholder = t('telegramRemoteBotTokenPlaceholder');
+    el.qsTelegramRemoteBotTokenInput.placeholder = state.settings.security?.hasMasterPassword && !state.settings.security?.unlocked
+      ? t('securityLockedHint')
+      : t('telegramRemoteBotTokenPlaceholder');
   }
   if (el.qsTelegramChatIdInput) {
     el.qsTelegramChatIdInput.placeholder = t('telegramChatIdPlaceholder');
   }
   if (el.qsTelegramAllowedChatIdInput) {
     el.qsTelegramAllowedChatIdInput.placeholder = t('telegramAllowedChatIdPlaceholder');
+  }
+  if (el.qsSecurityUnlockInput) {
+    el.qsSecurityUnlockInput.placeholder = t('securityUnlockPasswordPlaceholder');
+  }
+  if (el.qsSecurityNewPasswordInput) {
+    el.qsSecurityNewPasswordInput.placeholder = t('securityNewPasswordPlaceholder');
+  }
+  if (el.qsSecurityConfirmPasswordInput) {
+    el.qsSecurityConfirmPasswordInput.placeholder = t('securityConfirmPasswordPlaceholder');
   }
   if (el.labelCommand) {
     el.labelCommand.textContent = `${t('command')}:`;

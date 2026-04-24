@@ -549,14 +549,15 @@ class RemoteControlCenter {
     this.telegramService.stop();
   }
 
-  snapshot() {
+  snapshot(options: any = {}) {
     const settings = normalizeRemoteControlSettings(this.settings);
+    const includeSecrets = Boolean(options.includeSecrets);
     return {
       activeProvider: settings.activeProvider,
       providers: {
         telegram: {
           enabled: Boolean(settings.telegram.enabled),
-          botToken: String(settings.telegram.botToken || '').trim(),
+          botToken: includeSecrets ? String(settings.telegram.botToken || '').trim() : '',
           hasBotToken: Boolean(settings.telegram.hasBotToken),
           botTokenHash: String(settings.telegram.botTokenHash || '').trim(),
           botTokenFingerprint: String(settings.telegram.botTokenFingerprint || '').trim(),

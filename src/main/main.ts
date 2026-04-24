@@ -730,6 +730,9 @@ function registerIpc() {
   });
 
   ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
+  ipcMain.handle('app:set-master-password', async (_, payload) => controller.setMasterPassword(payload?.password));
+  ipcMain.handle('app:unlock-master-password', async (_, payload) => controller.unlockMasterPassword(payload?.password));
+  ipcMain.handle('app:lock-master-password', async () => controller.lockMasterPassword());
   ipcMain.handle('app:test-notification-provider', async () => controller.testNotificationProvider());
   ipcMain.handle('app:test-remote-control-provider', async () => controller.testRemoteControlProvider());
   ipcMain.handle('app:pick-workdir', async (_, payload) => {

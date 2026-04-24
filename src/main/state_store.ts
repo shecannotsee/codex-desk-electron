@@ -17,6 +17,7 @@ const MAX_PERSISTED_MESSAGES = 2000;
 const DEFAULT_DEVICE_IDENTITY = '';
 const DEFAULT_NOTIFICATION_PROVIDER = 'telegram';
 const DEFAULT_SECRETS_PATH = path.join(APP_DATA_DIR, 'secrets.electron.json');
+const VAULT_VERSION = 1;
 
 function normalizeIdentity(raw) {
   return String(raw || '').trim();
@@ -37,6 +38,200 @@ function toSecretFingerprint(rawOrHash) {
   }
   const hash = /^[a-f0-9]{64}$/i.test(value) ? value.toLowerCase() : hashSecret(value);
   return hash ? hash.slice(0, 12) : '';
+}
+
+function normalizeVaultPassword(raw) {
+  return String(raw || '');
+}
+
+function defaultCredentialVault() {
+  return {
+    version: VAULT_VERSION,
+    passwordHash: '',
+    passwordSalt: '',
+  };
+}
+
+function normalizeCredentialVault(rawVault) {
+  const base = defaultCredentialVault();
+  if (!rawVault || typeof rawVault !== 'object') {
+    return base;
+  }
+  base.version = Math.max(1, Number(rawVault.version || VAULT_VERSION) || VAULT_VERSION);
+  base.passwordHash = String(rawVault.passwordHash || rawVault.password_hash || '').trim().toLowerCase();
+  base.passwordSalt = String(rawVault.passwordSalt || rawVault.password_salt || '').trim().toLowerCase();
+  return base;
+}
+
+function hasCredentialVaultPassword(vault) {
+  const normalizedVault = normalizeCredentialVault(vault);
+  return Boolean(normalizedVault.passwordHash && normalizedVault.passwordSalt);
+}
+
+function createCredentialVaultKey(password, salt) {
+  const resolvedPassword = normalizeVaultPassword(password);
+  const resolvedSalt = String(salt || '').trim().toLowerCase();
+  if (!resolvedPassword) {
+    throw new Error('主密码不能为空');
+  }
+  if (!/^[a-f0-9]{32,}$/i.test(resolvedSalt)) {
+    throw new Error('主密码盐值无效');
+  }
+  return crypto.scryptSync(resolvedPassword, Buffer.from(resolvedSalt, 'hex'), 32);
+}
+
+function verifyCredentialVaultPassword(password, vault) {
+  const normalizedVault = normalizeCredentialVault(vault);
+  if (!hasCredentialVaultPassword(normalizedVault)) {
+    throw new Error('当前还没有设置主密码');
+  }
+  const key = createCredentialVaultKey(password, normalizedVault.passwordSalt);
+  const expected = Buffer.from(String(normalizedVault.passwordHash || '').trim(), 'hex');
+  if (!expected.length || expected.length !== key.length || !crypto.timingSafeEqual(key, expected)) {
+    throw new Error('主密码错误');
+  }
+  return key;
+}
+
+function buildCredentialVault(password) {
+  const resolvedPassword = normalizeVaultPassword(password);
+  if (!resolvedPassword) {
+    throw new Error('主密码不能为空');
+  }
+  const passwordSalt = crypto.randomBytes(16).toString('hex');
+  const key = createCredentialVaultKey(resolvedPassword, passwordSalt);
+  return {
+    vault: {
+      version: VAULT_VERSION,
+      passwordHash: key.toString('hex'),
+      passwordSalt,
+    },
+    key,
+  };
+}
+
+function defaultEncryptedSecretValue() {
+  return {
+    iv: '',
+    authTag: '',
+    ciphertext: '',
+  };
+}
+
+function normalizeEncryptedSecretValue(rawValue) {
+  const base = defaultEncryptedSecretValue();
+  if (!rawValue || typeof rawValue !== 'object') {
+    return base;
+  }
+  base.iv = String(rawValue.iv || '').trim().toLowerCase();
+  base.authTag = String(rawValue.authTag || rawValue.auth_tag || '').trim().toLowerCase();
+  base.ciphertext = String(rawValue.ciphertext || rawValue.cipher_text || '').trim();
+  return base;
+}
+
+function defaultEncryptedNotificationSecrets() {
+  return {
+    notifications: {
+      telegram: {
+        botToken: defaultEncryptedSecretValue(),
+      },
+    },
+    remoteControl: {
+      telegram: {
+        botToken: defaultEncryptedSecretValue(),
+      },
+    },
+  };
+}
+
+function normalizeEncryptedNotificationSecrets(rawEncrypted) {
+  const base = defaultEncryptedNotificationSecrets();
+  if (!rawEncrypted || typeof rawEncrypted !== 'object') {
+    return base;
+  }
+  const notificationTelegram = rawEncrypted.notifications?.telegram && typeof rawEncrypted.notifications.telegram === 'object'
+    ? rawEncrypted.notifications.telegram
+    : {};
+  const remoteTelegram = rawEncrypted.remoteControl?.telegram && typeof rawEncrypted.remoteControl.telegram === 'object'
+    ? rawEncrypted.remoteControl.telegram
+    : {};
+  base.notifications.telegram.botToken = normalizeEncryptedSecretValue(notificationTelegram.botToken);
+  base.remoteControl.telegram.botToken = normalizeEncryptedSecretValue(remoteTelegram.botToken);
+  return base;
+}
+
+function encryptSecretValue(rawValue, key) {
+  const value = String(rawValue || '').trim();
+  if (!value) {
+    return defaultEncryptedSecretValue();
+  }
+  if (!Buffer.isBuffer(key) || key.length !== 32) {
+    throw new Error('凭据密钥无效');
+  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return {
+    iv: iv.toString('hex'),
+    authTag: cipher.getAuthTag().toString('hex'),
+    ciphertext: ciphertext.toString('base64'),
+  };
+}
+
+function decryptSecretValue(rawValue, key) {
+  const normalizedValue = normalizeEncryptedSecretValue(rawValue);
+  if (!normalizedValue.ciphertext) {
+    return '';
+  }
+  if (!normalizedValue.iv || !normalizedValue.authTag) {
+    throw new Error('加密凭据格式无效');
+  }
+  if (!Buffer.isBuffer(key) || key.length !== 32) {
+    throw new Error('凭据密钥无效');
+  }
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    key,
+    Buffer.from(normalizedValue.iv, 'hex'),
+  );
+  decipher.setAuthTag(Buffer.from(normalizedValue.authTag, 'hex'));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(normalizedValue.ciphertext, 'base64')),
+    decipher.final(),
+  ]);
+  return decrypted.toString('utf8').trim();
+}
+
+function encryptNotificationSecrets(rawSecrets, key) {
+  const normalizedSecrets = normalizeNotificationSecrets(rawSecrets);
+  return {
+    notifications: {
+      telegram: {
+        botToken: encryptSecretValue(normalizedSecrets.notifications.telegram.botToken, key),
+      },
+    },
+    remoteControl: {
+      telegram: {
+        botToken: encryptSecretValue(normalizedSecrets.remoteControl.telegram.botToken, key),
+      },
+    },
+  };
+}
+
+function decryptNotificationSecrets(rawEncrypted, key) {
+  const encryptedSecrets = normalizeEncryptedNotificationSecrets(rawEncrypted);
+  return {
+    notifications: {
+      telegram: {
+        botToken: decryptSecretValue(encryptedSecrets.notifications.telegram.botToken, key),
+      },
+    },
+    remoteControl: {
+      telegram: {
+        botToken: decryptSecretValue(encryptedSecrets.remoteControl.telegram.botToken, key),
+      },
+    },
+  };
 }
 
 function defaultTelegramSettings() {
@@ -181,6 +376,7 @@ function normalizeRemoteControlSettings(rawSettings) {
 
 function defaultNotificationSecrets() {
   return {
+    vault: defaultCredentialVault(),
     notifications: {
       telegram: {
         botToken: '',
@@ -191,6 +387,7 @@ function defaultNotificationSecrets() {
         botToken: '',
       },
     },
+    encrypted: defaultEncryptedNotificationSecrets(),
   };
 }
 
@@ -205,8 +402,10 @@ function normalizeNotificationSecrets(rawSecrets) {
   const remoteTelegram = rawSecrets.remoteControl?.telegram && typeof rawSecrets.remoteControl.telegram === 'object'
     ? rawSecrets.remoteControl.telegram
     : {};
+  base.vault = normalizeCredentialVault(rawSecrets.vault);
   base.notifications.telegram.botToken = String(notificationTelegram.botToken || notificationTelegram.bot_token || '').trim();
   base.remoteControl.telegram.botToken = String(remoteTelegram.botToken || remoteTelegram.bot_token || '').trim();
+  base.encrypted = normalizeEncryptedNotificationSecrets(rawSecrets.encrypted);
   return base;
 }
 
@@ -382,6 +581,9 @@ class StateStore {
       deviceIdentity: DEFAULT_DEVICE_IDENTITY,
       notifications: defaultNotificationSettings(),
       remoteControl: defaultRemoteControlSettings(),
+      security: {
+        hasMasterPassword: false,
+      },
       activeConversationId: '',
       conversations: [],
     };
@@ -432,15 +634,18 @@ class StateStore {
     const useNativeMemory = true;
     const deviceIdentity = normalizeIdentity(data.deviceIdentity || data.deviceId || DEFAULT_DEVICE_IDENTITY);
     const secrets = normalizeNotificationSecrets(secretData);
+    const hasMasterPassword = hasCredentialVaultPassword(secrets.vault);
     const notifications = normalizeNotificationSettings({
       activeProvider: data.notifications?.activeProvider || data.notificationProvider || data.notification_provider,
       telegram: {
         ...(data.telegram && typeof data.telegram === 'object' ? data.telegram : {}),
         ...(data.notifications?.telegram && typeof data.notifications.telegram === 'object' ? data.notifications.telegram : {}),
-        botToken: secrets.notifications.telegram.botToken
+        botToken: hasMasterPassword
+          ? ''
+          : (secrets.notifications.telegram.botToken
           || data.notifications?.telegram?.botToken
           || data.telegram?.botToken
-          || '',
+          || ''),
         },
     });
     const remoteControl = normalizeRemoteControlSettings({
@@ -448,10 +653,12 @@ class StateStore {
       telegram: {
         ...((data.remote_control?.telegram && typeof data.remote_control.telegram === 'object') ? data.remote_control.telegram : {}),
         ...((data.remoteControl?.telegram && typeof data.remoteControl.telegram === 'object') ? data.remoteControl.telegram : {}),
-        botToken: secrets.remoteControl.telegram.botToken
+        botToken: hasMasterPassword
+          ? ''
+          : (secrets.remoteControl.telegram.botToken
           || data.remoteControl?.telegram?.botToken
           || data.remote_control?.telegram?.botToken
-          || '',
+          || ''),
       },
     });
 
@@ -509,13 +716,52 @@ class StateStore {
       deviceIdentity,
       notifications,
       remoteControl,
+      vault: secrets.vault,
+      security: {
+        hasMasterPassword,
+      },
       activeConversationId,
       conversations,
       metaByConversation,
     };
   }
 
-  save(state) {
+  unlockSecrets(password) {
+    const secretData = normalizeNotificationSecrets(this._readStateFile(this.secretsPath));
+    const vault = normalizeCredentialVault(secretData.vault);
+    if (!hasCredentialVaultPassword(vault)) {
+      return {
+        key: null,
+        secrets: {
+          notifications: {
+            telegram: {
+              botToken: String(secretData.notifications.telegram.botToken || '').trim(),
+            },
+          },
+          remoteControl: {
+            telegram: {
+              botToken: String(secretData.remoteControl.telegram.botToken || '').trim(),
+            },
+          },
+        },
+      };
+    }
+    const key = verifyCredentialVaultPassword(password, vault);
+    return {
+      key,
+      secrets: decryptNotificationSecrets(secretData.encrypted, key),
+    };
+  }
+
+  setVaultPassword(password) {
+    const { vault, key } = buildCredentialVault(password);
+    return {
+      vault,
+      key,
+    };
+  }
+
+  save(state: any, options: any = {}) {
     const parent = path.dirname(this.path);
     fs.mkdirSync(parent, { recursive: true });
 
@@ -592,7 +838,13 @@ class StateStore {
       },
     };
 
-    const secretsPayload = {
+    const currentSecrets = normalizeNotificationSecrets(this._readStateFile(this.secretsPath));
+    const requestedVault = normalizeCredentialVault(options.vault);
+    const nextVault = hasCredentialVaultPassword(requestedVault)
+      ? requestedVault
+      : normalizeCredentialVault(currentSecrets.vault);
+    const vaultEnabled = hasCredentialVaultPassword(nextVault);
+    const nextPlainSecrets = {
       notifications: {
         telegram: {
           botToken: String(normalizedNotifications.telegram.botToken || '').trim(),
@@ -603,6 +855,25 @@ class StateStore {
           botToken: String(normalizedRemoteControl.telegram.botToken || '').trim(),
         },
       },
+    };
+    const encryptedSecrets = vaultEnabled
+      ? (Buffer.isBuffer(options.vaultKey) && options.vaultKey.length === 32
+        ? encryptNotificationSecrets(nextPlainSecrets, options.vaultKey)
+        : normalizeEncryptedNotificationSecrets(currentSecrets.encrypted))
+      : defaultEncryptedNotificationSecrets();
+    const secretsPayload = {
+      vault: vaultEnabled ? nextVault : defaultCredentialVault(),
+      notifications: {
+        telegram: {
+          botToken: vaultEnabled ? '' : nextPlainSecrets.notifications.telegram.botToken,
+        },
+      },
+      remoteControl: {
+        telegram: {
+          botToken: vaultEnabled ? '' : nextPlainSecrets.remoteControl.telegram.botToken,
+        },
+      },
+      encrypted: encryptedSecrets,
     };
 
     this._writeJsonFile(this.path, payload);
@@ -622,6 +893,12 @@ module.exports = {
   normalizeIdentity,
   hashSecret,
   toSecretFingerprint,
+  defaultCredentialVault,
+  normalizeCredentialVault,
+  hasCredentialVaultPassword,
+  createCredentialVaultKey,
+  verifyCredentialVaultPassword,
+  buildCredentialVault,
   defaultTelegramSettings,
   normalizeTelegramSettings,
   defaultNotificationSettings,

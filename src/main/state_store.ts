@@ -121,6 +121,10 @@ function normalizeConversationBindings(rawBindings) {
 function defaultTelegramRemoteControlSettings() {
   return {
     enabled: false,
+    botToken: '',
+    hasBotToken: false,
+    botTokenHash: '',
+    botTokenFingerprint: '',
     allowedChatId: '',
     lastUpdateId: 0,
     selectedConversationByChat: {},
@@ -133,11 +137,17 @@ function normalizeTelegramRemoteControlSettings(rawSettings) {
     return base;
   }
   base.enabled = Boolean(rawSettings.enabled);
+  base.botToken = String(rawSettings.botToken || rawSettings.bot_token || '').trim();
+  base.botTokenHash = String(rawSettings.botTokenHash || rawSettings.bot_token_hash || '').trim().toLowerCase();
   base.allowedChatId = String(rawSettings.allowedChatId || rawSettings.allowed_chat_id || '').trim();
   base.lastUpdateId = Math.max(0, Number(rawSettings.lastUpdateId ?? rawSettings.last_update_id ?? 0) || 0);
   base.selectedConversationByChat = normalizeConversationBindings(
     rawSettings.selectedConversationByChat || rawSettings.selected_conversation_by_chat,
   );
+  const derivedHash = base.botToken ? hashSecret(base.botToken) : base.botTokenHash;
+  base.botTokenHash = derivedHash;
+  base.botTokenFingerprint = toSecretFingerprint(derivedHash);
+  base.hasBotToken = Boolean(base.botToken || derivedHash || rawSettings.hasBotToken);
   return base;
 }
 
@@ -171,8 +181,15 @@ function normalizeRemoteControlSettings(rawSettings) {
 
 function defaultNotificationSecrets() {
   return {
-    telegram: {
-      botToken: '',
+    notifications: {
+      telegram: {
+        botToken: '',
+      },
+    },
+    remoteControl: {
+      telegram: {
+        botToken: '',
+      },
     },
   };
 }
@@ -182,10 +199,14 @@ function normalizeNotificationSecrets(rawSecrets) {
   if (!rawSecrets || typeof rawSecrets !== 'object') {
     return base;
   }
-  const telegram = rawSecrets.telegram && typeof rawSecrets.telegram === 'object'
-    ? rawSecrets.telegram
+  const notificationTelegram = rawSecrets.notifications?.telegram && typeof rawSecrets.notifications.telegram === 'object'
+    ? rawSecrets.notifications.telegram
+    : (rawSecrets.telegram && typeof rawSecrets.telegram === 'object' ? rawSecrets.telegram : {});
+  const remoteTelegram = rawSecrets.remoteControl?.telegram && typeof rawSecrets.remoteControl.telegram === 'object'
+    ? rawSecrets.remoteControl.telegram
     : {};
-  base.telegram.botToken = String(telegram.botToken || telegram.bot_token || '').trim();
+  base.notifications.telegram.botToken = String(notificationTelegram.botToken || notificationTelegram.bot_token || '').trim();
+  base.remoteControl.telegram.botToken = String(remoteTelegram.botToken || remoteTelegram.bot_token || '').trim();
   return base;
 }
 
@@ -410,23 +431,29 @@ class StateStore {
     const workdir = normalizeWorkdir(data.workdir);
     const useNativeMemory = true;
     const deviceIdentity = normalizeIdentity(data.deviceIdentity || data.deviceId || DEFAULT_DEVICE_IDENTITY);
-    const secretNotifications = normalizeNotificationSecrets(
-      secretData?.notifications && typeof secretData.notifications === 'object'
-        ? secretData.notifications
-        : secretData,
-    );
+    const secrets = normalizeNotificationSecrets(secretData);
     const notifications = normalizeNotificationSettings({
       activeProvider: data.notifications?.activeProvider || data.notificationProvider || data.notification_provider,
       telegram: {
         ...(data.telegram && typeof data.telegram === 'object' ? data.telegram : {}),
         ...(data.notifications?.telegram && typeof data.notifications.telegram === 'object' ? data.notifications.telegram : {}),
-        botToken: secretNotifications.telegram.botToken
+        botToken: secrets.notifications.telegram.botToken
           || data.notifications?.telegram?.botToken
           || data.telegram?.botToken
           || '',
         },
     });
-    const remoteControl = normalizeRemoteControlSettings(data.remoteControl || data.remote_control);
+    const remoteControl = normalizeRemoteControlSettings({
+      ...(data.remoteControl || data.remote_control || {}),
+      telegram: {
+        ...((data.remote_control?.telegram && typeof data.remote_control.telegram === 'object') ? data.remote_control.telegram : {}),
+        ...((data.remoteControl?.telegram && typeof data.remoteControl.telegram === 'object') ? data.remoteControl.telegram : {}),
+        botToken: secrets.remoteControl.telegram.botToken
+          || data.remoteControl?.telegram?.botToken
+          || data.remote_control?.telegram?.botToken
+          || '',
+      },
+    });
 
     const conversations = [];
     const metaByConversation = {};
@@ -555,6 +582,10 @@ class StateStore {
       activeProvider: normalizedRemoteControl.activeProvider,
       telegram: {
         enabled: Boolean(normalizedRemoteControl.telegram.enabled),
+        botToken: '',
+        hasBotToken: Boolean(normalizedRemoteControl.telegram.hasBotToken),
+        botTokenHash: normalizedRemoteControl.telegram.botTokenHash,
+        botTokenFingerprint: normalizedRemoteControl.telegram.botTokenFingerprint,
         allowedChatId: String(normalizedRemoteControl.telegram.allowedChatId || '').trim(),
         lastUpdateId: Math.max(0, Number(normalizedRemoteControl.telegram.lastUpdateId || 0) || 0),
         selectedConversationByChat: normalizeConversationBindings(normalizedRemoteControl.telegram.selectedConversationByChat),
@@ -565,6 +596,11 @@ class StateStore {
       notifications: {
         telegram: {
           botToken: String(normalizedNotifications.telegram.botToken || '').trim(),
+        },
+      },
+      remoteControl: {
+        telegram: {
+          botToken: String(normalizedRemoteControl.telegram.botToken || '').trim(),
         },
       },
     };

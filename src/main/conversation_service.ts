@@ -18,7 +18,7 @@ function formatConversationTitle(date = new Date()) {
 function newConversation(title = formatConversationTitle()) {
   const now = nowTs();
   return {
-    id: crypto.randomUUID().replaceAll('-', ''),
+    id: crypto.randomUUID(),
     title,
     workdir: '',
     sessionId: '',

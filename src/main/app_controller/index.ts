@@ -75,6 +75,7 @@ class AppController {
         activeProvider: 'telegram',
         telegram: {
           enabled: false,
+          botToken: '',
           allowedChatId: '',
           lastUpdateId: 0,
           selectedConversationByChat: {},
@@ -85,7 +86,6 @@ class AppController {
       deviceIdentity: this.deviceIdentity,
     });
     this.remoteControlCenter = new RemoteControlCenter({
-      telegramSettings: this.notifications?.telegram || {},
       settings: this.remoteControl,
       deviceIdentity: this.deviceIdentity,
       handlers: this._remoteControlHandlers ? this._remoteControlHandlers() : {},

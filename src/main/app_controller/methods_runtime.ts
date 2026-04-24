@@ -105,8 +105,9 @@ const runtimeMethods = {
   _remoteControlHandlers() {
     return {
       updateState: async (patch = {}) => this._updateRemoteControlTelegramState(patch),
-      listConversations: async (limit = 10) => this._listRemoteControlConversations(limit),
+      listConversations: async (page = 1, pageSize = 10) => this._listRemoteControlConversations(page, pageSize),
       getSelectedConversation: async (chatId, options = {}) => this._getRemoteControlSelectedConversation(chatId, options),
+      getConversationHistory: async (chatId, limit = 8) => this._getRemoteControlConversationHistory(chatId, limit),
       selectConversation: async (chatId, ref) => this._selectRemoteControlConversation(chatId, ref),
       createConversation: async (chatId) => this._createRemoteControlConversation(chatId),
       stopCurrentConversation: async (chatId) => this._stopRemoteControlConversation(chatId),
@@ -119,7 +120,6 @@ const runtimeMethods = {
     this.remoteControl = normalizedRemoteControl;
     if (!this.remoteControlCenter) {
       this.remoteControlCenter = new RemoteControlCenter({
-        telegramSettings: this.notifications?.telegram || {},
         settings: normalizedRemoteControl,
         deviceIdentity: this.deviceIdentity,
         handlers: this._remoteControlHandlers(),
@@ -127,7 +127,6 @@ const runtimeMethods = {
       return this.remoteControlCenter;
     }
     this.remoteControlCenter.updateConfig({
-      telegramSettings: this.notifications?.telegram || {},
       settings: normalizedRemoteControl,
       deviceIdentity: this.deviceIdentity,
       handlers: this._remoteControlHandlers(),
@@ -140,6 +139,8 @@ const runtimeMethods = {
       const runtime = this.runtimeStore.ensure(conv.id);
       return {
         id: conv.id,
+        sessionId: String(conv.sessionId || '').trim(),
+        displayId: String(conv.sessionId || conv.id || '').trim(),
         title: conv.title,
         phase: String(runtime?.phase || '空闲').trim() || '空闲',
         queuedCount: this._pendingQueueSize(conv.id),
@@ -157,6 +158,10 @@ const runtimeMethods = {
     const exact = entries.find((item) => item.id === raw);
     if (exact) {
       return exact;
+    }
+    const byDisplayId = entries.find((item) => item.displayId === raw);
+    if (byDisplayId) {
+      return byDisplayId;
     }
     const index = Number(raw);
     if (Number.isInteger(index) && index >= 1 && index <= entries.length) {
@@ -227,15 +232,27 @@ const runtimeMethods = {
     const runtime = this.runtimeStore.ensure(conversationId);
     return {
       conversationId: conv.id,
+      displayId: String(conv.sessionId || conv.id || '').trim(),
       title: conv.title,
       phase: String(runtime?.phase || '空闲').trim() || '空闲',
       queuedCount: this._pendingQueueSize(conv.id),
     };
   },
 
-  async _listRemoteControlConversations(limit = 10) {
-    const resolvedLimit = Math.max(1, Math.min(20, Number(limit) || 10));
-    return this._remoteControlConversationEntries().slice(0, resolvedLimit);
+  async _listRemoteControlConversations(page = 1, pageSize = 10) {
+    const entries = this._remoteControlConversationEntries();
+    const resolvedPageSize = Math.max(1, Math.min(20, Number(pageSize) || 10));
+    const total = entries.length;
+    const totalPages = Math.max(1, Math.ceil(total / resolvedPageSize));
+    const resolvedPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    const startIndex = (resolvedPage - 1) * resolvedPageSize;
+    return {
+      items: entries.slice(startIndex, startIndex + resolvedPageSize),
+      total,
+      page: resolvedPage,
+      pageSize: resolvedPageSize,
+      totalPages,
+    };
   },
 
   async _selectRemoteControlConversation(chatId, ref) {
@@ -247,6 +264,7 @@ const runtimeMethods = {
     return {
       ok: true,
       conversationId: matched.id,
+      displayId: matched.displayId,
       title: matched.title,
     };
   },
@@ -262,6 +280,7 @@ const runtimeMethods = {
     return {
       ok: true,
       conversationId,
+      displayId: String(conv.sessionId || conv.id || '').trim(),
       title: conv.title,
     };
   },
@@ -275,7 +294,62 @@ const runtimeMethods = {
     return {
       ok: true,
       conversationId: selected.conversationId,
+      displayId: selected.displayId,
       title: selected.title,
+    };
+  },
+
+  _buildRemoteControlConversationTurns(messages = []) {
+    const turns = [];
+    let currentTurn = null;
+    messages.forEach((item) => {
+      const role = item?.role === 'assistant' ? 'assistant' : 'user';
+      const text = String(item?.text || '').trim();
+      if (!text) {
+        return;
+      }
+      if (role === 'user') {
+        currentTurn = {
+          userText: text,
+          assistantParts: [],
+        };
+        turns.push(currentTurn);
+        return;
+      }
+      if (!currentTurn) {
+        currentTurn = {
+          userText: '',
+          assistantParts: [],
+        };
+        turns.push(currentTurn);
+      }
+      currentTurn.assistantParts.push(text);
+    });
+    return turns.map((turn) => ({
+      userText: String(turn?.userText || '').trim(),
+      assistantText: Array.isArray(turn?.assistantParts) ? turn.assistantParts.join('\n\n').trim() : '',
+    }));
+  },
+
+  async _getRemoteControlConversationHistory(chatId, limit = 8) {
+    const selected = await this._getRemoteControlSelectedConversation(chatId, { allowFallback: true });
+    if (!selected?.conversationId) {
+      return { ok: false, error: '当前未绑定对话。使用 /list 查看对话，或 /new 新建一个。' };
+    }
+    const conv = getConversation(this.conversations, selected.conversationId);
+    if (!conv) {
+      return { ok: false, error: '未找到对应对话。先使用 /list 查看可选项。' };
+    }
+    const resolvedLimit = Math.max(1, Math.min(10, Number(limit) || 2));
+    const messages = Array.isArray(conv.messages) ? conv.messages : [];
+    const turns = this._buildRemoteControlConversationTurns(messages);
+    return {
+      ok: true,
+      conversationId: conv.id,
+      displayId: String(conv.sessionId || conv.id || '').trim(),
+      title: conv.title,
+      total: turns.length,
+      items: turns.slice(-resolvedLimit).reverse(),
     };
   },
 
@@ -295,6 +369,7 @@ const runtimeMethods = {
     return {
       ok: true,
       conversationId: selected.conversationId,
+      displayId: selected.displayId,
       title: selected.title,
       queued: Boolean(result?.queued),
       autoBound: !existingSelectedId,
@@ -903,6 +978,12 @@ const runtimeMethods = {
           : {}),
         ...incomingTelegram,
       };
+      if (incomingTelegram.clearBotToken) {
+        mergedTelegram.botToken = '';
+        mergedTelegram.hasBotToken = false;
+        mergedTelegram.botTokenHash = '';
+        mergedTelegram.botTokenFingerprint = '';
+      }
       this.remoteControl = normalizeRemoteControlSettings({
         ...(this.remoteControl && typeof this.remoteControl === 'object' ? this.remoteControl : {}),
         ...input.remoteControl,
@@ -934,7 +1015,7 @@ const runtimeMethods = {
   },
 
   createConversation(options: { workdir?: string } = {}) {
-    const conv = newConversation();
+    const conv = newConversation(undefined, this.conversations);
     const selectedWorkdir = typeof options.workdir === 'string' ? options.workdir : '';
     conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
     this.conversations.push(conv);
@@ -963,7 +1044,7 @@ const runtimeMethods = {
     }
     const result = await notificationCenter.notifyConversationResult({
       status,
-      conversationId: targetConv.id,
+      conversationId: String(targetConv.sessionId || targetConv.id || '').trim(),
       sessionId: String(targetConv.sessionId || '').trim(),
       conversationTitle: targetConv.title,
       userText,
@@ -976,6 +1057,10 @@ const runtimeMethods = {
 
   testNotificationProvider() {
     return this._syncNotificationCenter().testActiveProvider();
+  },
+
+  testRemoteControlProvider() {
+    return this._syncRemoteControlCenter().testActiveProvider();
   },
 
   shutdownServices() {
@@ -1002,7 +1087,7 @@ const runtimeMethods = {
 
   importConversationFromSessionFile(filePath, { continuationMode = 'resume', workdirMode = 'default', workdir = '' } = {}) {
     const imported = importSessionJsonl(filePath);
-    const conv = newConversation(imported.title);
+    const conv = newConversation(imported.title, this.conversations);
     const importedCwd = String(imported.cwd || '').trim();
     if (workdirMode === 'imported') {
       if (!importedCwd) {

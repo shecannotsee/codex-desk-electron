@@ -9,6 +9,7 @@ const {
 } = require('../state_store');
 const { NotificationCenter } = require('../notification_bridge');
 const { RemoteControlCenter } = require('../remote_control_bridge');
+const { appendTelegramLog } = require('../telegram_log_store');
 const { normalizePreview, tsLabel } = require('./shared');
 const fs = require('node:fs');
 
@@ -23,6 +24,7 @@ function isCompletedPhase(phaseText) {
 const MAX_RUNTIME_EVENTS = 500;
 const MAX_RUNTIME_WORKFLOW = 500;
 const MAX_RUNTIME_RAW = 1000;
+const TELEGRAM_VAULT_LOCKED_ERROR = '通讯凭据已锁定，请先在设置 > 凭据保护中解锁';
 
 function pushBounded(list, item, limit) {
   if (!Array.isArray(list)) {
@@ -118,6 +120,11 @@ const runtimeMethods = {
 
   _hasLockedCredentialVault() {
     return Boolean(this.security?.hasMasterPassword) && !Boolean(this.security?.unlocked);
+  },
+
+  _lockedCredentialError(logLabel = 'Telegram') {
+    appendTelegramLog('warn', `${logLabel} 未执行: ${TELEGRAM_VAULT_LOCKED_ERROR}`);
+    return TELEGRAM_VAULT_LOCKED_ERROR;
   },
 
   _clearCredentialSecrets() {
@@ -1000,7 +1007,7 @@ const runtimeMethods = {
       const nextNotificationToken = String(input?.notifications?.telegram?.botToken || '').trim();
       const nextRemoteToken = String(input?.remoteControl?.telegram?.botToken || '').trim();
       if (nextNotificationToken || nextRemoteToken) {
-        return { error: 'Telegram 凭据已锁定，请先解锁', snapshot: this.snapshot() };
+        return { error: this._lockedCredentialError('Telegram 凭据修改'), snapshot: this.snapshot() };
       }
     }
     if (typeof input.commandText === 'string') {
@@ -1164,7 +1171,7 @@ const runtimeMethods = {
     exitCode = '',
   } = {}) {
     if (this._hasLockedCredentialVault()) {
-      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+      return { ok: false, error: this._lockedCredentialError('Telegram 通知') };
     }
     const notificationCenter = this._syncNotificationCenter();
     const targetConv = getConversation(this.conversations, conversationId);
@@ -1186,14 +1193,14 @@ const runtimeMethods = {
 
   testNotificationProvider() {
     if (this._hasLockedCredentialVault()) {
-      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+      return { ok: false, error: this._lockedCredentialError('Telegram 通知测试') };
     }
     return this._syncNotificationCenter().testActiveProvider();
   },
 
   testRemoteControlProvider() {
     if (this._hasLockedCredentialVault()) {
-      return { ok: false, error: 'Telegram 凭据已锁定，请先解锁' };
+      return { ok: false, error: this._lockedCredentialError('Telegram 远程对话测试') };
     }
     return this._syncRemoteControlCenter().testActiveProvider();
   },

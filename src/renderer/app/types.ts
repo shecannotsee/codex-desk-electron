@@ -440,8 +440,12 @@ export interface UiElementRefs {
   qsDeviceIdentityInput: HTMLInputElement;
   qsNotificationProviderTelegram: HTMLButtonElement;
   qsIntegrationSecurity: HTMLButtonElement;
+  qsSecurityRuntimeAlert: HTMLElement;
+  qsSecurityRuntimeUnlock: HTMLButtonElement;
   qsTelegramEnabled: HTMLInputElement;
   labelQsTelegramEnabled: HTMLElement;
+  qsTelegramLockAlert: HTMLElement;
+  qsTelegramLockUnlock: HTMLButtonElement;
   qsTelegramBotTokenInput: HTMLInputElement;
   qsTelegramToggleTokenVisibility: HTMLButtonElement;
   qsTelegramChatIdInput: HTMLInputElement;

@@ -1,5 +1,29 @@
 import { currentLang, el, state, t } from './state_i18n.js';
 
+let activeConversationCache: {
+  listRef: typeof state.conversations | null;
+  activeId: string;
+  index: number;
+} = {
+  listRef: null,
+  activeId: '',
+  index: -1,
+};
+let conversationIndexCache: {
+  listRef: typeof state.conversations | null;
+  length: number;
+  indexById: Map<string, number>;
+} = {
+  listRef: null,
+  length: -1,
+  indexById: new Map(),
+};
+
+const PHASE_ERROR_KEYWORDS = ['失败', 'error', 'failed'];
+const PHASE_SUCCESS_KEYWORDS = ['完成', 'completed', 'success', 'done'];
+const PHASE_BACKGROUND_KEYWORDS = ['后台', 'background'];
+const PHASE_RUNNING_KEYWORDS = ['准备', '分析', '输出', '思考', '启动', '会话', '重连', '运行', 'running', 'starting', 'analyzing', 'generating', 'reconnecting'];
+
 function sortedConversations() {
   return [...state.conversations].sort((a, b) => {
     const bp = Number(b.pinnedAt || 0);
@@ -21,8 +45,70 @@ function sortedConversations() {
   });
 }
 
+function getConversationIndexMap(): Map<string, number> {
+  const listRef = state.conversations;
+  if (
+    conversationIndexCache.listRef === listRef
+    && conversationIndexCache.length === listRef.length
+  ) {
+    return conversationIndexCache.indexById;
+  }
+  const indexById = new Map<string, number>();
+  listRef.forEach((item, index) => {
+    const id = String(item?.id || '').trim();
+    if (id) {
+      indexById.set(id, index);
+    }
+  });
+  conversationIndexCache = {
+    listRef,
+    length: listRef.length,
+    indexById,
+  };
+  return indexById;
+}
+
+function findConversationIndexById(conversationId: string): number {
+  const id = String(conversationId || '').trim();
+  if (!id) {
+    return -1;
+  }
+  const index = getConversationIndexMap().get(id);
+  return Number.isInteger(index) ? Number(index) : -1;
+}
+
+function findConversationById(conversationId: string) {
+  const index = findConversationIndexById(conversationId);
+  return index >= 0 ? state.conversations[index] || null : null;
+}
+
 function currentConversation() {
-  return state.conversations.find((item) => item.id === state.activeConversationId) || null;
+  const activeId = String(state.activeConversationId || '').trim();
+  if (!activeId) {
+    activeConversationCache = {
+      listRef: state.conversations,
+      activeId: '',
+      index: -1,
+    };
+    return null;
+  }
+  const listRef = state.conversations;
+  const cachedIndex = activeConversationCache.index;
+  if (
+    activeConversationCache.listRef === listRef
+    && activeConversationCache.activeId === activeId
+    && cachedIndex >= 0
+    && listRef[cachedIndex]?.id === activeId
+  ) {
+    return listRef[cachedIndex] || null;
+  }
+  const index = findConversationIndexById(activeId);
+  activeConversationCache = {
+    listRef,
+    activeId,
+    index,
+  };
+  return index >= 0 ? listRef[index] : null;
 }
 
 function hasActiveConversation() {
@@ -221,17 +307,17 @@ function phaseKind(phaseText) {
   if (!text) {
     return 'idle';
   }
-  if (['失败', 'error', 'failed'].some((k) => text.toLowerCase().includes(k))) {
+  const lowerText = text.toLowerCase();
+  if (PHASE_ERROR_KEYWORDS.some((keyword) => lowerText.includes(keyword))) {
     return 'error';
   }
-  if (['完成', 'completed', 'success', 'done'].some((k) => text.toLowerCase().includes(k))) {
+  if (PHASE_SUCCESS_KEYWORDS.some((keyword) => lowerText.includes(keyword))) {
     return 'success';
   }
-  if (['后台', 'background'].some((k) => text.toLowerCase().includes(k))) {
+  if (PHASE_BACKGROUND_KEYWORDS.some((keyword) => lowerText.includes(keyword))) {
     return 'background';
   }
-  if (['准备', '分析', '输出', '思考', '启动', '会话', '重连', '运行', 'running', 'starting', 'analyzing', 'generating', 'reconnecting']
-    .some((k) => text.toLowerCase().includes(k))) {
+  if (PHASE_RUNNING_KEYWORDS.some((keyword) => lowerText.includes(keyword))) {
     return 'running';
   }
   return 'idle';
@@ -345,6 +431,8 @@ function getConversationState(conversationId) {
 
 export {
   sortedConversations,
+  findConversationIndexById,
+  findConversationById,
   currentConversation,
   hasActiveConversation,
   ensureCollapsed,

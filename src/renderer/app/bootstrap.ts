@@ -3,14 +3,8 @@ import { codexdesk } from './codexdesk.js';
 import type {
   AppEvent,
   AppSnapshot,
-  CloseGuardPayload,
   ConversationSwitchPayload,
-  ConfirmDialogOptions,
-  ImportSessionPreview,
   MessageAttachment,
-  ImportWorkdirChoice,
-  NotificationSettingsState,
-  RemoteControlSettingsState,
   RawEventEntry,
   RenderJobs,
   RuntimeEventItem,
@@ -32,15 +26,11 @@ import {
   currentLang,
   draftStorageKey,
   el,
-  ensureChatVisibleCount,
   getComposerAttachments,
   increaseChatVisibleCount,
   loadDraftPrefs,
   loadUiPrefs,
   localizeKnownText,
-  pruneComposerAttachments,
-  pruneRuntimeVisibleCounts,
-  syncChatVisibleCount,
   saveUiPrefs,
   setComposerAttachments,
   setChatFontSize,
@@ -50,15 +40,16 @@ import {
   setSidebarWidth,
   setTheme,
   state,
+  syncChatVisibleCount,
   syncMenuLanguage,
   t,
-  pruneChatVisibleCounts,
-  pruneConversationDrafts,
 } from './state_i18n.js';
 import {
   currentConversation,
   ensureMeta,
   ensureRuntime,
+  findConversationById,
+  findConversationIndexById,
   hasActiveConversation,
   isConversationRunning,
   isMessageCollapsed,
@@ -80,7 +71,6 @@ import {
   renderLayout,
   renderLocaleTexts,
   patchConversationListItem,
-  pruneConversationRenderCaches,
   renderConversationList,
   renderRawTab,
   renderRunButtons,
@@ -93,6 +83,24 @@ import {
   renderWorkflowTab,
   setRendererCallbacks,
 } from './renderers.js';
+import { createIntegrationSettingsController } from './integration_settings.js';
+import { showAppNotice } from './app_notice.js';
+import {
+  applyConversationSwitchPayload as applyConversationSwitchPayloadToState,
+  applySnapshot as applySnapshotToState,
+  removeConversationRuntimeState,
+  trimRuntimeState,
+} from './app_state_sync.js';
+import {
+  askConfirmDialog,
+  askCreateConversationWorkdir,
+  askImportSessionMode,
+  askImportSessionWorkdirMode,
+  askRenameTitle,
+  resolveCloseGuardAction,
+  resolvePreferredImportContinuationMode,
+  showCloseGuardModal,
+} from './app_dialogs.js';
 
 function sleepMs(ms: number) {
   return new Promise((resolve) => {
@@ -108,427 +116,21 @@ function getEventNodeTarget(event: Event): Node | null {
   return event.target instanceof Node ? event.target : null;
 }
 
-let noticeLayer: HTMLElement | null = null;
-let noticeHideTimer = 0;
-let noticeClearTimer = 0;
-const MAX_RUNTIME_EVENTS = 500;
-const MAX_RUNTIME_WORKFLOW = 500;
-const MAX_RUNTIME_RAW = 1000;
+const integrationSettings = createIntegrationSettingsController({
+  applySnapshot,
+  showNotice: showAppNotice,
+});
 
-function ensureNoticeLayer(): HTMLElement {
-  const host = el.focusRow || el.workspace || document.body;
-  if (noticeLayer && host.contains(noticeLayer)) {
-    return noticeLayer;
-  }
-  const layer = document.createElement('div');
-  layer.className = 'app-notice-layer';
-  layer.setAttribute('aria-live', 'polite');
-  layer.setAttribute('aria-atomic', 'true');
-  host.appendChild(layer);
-  noticeLayer = layer;
-  return layer;
-}
-
-function trimRuntimeList<T>(items: T[] = [], limit = 1): T[] {
-  if (!Array.isArray(items)) {
-    return [];
-  }
-  const cappedLimit = Math.max(1, Number(limit) || 1);
-  if (items.length <= cappedLimit) {
-    return items;
-  }
-  items.splice(0, items.length - cappedLimit);
-  return items;
-}
-
-function trimRuntimeState(runtime: RuntimeState | null | undefined): RuntimeState | null | undefined {
-  if (!runtime || typeof runtime !== 'object') {
-    return runtime;
-  }
-  trimRuntimeList(runtime.events, MAX_RUNTIME_EVENTS);
-  trimRuntimeList(runtime.workflow, MAX_RUNTIME_WORKFLOW);
-  trimRuntimeList(runtime.raw, MAX_RUNTIME_RAW);
-  return runtime;
-}
-
-function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'info') {
-  const text = String(message || '').trim();
-  if (!text) {
-    return;
-  }
-  const layer = ensureNoticeLayer();
-  layer.innerHTML = '';
-  const card = document.createElement('div');
-  card.className = `app-notice app-notice-${tone}`;
-  card.textContent = text;
-  card.title = t('clickToCopy');
-  card.addEventListener('click', async () => {
-    try {
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        await navigator.clipboard.writeText(text);
-      }
-    } catch {
-      // Ignore clipboard failures for transient notices.
-    }
+function applySnapshot(snapshot: AppSnapshot | null | undefined) {
+  applySnapshotToState(snapshot, () => {
+    integrationSettings.refreshCredentialRuntimeLockNotice();
   });
-  layer.appendChild(card);
-  window.clearTimeout(noticeHideTimer);
-  window.clearTimeout(noticeClearTimer);
-  window.requestAnimationFrame(() => {
-    card.classList.add('is-visible');
+}
+
+function applyConversationSwitchPayload(payload: ConversationSwitchPayload | null | undefined) {
+  applyConversationSwitchPayloadToState(payload, () => {
+    integrationSettings.refreshCredentialRuntimeLockNotice();
   });
-  const lineCount = text.split('\n').filter(Boolean).length;
-  const visibleMs = tone === 'error'
-    ? Math.max(6000, 2500 + lineCount * 2200)
-    : Math.max(2200, 1200 + lineCount * 900);
-  noticeHideTimer = window.setTimeout(() => {
-    card.classList.remove('is-visible');
-    noticeClearTimer = window.setTimeout(() => {
-      if (noticeLayer === layer) {
-        layer.innerHTML = '';
-      }
-    }, 180);
-  }, visibleMs);
-}
-
-function normalizeTelegramProviderState(raw: any, fallback: any = {}) {
-  const tokenHash = String(raw?.botTokenHash ?? fallback?.botTokenHash ?? '').trim();
-  return {
-    enabled: Boolean(raw?.enabled ?? fallback?.enabled),
-    botToken: String(raw?.botToken ?? fallback?.botToken ?? '').trim(),
-    chatId: String(raw?.chatId ?? fallback?.chatId ?? '').trim(),
-    hasBotToken: Boolean(raw?.hasBotToken ?? fallback?.hasBotToken ?? tokenHash),
-    botTokenHash: tokenHash,
-    botTokenFingerprint: String(raw?.botTokenFingerprint ?? fallback?.botTokenFingerprint ?? '').trim(),
-  };
-}
-
-function normalizeNotificationSettingsState(raw: any, fallback: any = {}): NotificationSettingsState {
-  const nextActiveProvider = String(raw?.activeProvider ?? fallback?.activeProvider ?? 'telegram').trim().toLowerCase();
-  return {
-    activeProvider: nextActiveProvider === 'telegram' ? 'telegram' : 'telegram',
-    providers: {
-      telegram: normalizeTelegramProviderState(
-        raw?.providers?.telegram ?? raw?.telegram,
-        fallback?.providers?.telegram ?? fallback?.telegram,
-      ),
-    },
-  };
-}
-
-function normalizeTelegramRemoteControlState(raw: any, fallback: any = {}) {
-  const tokenHash = String(raw?.botTokenHash ?? fallback?.botTokenHash ?? '').trim();
-  return {
-    enabled: Boolean(raw?.enabled ?? fallback?.enabled),
-    botToken: String(raw?.botToken ?? fallback?.botToken ?? '').trim(),
-    hasBotToken: Boolean(raw?.hasBotToken ?? fallback?.hasBotToken ?? tokenHash),
-    botTokenHash: tokenHash,
-    botTokenFingerprint: String(raw?.botTokenFingerprint ?? fallback?.botTokenFingerprint ?? '').trim(),
-    allowedChatId: String(raw?.allowedChatId ?? fallback?.allowedChatId ?? '').trim(),
-  };
-}
-
-function normalizeRemoteControlSettingsState(raw: any, fallback: any = {}): RemoteControlSettingsState {
-  const nextActiveProvider = String(raw?.activeProvider ?? fallback?.activeProvider ?? 'telegram').trim().toLowerCase();
-  return {
-    activeProvider: nextActiveProvider === 'telegram' ? 'telegram' : 'telegram',
-    providers: {
-      telegram: normalizeTelegramRemoteControlState(
-        raw?.providers?.telegram ?? raw?.telegram,
-        fallback?.providers?.telegram ?? fallback?.telegram,
-      ),
-    },
-  };
-}
-
-function normalizeSecuritySettingsState(raw: any, fallback: any = {}) {
-  const hasMasterPassword = Boolean(raw?.hasMasterPassword ?? fallback?.hasMasterPassword);
-  return {
-    hasMasterPassword,
-    unlocked: hasMasterPassword
-      ? Boolean(raw?.unlocked ?? fallback?.unlocked)
-      : true,
-  };
-}
-
-function collectNotificationSettingsPayload() {
-  const botToken = String(el.qsTelegramBotTokenInput?.value || '').trim();
-  const remoteBotToken = String(el.qsTelegramRemoteBotTokenInput?.value || '').trim();
-  return {
-    deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
-    notifications: {
-      activeProvider: 'telegram',
-      telegram: {
-        enabled: Boolean(el.qsTelegramEnabled?.checked),
-        chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
-        ...(botToken ? { botToken } : {}),
-      },
-    },
-    remoteControl: {
-      activeProvider: 'telegram',
-      telegram: {
-        enabled: Boolean(el.qsTelegramRemoteControlEnabled?.checked),
-        ...(remoteBotToken ? { botToken: remoteBotToken } : {}),
-        allowedChatId: String(el.qsTelegramAllowedChatIdInput?.value || '').trim(),
-      },
-    },
-  };
-}
-
-function updateSecretToggleLabel(button: HTMLButtonElement | null | undefined, input: HTMLInputElement | null | undefined) {
-  if (!button || !input) {
-    return;
-  }
-  const label = input.type === 'text' ? t('hideSecret') : t('showSecret');
-  button.textContent = label;
-  button.title = label;
-  button.setAttribute('aria-label', label);
-}
-
-function toggleSecretVisibility(input: HTMLInputElement | null | undefined, button: HTMLButtonElement | null | undefined) {
-  if (!input) {
-    return;
-  }
-  input.type = input.type === 'password' ? 'text' : 'password';
-  updateSecretToggleLabel(button, input);
-}
-
-async function saveNotificationSettings(options: { silent?: boolean } = {}) {
-  const result = await codexdesk.updateSettings(collectNotificationSettingsPayload());
-  if (result?.error) {
-    showAppNotice(localizeKnownText(result.error), 'error');
-    applySnapshot(result?.snapshot || {});
-    renderAll();
-    return null;
-  }
-  applySnapshot(result?.snapshot || result);
-  renderSettings();
-  if (!options.silent) {
-    showAppNotice(t('settingsSaved'), 'success');
-  }
-  return result;
-}
-
-type TelegramTestTarget = {
-  label: string;
-  ready: boolean;
-  run: () => Promise<{ ok?: boolean; error?: string }>;
-};
-
-function collectTelegramTestTargets(): TelegramTestTarget[] {
-  const targets: TelegramTestTarget[] = [];
-  if (el.qsTelegramEnabled?.checked) {
-    const telegramSettings = state.settings.notifications?.providers?.telegram;
-    targets.push({
-      label: t('telegramTestNotificationLabel'),
-      ready: Boolean(telegramSettings?.hasBotToken && String(telegramSettings?.chatId || '').trim()),
-      run: () => codexdesk.testNotificationProvider(),
-    });
-  }
-  if (el.qsTelegramRemoteControlEnabled?.checked) {
-    const telegramRemoteControl = state.settings.remoteControl?.providers?.telegram;
-    targets.push({
-      label: t('telegramTestRemoteLabel'),
-      ready: Boolean(telegramRemoteControl?.hasBotToken && String(telegramRemoteControl?.allowedChatId || '').trim()),
-      run: () => codexdesk.testRemoteControlProvider(),
-    });
-  }
-  return targets;
-}
-
-async function testTelegramSettings() {
-  const hasCheckedTarget = Boolean(el.qsTelegramEnabled?.checked || el.qsTelegramRemoteControlEnabled?.checked);
-  if (!hasCheckedTarget) {
-    showAppNotice(t('telegramTestNoSelection'), 'error');
-    return;
-  }
-  const saved = await saveNotificationSettings({ silent: true });
-  if (!saved) {
-    return;
-  }
-  const targets = collectTelegramTestTargets();
-  const failures: string[] = [];
-  const readyTargets = targets.filter((item) => {
-    if (item.ready) {
-      return true;
-    }
-    failures.push(t('telegramTestSkippedIncomplete', { label: item.label }));
-    return false;
-  });
-  if (!readyTargets.length) {
-    showAppNotice(t('telegramTestNoReadyConfig'), 'error');
-    return;
-  }
-  const results = await Promise.all(readyTargets.map(async (item) => {
-    try {
-      return {
-        label: item.label,
-        result: await item.run(),
-      };
-    } catch (error) {
-      return {
-        label: item.label,
-        result: {
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        },
-      };
-    }
-  }));
-  let successCount = 0;
-  const successLabels: string[] = [];
-  results.forEach(({ label, result }) => {
-    if (result?.ok) {
-      successCount += 1;
-      successLabels.push(label);
-      return;
-    }
-    failures.push(t('telegramTestFailed', {
-      label,
-      error: localizeKnownText(String(result?.error || 'Telegram 请求失败')),
-    }));
-  });
-  if (!failures.length) {
-    showAppNotice(t('telegramTestSummarySuccess', { labels: successLabels.join('、') }), 'success');
-    return;
-  }
-  if (successCount > 0) {
-    showAppNotice([
-      t('telegramTestSummaryPartial', {
-        successCount: String(successCount),
-        failureCount: String(failures.length),
-      }),
-      failures.join('\n'),
-    ].filter(Boolean).join('\n'), 'error');
-    return;
-  }
-  showAppNotice(t('telegramTestSummaryFailed', { details: failures.join('\n') }), 'error');
-}
-
-const telegramLogsState = {
-  loading: false,
-  loaded: false,
-  text: '',
-  path: '',
-  count: 0,
-};
-
-function renderTelegramLogsPane() {
-  if (el.qsTelegramLogsPath) {
-    el.qsTelegramLogsPath.value = telegramLogsState.path;
-    el.qsTelegramLogsPath.title = telegramLogsState.path || '-';
-  }
-  if (el.qsTelegramLogsCount) {
-    el.qsTelegramLogsCount.textContent = String(Math.max(0, Number(telegramLogsState.count) || 0));
-  }
-  if (el.qsTelegramLogsOutput) {
-    if (telegramLogsState.loading) {
-      el.qsTelegramLogsOutput.value = t('telegramLogsLoading');
-    } else {
-      el.qsTelegramLogsOutput.value = telegramLogsState.text || t('telegramLogsEmpty');
-    }
-  }
-  if (el.qsTelegramLogsRefresh) {
-    el.qsTelegramLogsRefresh.disabled = telegramLogsState.loading;
-  }
-  if (el.qsTelegramLogsCopy) {
-    el.qsTelegramLogsCopy.disabled = telegramLogsState.loading || Math.max(0, Number(telegramLogsState.count) || 0) <= 0;
-  }
-}
-
-async function refreshTelegramLogs() {
-  if (!codexdesk || typeof codexdesk.getTelegramLogs !== 'function') {
-    return;
-  }
-  telegramLogsState.loading = true;
-  renderTelegramLogsPane();
-  try {
-    const result = await codexdesk.getTelegramLogs();
-    if (result?.error) {
-      throw new Error(String(result.error || '读取 Telegram 日志失败'));
-    }
-    telegramLogsState.loaded = true;
-    telegramLogsState.path = String(result?.logPath || '').trim();
-    telegramLogsState.count = Math.max(0, Number(result?.logCount || 0) || 0);
-    telegramLogsState.text = String(result?.logsText || '').trim();
-    renderTelegramLogsPane();
-  } catch (error) {
-    telegramLogsState.text = '';
-    renderTelegramLogsPane();
-    showAppNotice(localizeKnownText(error instanceof Error ? error.message : String(error)), 'error');
-  } finally {
-    telegramLogsState.loading = false;
-    renderTelegramLogsPane();
-  }
-}
-
-function clearSecurityDraftInputs() {
-  if (el.qsSecurityUnlockInput) {
-    el.qsSecurityUnlockInput.value = '';
-  }
-  if (el.qsSecurityNewPasswordInput) {
-    el.qsSecurityNewPasswordInput.value = '';
-  }
-  if (el.qsSecurityConfirmPasswordInput) {
-    el.qsSecurityConfirmPasswordInput.value = '';
-  }
-}
-
-async function submitMasterPasswordUpdate(mode: 'set' | 'change') {
-  const password = String(el.qsSecurityNewPasswordInput?.value || '');
-  const confirmPassword = String(el.qsSecurityConfirmPasswordInput?.value || '');
-  if (!password.trim()) {
-    showAppNotice(t('securityPasswordEmpty'), 'error');
-    return;
-  }
-  if (password !== confirmPassword) {
-    showAppNotice(t('securityPasswordMismatch'), 'error');
-    return;
-  }
-  const result = await codexdesk.setMasterPassword(password);
-  if (result?.error) {
-    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
-    applySnapshot(result?.snapshot || {});
-    renderAll();
-    return;
-  }
-  applySnapshot(result?.snapshot || result);
-  clearSecurityDraftInputs();
-  renderSettings();
-  showAppNotice(t(mode === 'set' ? 'securitySetPasswordSuccess' : 'securityChangePasswordSuccess'), 'success');
-}
-
-async function unlockMasterPassword() {
-  const password = String(el.qsSecurityUnlockInput?.value || '');
-  if (!password.trim()) {
-    showAppNotice(t('securityPasswordEmpty'), 'error');
-    return;
-  }
-  const result = await codexdesk.unlockMasterPassword(password);
-  if (result?.error) {
-    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
-    applySnapshot(result?.snapshot || {});
-    renderAll();
-    return;
-  }
-  applySnapshot(result?.snapshot || result);
-  clearSecurityDraftInputs();
-  renderSettings();
-  showAppNotice(t('securityUnlockSuccess'), 'success');
-}
-
-async function lockMasterPassword() {
-  const result = await codexdesk.lockMasterPassword();
-  if (result?.error) {
-    showAppNotice(localizeKnownText(String(result.error || '')), 'error');
-    applySnapshot(result?.snapshot || {});
-    renderAll();
-    return;
-  }
-  applySnapshot(result?.snapshot || result);
-  clearSecurityDraftInputs();
-  renderSettings();
-  showAppNotice(t('securityLockSuccess'), 'success');
 }
 
 function dragEventHasFiles(event: DragEvent): boolean {
@@ -685,126 +287,6 @@ function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item:
     && String(last.level || '') === String(item.level || '')
     && String(last.message || '') === String(item.message || '')
   );
-}
-
-function applySnapshot(snapshot: AppSnapshot | null | undefined) {
-  if (!snapshot || typeof snapshot !== 'object') {
-    return;
-  }
-
-  state.settings = {
-    commandText: snapshot.settings?.commandText || '',
-    workdir: snapshot.settings?.workdir || '',
-    defaultWorkdir: snapshot.settings?.defaultWorkdir || snapshot.settings?.workdir || '',
-    deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
-    notifications: normalizeNotificationSettingsState(snapshot.settings?.notifications, state.settings.notifications),
-    remoteControl: normalizeRemoteControlSettingsState(snapshot.settings?.remoteControl, state.settings.remoteControl),
-    security: normalizeSecuritySettingsState(snapshot.settings?.security, state.settings.security),
-  };
-  state.activeConversationId = String(snapshot.activeConversationId || '');
-  state.conversations = Array.isArray(snapshot.conversations) ? snapshot.conversations : [];
-  state.runtimeByConversation = snapshot.runtimeByConversation || {};
-  Object.values(state.runtimeByConversation).forEach((runtime) => {
-    trimRuntimeState(runtime);
-  });
-  state.metaByConversation = snapshot.metaByConversation || {};
-  state.runningConversationIds = new Set(Array.isArray(snapshot.runningConversationIds) ? snapshot.runningConversationIds : []);
-  state.queuedCountByConversation = snapshot.queuedCountByConversation || {};
-  state.queuedMessagesByConversation = snapshot.queuedMessagesByConversation || {};
-  const validIds = new Set(state.conversations.map((item) => String(item.id || '')));
-  Object.keys(state.collapsedByConversation).forEach((id) => {
-    if (!validIds.has(id)) {
-      delete state.collapsedByConversation[id];
-    }
-  });
-  Object.keys(state.messageMarkdownByConversation).forEach((id) => {
-    if (!validIds.has(id)) {
-      delete state.messageMarkdownByConversation[id];
-    }
-  });
-  Object.keys(state.workflowCollapsedByConversation).forEach((id) => {
-    if (!validIds.has(id)) {
-      delete state.workflowCollapsedByConversation[id];
-    }
-  });
-  Object.keys(state.queuedMessagesByConversation).forEach((id) => {
-    if (!validIds.has(id)) {
-      delete state.queuedMessagesByConversation[id];
-    }
-  });
-  pruneChatVisibleCounts([...validIds]);
-  pruneRuntimeVisibleCounts([...validIds]);
-  pruneConversationDrafts([...validIds]);
-  pruneComposerAttachments([...validIds]);
-  pruneConversationRenderCaches([...validIds]);
-
-  if (!state.activeConversationId && state.conversations.length) {
-    state.activeConversationId = state.conversations[0].id;
-  }
-  state.conversations.forEach((conv) => {
-    const total = Array.isArray(conv?.messages) ? conv.messages.length : 0;
-    ensureChatVisibleCount(conv.id, total);
-  });
-}
-
-function applyConversationSwitchPayload(payload: ConversationSwitchPayload | null | undefined) {
-  if (!payload || typeof payload !== 'object') {
-    return;
-  }
-
-  state.settings = {
-    commandText: payload.settings?.commandText || state.settings.commandText || '',
-    workdir: payload.settings?.workdir || state.settings.workdir || '',
-    defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
-    deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),
-    notifications: normalizeNotificationSettingsState(payload.settings?.notifications, state.settings.notifications),
-    remoteControl: normalizeRemoteControlSettingsState(payload.settings?.remoteControl, state.settings.remoteControl),
-    security: normalizeSecuritySettingsState(payload.settings?.security, state.settings.security),
-  };
-
-  const nextActiveId = String(payload.activeConversationId || state.activeConversationId || '').trim();
-  const nextConversation = payload.conversation;
-  if (nextConversation && typeof nextConversation === 'object' && String(nextConversation.id || '').trim()) {
-    const conversationId = String(nextConversation.id || '').trim();
-    const idx = state.conversations.findIndex((item) => item.id === conversationId);
-    const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
-      ? state.conversations[idx].messages.length
-      : 0;
-    if (idx >= 0) {
-      state.conversations[idx] = nextConversation;
-    } else {
-      state.conversations.push(nextConversation);
-    }
-    syncChatVisibleCount(conversationId, Array.isArray(nextConversation.messages) ? nextConversation.messages.length : 0, previousTotal);
-  }
-
-  state.activeConversationId = nextActiveId;
-
-  if (nextActiveId) {
-    if (payload.runtime && typeof payload.runtime === 'object') {
-      state.runtimeByConversation[nextActiveId] = payload.runtime;
-      trimRuntimeState(state.runtimeByConversation[nextActiveId]);
-    }
-    if (payload.meta && typeof payload.meta === 'object') {
-      state.metaByConversation[nextActiveId] = payload.meta;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, 'queuedCount')) {
-      state.queuedCountByConversation[nextActiveId] = Number(payload.queuedCount || 0);
-      if (Array.isArray(payload.queuedMessages)) {
-        state.queuedMessagesByConversation[nextActiveId] = payload.queuedMessages;
-      } else if (state.queuedCountByConversation[nextActiveId] <= 0) {
-        state.queuedMessagesByConversation[nextActiveId] = [];
-      }
-    }
-  }
-
-  if (Array.isArray(payload.runningConversationIds)) {
-    state.runningConversationIds = new Set(payload.runningConversationIds);
-  }
-
-  if (!state.activeConversationId && state.conversations.length) {
-    state.activeConversationId = state.conversations[0].id;
-  }
 }
 
 function createRenderJobs(): RenderJobs {
@@ -1024,7 +506,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!conv || !conv.id) {
         break;
       }
-      const idx = state.conversations.findIndex((item) => item.id === conv.id);
+      const idx = findConversationIndexById(conv.id);
       const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
         ? state.conversations[idx].messages.length
         : 0;
@@ -1044,15 +526,7 @@ function applyEvent(event: AppEvent | null | undefined) {
     }
     case 'conversation-removed':
       state.conversations = state.conversations.filter((item) => item.id !== id);
-      delete state.runtimeByConversation[id];
-      delete state.metaByConversation[id];
-      delete state.queuedCountByConversation[id];
-      delete state.queuedMessagesByConversation[id];
-      delete state.collapsedByConversation[id];
-      delete state.workflowCollapsedByConversation[id];
-      delete state.chatVisibleCountByConversation[id];
-      setConversationDraft(id, '');
-      state.runningConversationIds.delete(id);
+      removeConversationRuntimeState(id);
       renderJobs.full = true;
       break;
     case 'meta-updated':
@@ -1099,551 +573,6 @@ function applyEvent(event: AppEvent | null | undefined) {
       break;
   }
   scheduleRender(renderJobs, { stickChatToBottom });
-}
-
-function askRenameTitle(initialValue): Promise<string | null> {
-  return new Promise((resolve) => {
-    const modal = el.renameModal;
-    const input = el.renameInput;
-    const cancelBtn = el.renameCancel;
-    const confirmBtn = el.renameConfirm;
-
-    input.value = initialValue || '';
-    modal.classList.remove('hidden');
-    input.focus();
-    input.select();
-
-    const cleanup = () => {
-      modal.classList.add('hidden');
-      cancelBtn.removeEventListener('click', onCancel);
-      confirmBtn.removeEventListener('click', onConfirm);
-      modal.removeEventListener('click', onBackdrop);
-      input.removeEventListener('keydown', onKeyDown);
-    };
-
-    const onCancel = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    const onConfirm = () => {
-      const next = String(input.value || '').trim();
-      cleanup();
-      resolve(next);
-    };
-
-    const onBackdrop = (event) => {
-      if (event.target === modal) {
-        onCancel();
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        onConfirm();
-      }
-    };
-
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
-    modal.addEventListener('click', onBackdrop);
-    input.addEventListener('keydown', onKeyDown);
-  });
-}
-
-function askCreateConversationWorkdir(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const modal = el.createConversationModal;
-    const workdirInput = el.createConversationWorkdirInput;
-    const browseBtn = el.createConversationBrowse;
-    const cancelBtn = el.createConversationCancel;
-    const confirmBtn = el.createConversationConfirm;
-    if (!modal || !workdirInput || !browseBtn || !cancelBtn || !confirmBtn) {
-      resolve('');
-      return;
-    }
-
-    const defaultWorkdir = String(state.settings.defaultWorkdir || state.settings.workdir || '').trim();
-    let selectedWorkdir = defaultWorkdir;
-
-    const syncWorkdirInput = () => {
-      workdirInput.value = selectedWorkdir;
-      workdirInput.title = selectedWorkdir || '-';
-    };
-
-    syncWorkdirInput();
-    modal.classList.remove('hidden');
-    browseBtn.focus();
-
-    const cleanup = () => {
-      modal.classList.add('hidden');
-      browseBtn.removeEventListener('click', onBrowse);
-      cancelBtn.removeEventListener('click', onCancel);
-      confirmBtn.removeEventListener('click', onConfirm);
-      modal.removeEventListener('click', onBackdrop);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-
-    const onCancel = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    const onConfirm = () => {
-      cleanup();
-      resolve(selectedWorkdir);
-    };
-
-    const onBrowse = async () => {
-      const result = await codexdesk.pickWorkdir({
-        defaultPath: selectedWorkdir || defaultWorkdir,
-      });
-      if (result?.canceled) {
-        return;
-      }
-      if (result?.error) {
-        window.alert(localizeKnownText(result.error));
-        return;
-      }
-      selectedWorkdir = String(result?.directoryPath || '').trim();
-      syncWorkdirInput();
-    };
-
-    const onBackdrop = (event) => {
-      if (event.target === modal) {
-        onCancel();
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        onConfirm();
-      }
-    };
-
-    browseBtn.addEventListener('click', onBrowse);
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
-    modal.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKeyDown);
-  });
-}
-
-function askConfirmDialog(options: ConfirmDialogOptions = {}): Promise<boolean> {
-  return new Promise((resolve) => {
-    const modal = el.confirmModal;
-    const titleEl = el.confirmModalTitle;
-    const bodyEl = el.confirmModalBody;
-    const cancelBtn = el.confirmCancel;
-    const acceptBtn = el.confirmAccept;
-    if (!modal || !titleEl || !bodyEl || !cancelBtn || !acceptBtn) {
-      resolve(false);
-      return;
-    }
-
-    titleEl.textContent = String(options.title || '');
-    bodyEl.textContent = String(options.message || '');
-    modal.classList.remove('hidden');
-    cancelBtn.focus();
-
-    const cleanup = () => {
-      modal.classList.add('hidden');
-      cancelBtn.removeEventListener('click', onCancel);
-      acceptBtn.removeEventListener('click', onAccept);
-      modal.removeEventListener('click', onBackdrop);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-
-    const onCancel = () => {
-      cleanup();
-      resolve(false);
-    };
-
-    const onAccept = () => {
-      cleanup();
-      resolve(true);
-    };
-
-    const onBackdrop = (event) => {
-      if (event.target === modal) {
-        onCancel();
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        onAccept();
-      }
-    };
-
-    cancelBtn.addEventListener('click', onCancel);
-    acceptBtn.addEventListener('click', onAccept);
-    modal.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKeyDown);
-  });
-}
-
-function askImportSessionMode(importInfo: ImportSessionPreview = {}, preferredMode = ''): Promise<string | null> {
-  return new Promise((resolve) => {
-    const modal = el.importModeModal;
-    const cancelBtn = el.importModeCancel;
-    const confirmBtn = el.importModeConfirm;
-    const fileEl = el.importModeFile;
-    const sessionEl = el.importModeSession;
-    const optionButtons = [el.importModeResume, el.importModeFork].filter(Boolean);
-    if (!modal || !cancelBtn || !confirmBtn || !fileEl || !sessionEl || optionButtons.length < 2) {
-      resolve(null);
-      return;
-    }
-
-    let selectedMode = '';
-    fileEl.textContent = t('importModeFile', { value: String(importInfo.filePath || '-') });
-    sessionEl.textContent = t('importModeSession', { value: String(importInfo.sessionId || '-') });
-    confirmBtn.disabled = true;
-    optionButtons.forEach((button) => {
-      button.classList.remove('is-selected');
-      button.setAttribute('aria-pressed', 'false');
-    });
-    const cleanup = () => {
-      modal.classList.add('hidden');
-      cancelBtn.removeEventListener('click', onCancel);
-      confirmBtn.removeEventListener('click', onConfirm);
-      modal.removeEventListener('click', onBackdrop);
-      document.removeEventListener('keydown', onKeyDown);
-      optionButtons.forEach((button) => {
-        button.removeEventListener('click', onOptionClick);
-      });
-    };
-
-    const applySelection = (mode) => {
-      selectedMode = mode;
-      confirmBtn.disabled = !selectedMode;
-      optionButtons.forEach((button) => {
-        const active = button.getAttribute('data-mode') === selectedMode;
-        button.classList.toggle('is-selected', active);
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
-      });
-    };
-
-    const onCancel = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    const onConfirm = () => {
-      if (!selectedMode) {
-        return;
-      }
-      cleanup();
-      resolve(selectedMode);
-    };
-
-    const onBackdrop = (event) => {
-      if (event.target === modal) {
-        onCancel();
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-      if (event.key === 'Enter' && selectedMode) {
-        event.preventDefault();
-        onConfirm();
-      }
-    };
-
-    const onOptionClick = (event) => {
-      const target = event.currentTarget;
-      if (!(target instanceof Element)) {
-        return;
-      }
-      applySelection(String(target.getAttribute('data-mode') || ''));
-    };
-
-    modal.classList.remove('hidden');
-    if (preferredMode === 'resume' || preferredMode === 'fork') {
-      applySelection(preferredMode);
-    }
-    const preferredButton = optionButtons.find((button) => button.getAttribute('data-mode') === selectedMode);
-    (preferredButton || optionButtons[0]).focus();
-
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
-    modal.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKeyDown);
-    optionButtons.forEach((button) => {
-      button.addEventListener('click', onOptionClick);
-    });
-  });
-}
-
-function askImportSessionWorkdirMode(importInfo: ImportSessionPreview = {}): Promise<ImportWorkdirChoice | null> {
-  return new Promise((resolve) => {
-    const modal = el.importWorkdirModal;
-    const fileEl = el.importWorkdirFile;
-    const importedBtn = el.importWorkdirImported;
-    const importedDesc = el.importWorkdirImportedDesc;
-    const defaultBtn = el.importWorkdirDefault;
-    const defaultDesc = el.importWorkdirDefaultDesc;
-    const customBtn = el.importWorkdirCustom;
-    const customDesc = el.importWorkdirCustomDesc;
-    const customBrowseBtn = el.importWorkdirCustomBrowse;
-    const cancelBtn = el.importWorkdirCancel;
-    const confirmBtn = el.importWorkdirConfirm;
-    if (!modal || !fileEl || !importedBtn || !importedDesc || !defaultBtn || !defaultDesc || !customBtn || !customDesc || !customBrowseBtn || !cancelBtn || !confirmBtn) {
-      resolve({ mode: 'default' });
-      return;
-    }
-
-    const importedCwd = String(importInfo.cwd || '').trim();
-    const hasImportedWorkdir = Boolean(importInfo.hasImportedWorkdir && importedCwd);
-    const defaultWorkdir = String(state.settings.defaultWorkdir || '').trim();
-    let selectedMode = 'default';
-    let customWorkdir = '';
-
-    fileEl.textContent = t('importWorkdirFile', { value: String(importInfo.filePath || '-') });
-    importedDesc.textContent = hasImportedWorkdir
-      ? t('importWorkdirImportedDesc', { value: importedCwd })
-      : t('importWorkdirImportedUnavailable');
-    importedDesc.title = importedCwd;
-    defaultDesc.textContent = t('importWorkdirDefaultDesc', { value: defaultWorkdir || '-' });
-    defaultDesc.title = defaultWorkdir || '-';
-    customDesc.textContent = t('importWorkdirCustomUnset');
-    customDesc.title = '';
-    importedBtn.disabled = !hasImportedWorkdir;
-
-    const updateConfirmState = () => {
-      confirmBtn.disabled = selectedMode === 'custom' && !customWorkdir;
-    };
-
-    const syncCustomDesc = () => {
-      const text = customWorkdir || t('importWorkdirCustomUnset');
-      customDesc.textContent = customWorkdir
-        ? t('importWorkdirCustomDesc', { value: customWorkdir })
-        : text;
-      customDesc.title = customWorkdir;
-      updateConfirmState();
-    };
-
-    const applySelection = (mode: string) => {
-      let nextMode = 'default';
-      if (mode === 'imported' && hasImportedWorkdir) {
-        nextMode = 'imported';
-      } else if (mode === 'custom') {
-        nextMode = 'custom';
-      }
-      selectedMode = nextMode;
-      importedBtn.classList.toggle('is-selected', nextMode === 'imported');
-      importedBtn.setAttribute('aria-pressed', nextMode === 'imported' ? 'true' : 'false');
-      defaultBtn.classList.toggle('is-selected', nextMode === 'default');
-      defaultBtn.setAttribute('aria-pressed', nextMode === 'default' ? 'true' : 'false');
-      customBtn.classList.toggle('is-selected', nextMode === 'custom');
-      customBtn.setAttribute('aria-pressed', nextMode === 'custom' ? 'true' : 'false');
-      updateConfirmState();
-    };
-
-    syncCustomDesc();
-    applySelection('default');
-    modal.classList.remove('hidden');
-    defaultBtn.focus();
-
-    const cleanup = () => {
-      modal.classList.add('hidden');
-      importedBtn.removeEventListener('click', onImported);
-      defaultBtn.removeEventListener('click', onDefault);
-      customBtn.removeEventListener('click', onCustom);
-      customBrowseBtn.removeEventListener('click', onBrowseCustom);
-      cancelBtn.removeEventListener('click', onCancel);
-      confirmBtn.removeEventListener('click', onConfirm);
-      modal.removeEventListener('click', onBackdrop);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-
-    const onImported = () => {
-      applySelection('imported');
-    };
-
-    const onDefault = () => {
-      applySelection('default');
-    };
-
-    const onCustom = () => {
-      applySelection('custom');
-    };
-
-    const onBrowseCustom = async () => {
-      const result = await codexdesk.pickWorkdir({
-        defaultPath: customWorkdir || importedCwd || defaultWorkdir,
-      });
-      if (result?.canceled) {
-        return;
-      }
-      if (result?.error) {
-        window.alert(localizeKnownText(result.error));
-        return;
-      }
-      customWorkdir = String(result?.directoryPath || '').trim();
-      syncCustomDesc();
-      if (customWorkdir) {
-        applySelection('custom');
-      }
-    };
-
-    const onCancel = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    const onConfirm = () => {
-      if (selectedMode === 'custom' && !customWorkdir) {
-        return;
-      }
-      cleanup();
-      resolve({
-        mode: selectedMode,
-        workdir: selectedMode === 'custom' ? customWorkdir : '',
-      });
-    };
-
-    const onBackdrop = (event) => {
-      if (event.target === modal) {
-        onCancel();
-      }
-    };
-
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        onConfirm();
-      }
-    };
-
-    importedBtn.addEventListener('click', onImported);
-    defaultBtn.addEventListener('click', onDefault);
-    customBtn.addEventListener('click', onCustom);
-    customBrowseBtn.addEventListener('click', onBrowseCustom);
-    cancelBtn.addEventListener('click', onCancel);
-    confirmBtn.addEventListener('click', onConfirm);
-    modal.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKeyDown);
-  });
-}
-
-function resolvePreferredImportContinuationMode(importInfo: ImportSessionPreview = {}, workdirChoice: ImportWorkdirChoice | null | undefined): string {
-  const importedCwd = String(importInfo.cwd || '').trim();
-  const selectedMode = String(workdirChoice?.mode || 'default').trim() || 'default';
-  const selectedWorkdir = String(workdirChoice?.workdir || '').trim();
-  const defaultWorkdir = String(state.settings.defaultWorkdir || '').trim();
-
-  let resolvedWorkdir = defaultWorkdir;
-  if (selectedMode === 'imported') {
-    resolvedWorkdir = importedCwd;
-  } else if (selectedMode === 'custom') {
-    resolvedWorkdir = selectedWorkdir;
-  }
-
-  if (!importedCwd) {
-    return selectedMode === 'imported' ? 'resume' : 'fork';
-  }
-  return resolvedWorkdir && resolvedWorkdir === importedCwd ? 'resume' : 'fork';
-}
-
-function hideCloseGuardModal() {
-  if (!el.closeGuardModal) {
-    return;
-  }
-  el.closeGuardModal.classList.add('hidden');
-  if (el.closeGuardCancel) {
-    el.closeGuardCancel.disabled = false;
-  }
-  if (el.closeGuardStop) {
-    el.closeGuardStop.disabled = false;
-  }
-  if (el.closeGuardForce) {
-    el.closeGuardForce.disabled = false;
-  }
-}
-
-function showCloseGuardModal(payload: CloseGuardPayload = {}) {
-  if (!el.closeGuardModal) {
-    return;
-  }
-  if (el.closeGuardTitle) {
-    el.closeGuardTitle.textContent = String(payload.title || t('closeGuardTitle'));
-  }
-  if (el.closeGuardMessage) {
-    el.closeGuardMessage.textContent = String(payload.message || '');
-  }
-  if (el.closeGuardDetail) {
-    el.closeGuardDetail.textContent = String(payload.detail || t('closeGuardDetail'));
-  }
-  if (el.closeGuardCancel) {
-    el.closeGuardCancel.textContent = String(payload.cancelLabel || t('closeGuardCancel'));
-    el.closeGuardCancel.disabled = false;
-  }
-  if (el.closeGuardStop) {
-    el.closeGuardStop.textContent = String(payload.stopAndCloseLabel || t('closeGuardStopAndClose'));
-    el.closeGuardStop.disabled = false;
-  }
-  if (el.closeGuardForce) {
-    el.closeGuardForce.textContent = String(payload.forceCloseLabel || t('closeGuardForceClose'));
-    el.closeGuardForce.disabled = false;
-  }
-  el.closeGuardModal.classList.remove('hidden');
-  if (el.closeGuardCancel) {
-    el.closeGuardCancel.focus();
-  }
-}
-
-async function resolveCloseGuardAction(action) {
-  const nextAction = String(action || '').trim();
-  if (!nextAction) {
-    return;
-  }
-  if (el.closeGuardCancel) {
-    el.closeGuardCancel.disabled = true;
-  }
-  if (el.closeGuardStop) {
-    el.closeGuardStop.disabled = true;
-  }
-  if (el.closeGuardForce) {
-    el.closeGuardForce.disabled = true;
-  }
-  try {
-    await codexdesk.resolveCloseGuard(nextAction);
-    if (nextAction === 'cancel') {
-      hideCloseGuardModal();
-    }
-  } catch {
-    hideCloseGuardModal();
-  }
 }
 
 async function setAppZoomFactor(input: number | string, options: ZoomOptions = {}) {
@@ -1780,7 +709,7 @@ async function init() {
     }
     contextMenuConversationId = String(conversationId || '');
     const hasTarget = Boolean(contextMenuConversationId);
-    const targetConversation = state.conversations.find((item) => item.id === contextMenuConversationId) || null;
+    const targetConversation = findConversationById(contextMenuConversationId);
     if (el.ctxImportConv) {
       el.ctxImportConv.disabled = false;
     }
@@ -2252,8 +1181,9 @@ async function init() {
       detailTitle.setAttribute('data-i18n-key', key);
       detailTitle.textContent = t(key);
     }
-    if (target === 'help-telegram-logs' && !telegramLogsState.loaded && !telegramLogsState.loading) {
-      refreshTelegramLogs().catch(() => {});
+    const telegramLogsSnapshot = integrationSettings.getTelegramLogsSnapshot();
+    if (target === 'help-telegram-logs' && !telegramLogsSnapshot.loaded && !telegramLogsSnapshot.loading) {
+      integrationSettings.refreshTelegramLogs().catch(() => {});
     }
   };
 
@@ -3038,19 +1968,19 @@ async function init() {
 
   if (el.qsTelegramSave) {
     el.qsTelegramSave.addEventListener('click', async () => {
-      await saveNotificationSettings();
+      await integrationSettings.saveNotificationSettings();
     });
   }
 
   if (el.qsTelegramToggleTokenVisibility) {
     el.qsTelegramToggleTokenVisibility.addEventListener('click', () => {
-      toggleSecretVisibility(el.qsTelegramBotTokenInput, el.qsTelegramToggleTokenVisibility);
+      integrationSettings.toggleSecretVisibility(el.qsTelegramBotTokenInput, el.qsTelegramToggleTokenVisibility);
     });
   }
 
   if (el.qsTelegramToggleRemoteTokenVisibility) {
     el.qsTelegramToggleRemoteTokenVisibility.addEventListener('click', () => {
-      toggleSecretVisibility(el.qsTelegramRemoteBotTokenInput, el.qsTelegramToggleRemoteTokenVisibility);
+      integrationSettings.toggleSecretVisibility(el.qsTelegramRemoteBotTokenInput, el.qsTelegramToggleRemoteTokenVisibility);
     });
   }
 
@@ -3061,20 +1991,42 @@ async function init() {
     });
   }
 
+  const openCredentialVaultPane = () => {
+    setQuickSettingsPane('integration-security');
+    if (el.qsSecurityUnlockInput && !el.qsSecurityUnlockInput.disabled) {
+      window.setTimeout(() => {
+        el.qsSecurityUnlockInput.focus();
+      }, 0);
+    }
+  };
+
+  if (el.qsSecurityRuntimeUnlock) {
+    el.qsSecurityRuntimeUnlock.addEventListener('click', () => {
+      openCredentialVaultPane();
+    });
+  }
+
+  if (el.qsTelegramLockUnlock) {
+    el.qsTelegramLockUnlock.addEventListener('click', () => {
+      openCredentialVaultPane();
+    });
+  }
+
   if (el.qsTelegramTest) {
     el.qsTelegramTest.addEventListener('click', async () => {
-      await testTelegramSettings();
+      await integrationSettings.testTelegramSettings();
     });
   }
   if (el.qsTelegramLogsRefresh) {
     el.qsTelegramLogsRefresh.addEventListener('click', async () => {
-      await refreshTelegramLogs();
+      await integrationSettings.refreshTelegramLogs();
     });
   }
   if (el.qsTelegramLogsCopy) {
     el.qsTelegramLogsCopy.addEventListener('click', async () => {
-      const text = String(telegramLogsState.text || '').trim();
-      if (!text || Math.max(0, Number(telegramLogsState.count) || 0) <= 0) {
+      const telegramLogsSnapshot = integrationSettings.getTelegramLogsSnapshot();
+      const text = String(telegramLogsSnapshot.text || '').trim();
+      if (!text || Math.max(0, Number(telegramLogsSnapshot.count) || 0) <= 0) {
         return;
       }
       try {
@@ -3105,43 +2057,43 @@ async function init() {
 
   if (el.qsSecurityUnlockToggle) {
     el.qsSecurityUnlockToggle.addEventListener('click', () => {
-      toggleSecretVisibility(el.qsSecurityUnlockInput, el.qsSecurityUnlockToggle);
+      integrationSettings.toggleSecretVisibility(el.qsSecurityUnlockInput, el.qsSecurityUnlockToggle);
     });
   }
 
   if (el.qsSecurityNewPasswordToggle) {
     el.qsSecurityNewPasswordToggle.addEventListener('click', () => {
-      toggleSecretVisibility(el.qsSecurityNewPasswordInput, el.qsSecurityNewPasswordToggle);
+      integrationSettings.toggleSecretVisibility(el.qsSecurityNewPasswordInput, el.qsSecurityNewPasswordToggle);
     });
   }
 
   if (el.qsSecurityConfirmPasswordToggle) {
     el.qsSecurityConfirmPasswordToggle.addEventListener('click', () => {
-      toggleSecretVisibility(el.qsSecurityConfirmPasswordInput, el.qsSecurityConfirmPasswordToggle);
+      integrationSettings.toggleSecretVisibility(el.qsSecurityConfirmPasswordInput, el.qsSecurityConfirmPasswordToggle);
     });
   }
 
   if (el.qsSecurityUnlockAction) {
     el.qsSecurityUnlockAction.addEventListener('click', async () => {
-      await unlockMasterPassword();
+      await integrationSettings.unlockMasterPassword();
     });
   }
 
   if (el.qsSecurityLockAction) {
     el.qsSecurityLockAction.addEventListener('click', async () => {
-      await lockMasterPassword();
+      await integrationSettings.lockMasterPassword();
     });
   }
 
   if (el.qsSecuritySetPasswordAction) {
     el.qsSecuritySetPasswordAction.addEventListener('click', async () => {
-      await submitMasterPasswordUpdate('set');
+      await integrationSettings.submitMasterPasswordUpdate('set');
     });
   }
 
   if (el.qsSecurityChangePasswordAction) {
     el.qsSecurityChangePasswordAction.addEventListener('click', async () => {
-      await submitMasterPasswordUpdate('change');
+      await integrationSettings.submitMasterPasswordUpdate('change');
     });
   }
 
@@ -3151,7 +2103,7 @@ async function init() {
         return;
       }
       event.preventDefault();
-      await unlockMasterPassword();
+      await integrationSettings.unlockMasterPassword();
     });
   }
 
@@ -3161,10 +2113,10 @@ async function init() {
     }
     event.preventDefault();
     if (state.settings.security?.hasMasterPassword) {
-      await submitMasterPasswordUpdate('change');
+      await integrationSettings.submitMasterPasswordUpdate('change');
       return;
     }
-    await submitMasterPasswordUpdate('set');
+    await integrationSettings.submitMasterPasswordUpdate('set');
   };
 
   if (el.qsSecurityNewPasswordInput) {
@@ -3589,7 +2541,7 @@ async function init() {
   });
 
   runDocsCaptureSequence().catch(() => {});
-  renderTelegramLogsPane();
+  integrationSettings.renderTelegramLogsPane();
 
   renderCurrentTimeDisplay();
   setInterval(() => {

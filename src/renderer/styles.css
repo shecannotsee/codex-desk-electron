@@ -3605,6 +3605,25 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   color: #6f89a2;
 }
 
+.quick-settings-alert-card {
+  border: 1px solid rgba(226, 145, 20, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 214, 153, 0.42) 0%, rgba(255, 244, 224, 0.92) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
+}
+
+.quick-settings-alert-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #8d4f06;
+}
+
+.quick-settings-alert-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #8d5f23;
+}
+
 .quick-settings-checkbox {
   display: inline-flex;
   align-items: center;
@@ -4940,6 +4959,22 @@ html[data-theme='dark'] .quick-settings-toggle-row {
 html[data-theme='dark'] .quick-settings-form-label,
 html[data-theme='dark'] .quick-settings-form-hint {
   color: #9db2c7;
+}
+
+html[data-theme='dark'] .quick-settings-alert-card {
+  border-color: rgba(245, 158, 11, 0.32);
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.34) 0%, rgba(69, 26, 3, 0.28) 100%),
+    rgba(148, 163, 184, 0.1);
+  box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.08);
+}
+
+html[data-theme='dark'] .quick-settings-alert-title {
+  color: #fcd34d;
+}
+
+html[data-theme='dark'] .quick-settings-alert-text {
+  color: #f8d58a;
 }
 
 html[data-theme='dark'] .quick-settings-form-title {

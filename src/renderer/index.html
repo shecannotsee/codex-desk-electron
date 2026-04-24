@@ -94,37 +94,55 @@
                     <div class="quick-settings-form-card">
                       <label class="quick-settings-form-label" for="qs-device-identity-input" data-i18n-key="deviceIdentityLabel">设备身份标识</label>
                       <input id="qs-device-identity-input" class="quick-settings-text-input" type="text" placeholder="例如: desk-office" />
-                      <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，Telegram 通知会带上这个标识。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，发送到通讯工具的消息会带上这个标识。</div>
                     </div>
                     <div class="quick-settings-form-card">
                       <div class="quick-settings-inline-label" data-i18n-key="notificationProviderLabel">通讯工具</div>
-                      <div class="quick-settings-segmented">
-                        <button id="qs-notification-provider-telegram" type="button" class="quick-settings-pill active" data-i18n-key="providerTelegram">Telegram</button>
-                      </div>
-                      <div class="quick-settings-form-hint" data-i18n-key="notificationProviderHint">当前先支持 Telegram，后续可在这里扩展更多 provider。</div>
+                      <button id="qs-notification-provider-telegram" type="button" class="quick-settings-item" data-pane-route="integration-telegram">
+                        <span data-i18n-key="providerTelegram">Telegram</span>
+                        <span class="quick-settings-chevron">›</span>
+                      </button>
+                      <div class="quick-settings-form-hint" data-i18n-key="notificationProviderHint">选择要配置的通讯工具。</div>
                     </div>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="integration-telegram">
                     <div class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="telegramNotificationSectionTitle">结果通知</div>
                       <label class="quick-settings-checkbox" for="qs-telegram-enabled">
                         <input id="qs-telegram-enabled" type="checkbox" />
                         <span id="label-qs-telegram-enabled" data-i18n-key="telegramEnabled">启用 Telegram 结果通知</span>
                       </label>
                       <label class="quick-settings-form-label" for="qs-telegram-bot-token-input" data-i18n-key="telegramBotToken">Bot Token</label>
-                      <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存 Token" />
-                      <div id="qs-telegram-token-status" class="quick-settings-form-hint">当前未保存 Bot Token</div>
+                      <div class="quick-settings-secret-row">
+                        <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存 Token" />
+                        <button id="qs-telegram-toggle-token-visibility" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
+                      </div>
                       <label class="quick-settings-form-label" for="qs-telegram-chat-id-input" data-i18n-key="telegramChatId">Chat ID</label>
                       <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入接收通知的 chat id" />
-                      <div class="quick-settings-form-hint" data-i18n-key="telegramHint">通知会推送成功与失败结果。对话 ID 仍是主标识，名称只用于快速识别。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramHint">完成或失败时会推送结果。通知里会显示重命名后的对话名称和对话 ID。</div>
+                    </div>
+                    <div class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="telegramRemoteSectionTitle">远程对话</div>
                       <label class="quick-settings-checkbox" for="qs-telegram-remote-control-enabled">
                         <input id="qs-telegram-remote-control-enabled" type="checkbox" />
-                        <span id="label-qs-telegram-remote-control-enabled" data-i18n-key="telegramRemoteControlEnabled">启用 Telegram 远程发消息</span>
+                        <span id="label-qs-telegram-remote-control-enabled" data-i18n-key="telegramRemoteControlEnabled">启用 Telegram 远程对话</span>
                       </label>
-                      <label class="quick-settings-form-label" for="qs-telegram-allowed-chat-id-input" data-i18n-key="telegramAllowedChatId">远程控制 Chat ID</label>
-                      <input id="qs-telegram-allowed-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="留空则复用通知 Chat ID" />
-                      <div class="quick-settings-form-hint" data-i18n-key="telegramRemoteControlHint">开启后，可在 Telegram 中用 /list、/use、/new 选择对话，并直接发送文本到当前绑定对话。</div>
+                      <label class="quick-settings-form-label" for="qs-telegram-remote-bot-token-input" data-i18n-key="telegramRemoteBotToken">远程对话 Bot Token</label>
+                      <div class="quick-settings-secret-row">
+                        <input id="qs-telegram-remote-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存远程对话 Token" />
+                        <button id="qs-telegram-toggle-remote-token-visibility" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
+                      </div>
+                      <label class="quick-settings-form-label" for="qs-telegram-allowed-chat-id-input" data-i18n-key="telegramAllowedChatId">远程对话 Chat ID</label>
+                      <input id="qs-telegram-allowed-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入允许远程对话的 chat id" />
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramRemoteControlHint">开启后，去 Telegram 里发送 /help 查看可用命令。</div>
+                    </div>
+                    <div class="quick-settings-form-card quick-settings-action-card">
+                      <div class="quick-settings-form-title" data-i18n-key="telegramActionsTitle">应用与测试</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramActionsHint">测试会向当前已勾选且配置完整的项目发送消息。</div>
                       <div class="quick-settings-form-actions">
-                        <button id="qs-telegram-save" type="button" class="quick-settings-inline-action" data-i18n-key="saveSettings">保存配置</button>
-                        <button id="qs-telegram-test" type="button" class="quick-settings-inline-action" data-i18n-key="testNotificationProvider">发送测试通知</button>
-                        <button id="qs-telegram-clear-token" type="button" class="quick-settings-inline-action" data-i18n-key="telegramClearToken">清除已保存 Token</button>
+                        <button id="qs-telegram-save" type="button" class="quick-settings-action-btn primary" data-i18n-key="saveTelegramSettings">保存当前配置</button>
+                        <button id="qs-telegram-test" type="button" class="quick-settings-action-btn secondary" data-i18n-key="testEnabledTelegramSettings">测试已勾选配置</button>
                       </div>
                     </div>
                   </section>
@@ -182,6 +200,32 @@
 
                   <section class="quick-settings-pane" data-pane="help">
                     <button type="button" class="quick-settings-item" data-action="help:about" data-i18n-key="about">关于 Codex Desk</button>
+                    <button id="qs-help-telegram-logs" type="button" class="quick-settings-item" data-pane-route="help-telegram-logs">
+                      <span data-i18n-key="helpTelegramLogs">Telegram 日志</span>
+                      <span class="quick-settings-chevron">›</span>
+                    </button>
+                  </section>
+
+                  <section class="quick-settings-pane" data-pane="help-telegram-logs">
+                    <div class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="telegramLogsTitle">Telegram 日志</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="telegramLogsHint">快速查看当前 Telegram 相关日志，便于排查通知、远程对话与自动重试问题。</div>
+                      <label class="quick-settings-form-label" for="qs-telegram-logs-path" data-i18n-key="telegramLogsPathLabel">日志文件</label>
+                      <input id="qs-telegram-logs-path" class="quick-settings-text-input" type="text" readonly value="" />
+                      <div class="quick-settings-inline-meta-actions">
+                        <span class="quick-settings-form-label" data-i18n-key="telegramLogsCountLabel">当前条数</span>
+                        <span id="qs-telegram-logs-count" class="quick-settings-static-value">0</span>
+                      </div>
+                    </div>
+                    <div class="quick-settings-form-card quick-settings-log-card">
+                      <textarea id="qs-telegram-logs-output" class="quick-settings-log-output" readonly spellcheck="false">当前还没有 Telegram 相关日志。</textarea>
+                    </div>
+                    <div class="quick-settings-form-card quick-settings-action-card">
+                      <div class="quick-settings-form-actions">
+                        <button id="qs-telegram-logs-refresh" type="button" class="quick-settings-action-btn primary" data-i18n-key="telegramLogsRefresh">刷新日志</button>
+                        <button id="qs-telegram-logs-copy" type="button" class="quick-settings-action-btn secondary" data-i18n-key="telegramLogsCopy">复制日志</button>
+                      </div>
+                    </div>
                   </section>
                   <div class="quick-settings-detail-footer">
                     <button id="qs-back" type="button" class="quick-settings-item quick-settings-back-row" data-i18n-key="settingsBack">返回</button>

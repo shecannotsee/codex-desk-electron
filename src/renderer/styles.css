@@ -3558,6 +3558,13 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   color: #62809c;
 }
 
+.quick-settings-form-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #24435e;
+  letter-spacing: 0.01em;
+}
+
 .quick-settings-text-input {
   width: 100%;
   min-height: 38px;
@@ -3579,6 +3586,17 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
 
 .quick-settings-text-input::placeholder {
   color: #8fa3b7;
+}
+
+.quick-settings-secret-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-settings-secret-row .quick-settings-text-input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .quick-settings-form-hint {
@@ -3603,11 +3621,25 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   accent-color: #3390ec;
 }
 
+.quick-settings-inline-meta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .quick-settings-form-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.quick-settings-action-card {
+  background:
+    linear-gradient(180deg, rgba(51, 144, 236, 0.12) 0%, rgba(51, 144, 236, 0.06) 100%),
+    rgba(51, 144, 236, 0.04);
 }
 
 .quick-settings-toggle-row {
@@ -3669,6 +3701,65 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   color: #2c4359;
   font-size: 12px;
   font-weight: 700;
+}
+
+.quick-settings-action-btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.quick-settings-action-btn.primary {
+  background: #3390ec;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(51, 144, 236, 0.2);
+}
+
+.quick-settings-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(51, 144, 236, 0.22);
+  color: #1f4a74;
+}
+
+.quick-settings-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.quick-settings-action-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 10px 22px rgba(51, 144, 236, 0.28);
+}
+
+.quick-settings-action-btn.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.quick-settings-log-card {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.quick-settings-log-output {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  border: 1px solid #c9d8e8;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  color: #203549;
+  padding: 12px 14px;
+  font: 12px/1.55 'JetBrains Mono', 'Noto Sans SC', 'Microsoft YaHei', monospace;
+  white-space: pre-wrap;
+  outline: none;
+}
+
+.quick-settings-log-output:focus {
+  border-color: rgba(51, 144, 236, 0.7);
+  box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.12);
 }
 
 .quick-settings-inline-label {
@@ -4229,7 +4320,7 @@ html[data-theme='dark'] .msg-assistant a:hover {
   align-items: center;
   justify-content: center;
   width: auto;
-  max-width: min(320px, calc(100% - 420px));
+  max-width: min(520px, calc(100% - 140px));
   gap: 10px;
   pointer-events: none;
 }
@@ -4239,16 +4330,15 @@ html[data-theme='dark'] .msg-assistant a:hover {
   width: auto;
   max-width: 100%;
   padding: 7px 12px;
-  border-radius: 999px;
+  border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: rgba(255, 255, 255, 0.96);
   color: #16324d;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
   font-size: 12px;
   line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
   user-select: text;
   pointer-events: auto;
   cursor: copy;
@@ -4852,6 +4942,10 @@ html[data-theme='dark'] .quick-settings-form-hint {
   color: #9db2c7;
 }
 
+html[data-theme='dark'] .quick-settings-form-title {
+  color: #dbeafe;
+}
+
 html[data-theme='dark'] .quick-settings-checkbox {
   color: #dbe4f0;
 }
@@ -4875,6 +4969,29 @@ html[data-theme='dark'] .quick-settings-pill.active {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #ffffff;
+}
+
+html[data-theme='dark'] .quick-settings-action-card {
+  background:
+    linear-gradient(180deg, rgba(29, 78, 216, 0.2) 0%, rgba(37, 99, 235, 0.08) 100%),
+    rgba(148, 163, 184, 0.1);
+}
+
+html[data-theme='dark'] .quick-settings-action-btn.primary {
+  background: #2563eb;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
+}
+
+html[data-theme='dark'] .quick-settings-action-btn.secondary {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(96, 165, 250, 0.24);
+  color: #dbeafe;
+}
+
+html[data-theme='dark'] .quick-settings-log-output {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(71, 85, 105, 0.86);
+  color: #dbe4f0;
 }
 
 html[data-theme='dark'] .quick-settings-number-suffix {

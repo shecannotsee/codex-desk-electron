@@ -74,9 +74,10 @@ class NotificationCenter {
     const settings = this.getSettings();
     const telegram = this.getProvider('telegram');
     const telegramSnapshot = telegram
-      ? telegram.snapshot()
+      ? telegram.snapshot({ includeSecrets: true })
       : {
         enabled: Boolean(settings.telegram.enabled),
+        botToken: String(settings.telegram.botToken || '').trim(),
         chatId: String(settings.telegram.chatId || '').trim(),
         hasBotToken: Boolean(settings.telegram.hasBotToken),
         botTokenHash: String(settings.telegram.botTokenHash || '').trim(),

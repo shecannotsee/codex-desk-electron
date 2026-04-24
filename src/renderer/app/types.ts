@@ -12,6 +12,7 @@ export type NotificationProvider = 'telegram';
 
 export interface TelegramSettingsState {
   enabled: boolean;
+  botToken?: string;
   chatId: string;
   hasBotToken?: boolean;
   botTokenHash?: string;
@@ -27,9 +28,11 @@ export interface NotificationSettingsState {
 
 export interface TelegramRemoteControlState {
   enabled: boolean;
+  botToken?: string;
+  hasBotToken?: boolean;
+  botTokenHash?: string;
+  botTokenFingerprint?: string;
   allowedChatId: string;
-  effectiveAllowedChatId?: string;
-  usesNotificationChatId?: boolean;
 }
 
 export interface RemoteControlSettingsState {
@@ -288,6 +291,9 @@ export interface GenericResult {
   snapshot?: AppSnapshot;
   canceled?: boolean;
   directoryPath?: string;
+  logsText?: string;
+  logPath?: string;
+  logCount?: number;
   exported?: {
     filePath?: string;
     messageCount?: number;
@@ -303,8 +309,10 @@ export interface GenericResult {
 export interface CodexDeskApi {
   getAppInfo(): Promise<Partial<AppInfo>>;
   getSnapshot(): Promise<AppSnapshot>;
+  getTelegramLogs(): Promise<GenericResult>;
   updateSettings(payload: unknown): Promise<GenericResult>;
   testNotificationProvider(): Promise<GenericResult>;
+  testRemoteControlProvider(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
   createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
@@ -425,14 +433,21 @@ export interface UiElementRefs {
   qsTelegramEnabled: HTMLInputElement;
   labelQsTelegramEnabled: HTMLElement;
   qsTelegramBotTokenInput: HTMLInputElement;
+  qsTelegramToggleTokenVisibility: HTMLButtonElement;
   qsTelegramChatIdInput: HTMLInputElement;
-  qsTelegramTokenStatus: HTMLElement;
   qsTelegramRemoteControlEnabled: HTMLInputElement;
   labelQsTelegramRemoteControlEnabled: HTMLElement;
+  qsTelegramRemoteBotTokenInput: HTMLInputElement;
+  qsTelegramToggleRemoteTokenVisibility: HTMLButtonElement;
   qsTelegramAllowedChatIdInput: HTMLInputElement;
   qsTelegramSave: HTMLButtonElement;
   qsTelegramTest: HTMLButtonElement;
-  qsTelegramClearToken: HTMLButtonElement;
+  qsHelpTelegramLogs: HTMLButtonElement;
+  qsTelegramLogsRefresh: HTMLButtonElement;
+  qsTelegramLogsCopy: HTMLButtonElement;
+  qsTelegramLogsPath: HTMLInputElement;
+  qsTelegramLogsCount: HTMLElement;
+  qsTelegramLogsOutput: HTMLTextAreaElement;
   i18nNodes: HTMLElement[];
   commandInput: HTMLInputElement;
   workdirInput: HTMLInputElement;

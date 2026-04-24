@@ -3,8 +3,10 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('codexdesk', {
   getAppInfo: () => ipcRenderer.invoke('app:get-info'),
   getSnapshot: () => ipcRenderer.invoke('app:get-snapshot'),
+  getTelegramLogs: () => ipcRenderer.invoke('app:get-telegram-logs'),
   updateSettings: (payload) => ipcRenderer.invoke('app:update-settings', payload),
   testNotificationProvider: () => ipcRenderer.invoke('app:test-notification-provider'),
+  testRemoteControlProvider: () => ipcRenderer.invoke('app:test-remote-control-provider'),
   pickWorkdir: (payload) => ipcRenderer.invoke('app:pick-workdir', payload),
 
   switchConversation: (conversationId) => ipcRenderer.invoke('conversation:switch', { conversationId }),

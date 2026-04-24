@@ -86,6 +86,17 @@ let sortedConversationCache: ConversationSummary[] = [];
 let conversationListCacheVersion = 0;
 let lastConversationListRenderSignature = '';
 
+function renderSecretVisibilityToggle(button: HTMLButtonElement | null | undefined, input: HTMLInputElement | null | undefined) {
+  if (!button || !input) {
+    return;
+  }
+  const visible = input.type === 'text';
+  const label = visible ? t('hideSecret') : t('showSecret');
+  button.textContent = label;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+}
+
 interface ModelPricing {
   inputPerMillion: number;
   cachedInputPerMillion: number;
@@ -458,27 +469,27 @@ function renderSettings() {
     el.qsTelegramEnabled.checked = Boolean(telegramSettings?.enabled);
   }
   if (el.qsTelegramBotTokenInput) {
+    el.qsTelegramBotTokenInput.value = String(telegramSettings?.botToken || '').trim();
     el.qsTelegramBotTokenInput.title = t('telegramBotTokenPlaceholder');
   }
+  renderSecretVisibilityToggle(el.qsTelegramToggleTokenVisibility, el.qsTelegramBotTokenInput);
   if (el.qsTelegramChatIdInput) {
     const chatId = String(telegramSettings?.chatId || '').trim();
     el.qsTelegramChatIdInput.value = chatId;
     el.qsTelegramChatIdInput.title = chatId || '-';
   }
-  if (el.qsTelegramTokenStatus) {
-    const fingerprint = String(telegramSettings?.botTokenFingerprint || '').trim();
-    el.qsTelegramTokenStatus.textContent = fingerprint
-      ? t('telegramTokenSaved', { fingerprint })
-      : t('telegramTokenMissing');
-  }
   if (el.qsTelegramRemoteControlEnabled) {
     el.qsTelegramRemoteControlEnabled.checked = Boolean(telegramRemoteControl?.enabled);
   }
+  if (el.qsTelegramRemoteBotTokenInput) {
+    el.qsTelegramRemoteBotTokenInput.value = String(telegramRemoteControl?.botToken || '').trim();
+    el.qsTelegramRemoteBotTokenInput.title = t('telegramRemoteBotTokenPlaceholder');
+  }
+  renderSecretVisibilityToggle(el.qsTelegramToggleRemoteTokenVisibility, el.qsTelegramRemoteBotTokenInput);
   if (el.qsTelegramAllowedChatIdInput) {
     const allowedChatId = String(telegramRemoteControl?.allowedChatId || '').trim();
-    const effectiveAllowedChatId = String(telegramRemoteControl?.effectiveAllowedChatId || '').trim();
     el.qsTelegramAllowedChatIdInput.value = allowedChatId;
-    el.qsTelegramAllowedChatIdInput.title = effectiveAllowedChatId || allowedChatId || '-';
+    el.qsTelegramAllowedChatIdInput.title = allowedChatId || '-';
   }
   const perm = resolvePermissionSummary();
   if (el.permissionInput) {
@@ -501,15 +512,8 @@ function renderSettings() {
     const rawVersion = String(state.appInfo?.version || '').trim();
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
   }
-  const hasTelegramConfig = Boolean(
-    telegramSettings?.hasBotToken
-    && String(telegramSettings?.chatId || '').trim(),
-  );
   if (el.qsTelegramTest) {
-    el.qsTelegramTest.disabled = !hasTelegramConfig;
-  }
-  if (el.qsTelegramClearToken) {
-    el.qsTelegramClearToken.disabled = !Boolean(telegramSettings?.hasBotToken);
+    el.qsTelegramTest.disabled = false;
   }
 }
 
@@ -1574,6 +1578,9 @@ function renderLocaleTexts() {
   }
   if (el.qsTelegramBotTokenInput) {
     el.qsTelegramBotTokenInput.placeholder = t('telegramBotTokenPlaceholder');
+  }
+  if (el.qsTelegramRemoteBotTokenInput) {
+    el.qsTelegramRemoteBotTokenInput.placeholder = t('telegramRemoteBotTokenPlaceholder');
   }
   if (el.qsTelegramChatIdInput) {
     el.qsTelegramChatIdInput.placeholder = t('telegramChatIdPlaceholder');

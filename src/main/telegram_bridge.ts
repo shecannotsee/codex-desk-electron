@@ -4,6 +4,7 @@ const {
   normalizeTelegramSettings,
   toSecretFingerprint,
 } = require('./state_store');
+const { appendTelegramLog } = require('./telegram_log_store');
 const { spawn } = require('node:child_process');
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
@@ -36,6 +37,24 @@ function normalizeTelegramText(text, limit = 1200) {
     return value;
   }
   return `${value.slice(0, limit).trimEnd()}...`;
+}
+
+function normalizeTelegramApiError(message = '', statusCode = 0) {
+  const text = String(message || '').trim();
+  const lower = text.toLowerCase();
+  if (!text) {
+    return 'Telegram API error';
+  }
+  if (statusCode === 404 || lower === 'not found' || lower.endsWith(': not found') || lower.includes('response: not found')) {
+    return 'Telegram Bot Token 无效，接口返回 Not Found';
+  }
+  if (lower.includes('chat not found')) {
+    return 'Telegram Chat ID 无效，或该聊天还没有和 Bot 建立会话';
+  }
+  if (lower.includes('bot was blocked by the user')) {
+    return 'Telegram Bot 已被对方屏蔽，请先解除屏蔽后再测试';
+  }
+  return text;
 }
 
 function buildTelegramApiUrl(botToken, method = '') {
@@ -79,7 +98,10 @@ async function postTelegramViaFetch(url, payload, timeoutMs) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data?.ok) {
-      throw new Error(String(data?.description || response.statusText || 'Telegram API error').trim());
+      throw new Error(normalizeTelegramApiError(
+        String(data?.description || response.statusText || 'Telegram API error').trim(),
+        response.status,
+      ));
     }
     return data;
   } catch (error) {
@@ -135,14 +157,14 @@ function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
     });
 
     child.on('error', (error) => {
-      const fetchMessage = fetchError?.message ? `fetch: ${fetchError.message}` : '';
+      const fetchMessage = fetchError?.message ? `fetch: ${normalizeTelegramApiError(fetchError.message)}` : '';
       const curlMessage = error?.message ? `curl: ${error.message}` : '';
       done(reject, new Error([fetchMessage, curlMessage].filter(Boolean).join(' | ') || 'Telegram 请求失败'));
     });
 
     child.on('close', (code) => {
       if (Number(code || 0) !== 0) {
-        const fetchMessage = fetchError?.message ? `fetch: ${fetchError.message}` : '';
+        const fetchMessage = fetchError?.message ? `fetch: ${normalizeTelegramApiError(fetchError.message)}` : '';
         const curlMessage = String(stderr || '').trim() ? `curl: ${String(stderr || '').trim()}` : '';
         done(reject, new Error([fetchMessage, curlMessage].filter(Boolean).join(' | ') || `curl exited with code ${code}`));
         return;
@@ -150,13 +172,13 @@ function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
       try {
         const data = JSON.parse(String(stdout || '{}'));
         if (!data?.ok) {
-          throw new Error(String(data?.description || 'Telegram API error').trim());
+          throw new Error(normalizeTelegramApiError(String(data?.description || 'Telegram API error').trim()));
         }
         done(resolve, data);
       } catch (error) {
-        const fetchMessage = fetchError?.message ? `fetch: ${fetchError.message}` : '';
+        const fetchMessage = fetchError?.message ? `fetch: ${normalizeTelegramApiError(fetchError.message)}` : '';
         const curlMessage = String(stderr || '').trim() ? `curl: ${String(stderr || '').trim()}` : '';
-        const parseMessage = error?.message ? `response: ${error.message}` : '';
+        const parseMessage = error?.message ? `response: ${normalizeTelegramApiError(error.message)}` : '';
         done(reject, new Error([fetchMessage, curlMessage, parseMessage].filter(Boolean).join(' | ') || 'Telegram 响应解析失败'));
       }
     });
@@ -167,7 +189,6 @@ function buildConversationResultMessage({
   deviceIdentity = '',
   status = 'completed',
   conversationId = '',
-  sessionId = '',
   conversationTitle = '',
   userText = '',
   assistantText = '',
@@ -178,11 +199,14 @@ function buildConversationResultMessage({
     ? 'failed'
     : 'completed';
   const title = normalizedStatus === 'failed' ? '对话失败' : '对话完成';
+  const resolvedConversationId = String(conversationId || '').trim() || '-';
+  const resolvedConversationTitle = normalizeTelegramText(conversationTitle, 80) || '';
+  const conversationLabel = resolvedConversationTitle && resolvedConversationTitle !== resolvedConversationId
+    ? `${resolvedConversationTitle} [${resolvedConversationId}]`
+    : resolvedConversationId;
   const lines = [
     `Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${title}`,
-    `对话ID: ${String(conversationId || '').trim() || '-'}`,
-    `原生会话ID: ${String(sessionId || '').trim() || '-'}`,
-    `名称: ${String(conversationTitle || '').trim() || '-'}`,
+    `对话: ${conversationLabel}`,
     `用户: ${normalizeTelegramText(userText, 320) || '-'}`,
   ];
   if (normalizedStatus === 'failed') {
@@ -194,22 +218,71 @@ function buildConversationResultMessage({
   return lines.join('\n');
 }
 
-async function sendTelegramMessage(settings, messageText) {
+function sleepMs(ms = 0) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(0, Number(ms) || 0));
+  });
+}
+
+function isRetryableTelegramError(errorText = '') {
+  const text = String(errorText || '').trim().toLowerCase();
+  if (!text) {
+    return false;
+  }
+  return [
+    'timeout',
+    'timed out',
+    'unexpected eof',
+    'eof while reading',
+    'connection reset',
+    'empty reply from server',
+    'network is unreachable',
+    'temporarily unavailable',
+    'tls',
+    'ssl',
+    'socket hang up',
+    'econnreset',
+    'etimedout',
+  ].some((item) => text.includes(item));
+}
+
+async function sendTelegramMessage(settings, messageText, options: any = {}) {
   const normalizedSettings = normalizeTelegramSettings(settings);
-  const chatId = String(normalizedSettings.chatId || '').trim();
+  const chatId = String(
+    Object.prototype.hasOwnProperty.call(options, 'chatId')
+      ? options.chatId
+      : normalizedSettings.chatId,
+  ).trim();
   if (!chatId) {
     return { ok: false, error: 'Telegram Chat ID 未配置' };
   }
-  try {
-    const result = await postTelegram(normalizedSettings, 'sendMessage', {
-      chat_id: chatId,
-      text: normalizeTelegramText(messageText, 3900),
-      disable_web_page_preview: true,
-    });
-    return { ok: true, result };
-  } catch (error) {
-    return { ok: false, error: error?.message || String(error) };
+  const maxAttempts = Math.max(1, Math.min(3, Number(options.maxAttempts) || 3));
+  const logLabel = String(options.logLabel || 'Telegram').trim() || 'Telegram';
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = await postTelegram(normalizedSettings, 'sendMessage', {
+        chat_id: chatId,
+        text: normalizeTelegramText(messageText, 3900),
+        disable_web_page_preview: true,
+        ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+      });
+      if (attempt > 1) {
+        appendTelegramLog('info', `${logLabel} 第 ${attempt} 次重试发送成功`);
+      }
+      return { ok: true, result };
+    } catch (error) {
+      lastError = error?.message || String(error);
+      const retryable = isRetryableTelegramError(lastError);
+      if (attempt >= maxAttempts || !retryable) {
+        appendTelegramLog('error', `${logLabel} 发送失败: ${lastError}`);
+        return { ok: false, error: lastError };
+      }
+      appendTelegramLog('warn', `${logLabel} 第 ${attempt} 次发送失败，准备自动重试: ${lastError}`);
+      await sleepMs(700 * attempt);
+    }
   }
+  return { ok: false, error: lastError || 'Telegram 请求失败' };
 }
 
 async function sendConversationCompletedNotification(settings, payload) {
@@ -217,7 +290,7 @@ async function sendConversationCompletedNotification(settings, payload) {
     ...(payload || {}),
     status: 'completed',
   });
-  return sendTelegramMessage(settings, message);
+  return sendTelegramMessage(settings, message, { logLabel: 'Telegram 通知' });
 }
 
 async function sendConversationFailedNotification(settings, payload) {
@@ -225,14 +298,13 @@ async function sendConversationFailedNotification(settings, payload) {
     ...(payload || {}),
     status: 'failed',
   });
-  return sendTelegramMessage(settings, message);
+  return sendTelegramMessage(settings, message, { logLabel: 'Telegram 通知' });
 }
 
 async function testTelegramConnection(settings, deviceIdentity = '') {
   return sendConversationCompletedNotification(settings, {
     deviceIdentity,
     conversationId: 'test-conversation',
-    sessionId: 'test-session',
     conversationTitle: 'Telegram 测试通知',
     userText: '这是一条测试消息',
     assistantText: 'Telegram 通知配置已生效',
@@ -268,11 +340,13 @@ class TelegramBotModule {
     return normalizeIdentity(this.deviceIdentity || '');
   }
 
-  snapshot() {
+  snapshot(options: any = {}) {
     const settings = this.getSettings();
     const tokenHash = settings.botToken ? hashSecret(settings.botToken) : String(settings.botTokenHash || '').trim();
+    const includeSecrets = Boolean(options.includeSecrets);
     return {
       enabled: Boolean(settings.enabled),
+      botToken: includeSecrets ? String(settings.botToken || '').trim() : '',
       chatId: String(settings.chatId || '').trim(),
       hasBotToken: Boolean(tokenHash),
       botTokenHash: tokenHash,
@@ -286,7 +360,7 @@ class TelegramBotModule {
     if (!settings.enabled) {
       return { ok: false, skipped: true, reason: 'disabled' };
     }
-    return sendTelegramMessage(settings, messageText);
+    return sendTelegramMessage(settings, messageText, { logLabel: 'Telegram 消息' });
   }
 
   async sendConversationCompleted(payload: any = {}, settingsOverride = null) {

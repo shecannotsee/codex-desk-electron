@@ -7,6 +7,11 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 
 const { AppController } = require('./app_controller');
 const { resolvePackageRoot, resolveRepoRoot } = require('./project_paths');
+const {
+  TELEGRAM_LOG_PATH,
+  formatTelegramLogs,
+  listTelegramLogs,
+} = require('./telegram_log_store');
 
 app.setName('Codex Desk');
 
@@ -714,9 +719,19 @@ function registerIpc() {
     name: app.getName(),
     version: app.getVersion(),
   }));
+  ipcMain.handle('app:get-telegram-logs', async () => {
+    const entries = listTelegramLogs(200);
+    return {
+      ok: true,
+      logCount: entries.length,
+      logPath: TELEGRAM_LOG_PATH,
+      logsText: formatTelegramLogs(entries),
+    };
+  });
 
   ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
   ipcMain.handle('app:test-notification-provider', async () => controller.testNotificationProvider());
+  ipcMain.handle('app:test-remote-control-provider', async () => controller.testRemoteControlProvider());
   ipcMain.handle('app:pick-workdir', async (_, payload) => {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return { ok: false, error: '窗口不可用' };

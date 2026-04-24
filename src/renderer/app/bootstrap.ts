@@ -177,7 +177,10 @@ function showAppNotice(message: string, tone: 'info' | 'success' | 'error' = 'in
   window.requestAnimationFrame(() => {
     card.classList.add('is-visible');
   });
-  const visibleMs = tone === 'error' ? 6000 : 2200;
+  const lineCount = text.split('\n').filter(Boolean).length;
+  const visibleMs = tone === 'error'
+    ? Math.max(6000, 2500 + lineCount * 2200)
+    : Math.max(2200, 1200 + lineCount * 900);
   noticeHideTimer = window.setTimeout(() => {
     card.classList.remove('is-visible');
     noticeClearTimer = window.setTimeout(() => {
@@ -192,6 +195,7 @@ function normalizeTelegramProviderState(raw: any, fallback: any = {}) {
   const tokenHash = String(raw?.botTokenHash ?? fallback?.botTokenHash ?? '').trim();
   return {
     enabled: Boolean(raw?.enabled ?? fallback?.enabled),
+    botToken: String(raw?.botToken ?? fallback?.botToken ?? '').trim(),
     chatId: String(raw?.chatId ?? fallback?.chatId ?? '').trim(),
     hasBotToken: Boolean(raw?.hasBotToken ?? fallback?.hasBotToken ?? tokenHash),
     botTokenHash: tokenHash,
@@ -213,11 +217,14 @@ function normalizeNotificationSettingsState(raw: any, fallback: any = {}): Notif
 }
 
 function normalizeTelegramRemoteControlState(raw: any, fallback: any = {}) {
+  const tokenHash = String(raw?.botTokenHash ?? fallback?.botTokenHash ?? '').trim();
   return {
     enabled: Boolean(raw?.enabled ?? fallback?.enabled),
+    botToken: String(raw?.botToken ?? fallback?.botToken ?? '').trim(),
+    hasBotToken: Boolean(raw?.hasBotToken ?? fallback?.hasBotToken ?? tokenHash),
+    botTokenHash: tokenHash,
+    botTokenFingerprint: String(raw?.botTokenFingerprint ?? fallback?.botTokenFingerprint ?? '').trim(),
     allowedChatId: String(raw?.allowedChatId ?? fallback?.allowedChatId ?? '').trim(),
-    effectiveAllowedChatId: String(raw?.effectiveAllowedChatId ?? fallback?.effectiveAllowedChatId ?? '').trim(),
-    usesNotificationChatId: Boolean(raw?.usesNotificationChatId ?? fallback?.usesNotificationChatId ?? true),
   };
 }
 
@@ -236,6 +243,7 @@ function normalizeRemoteControlSettingsState(raw: any, fallback: any = {}): Remo
 
 function collectNotificationSettingsPayload() {
   const botToken = String(el.qsTelegramBotTokenInput?.value || '').trim();
+  const remoteBotToken = String(el.qsTelegramRemoteBotTokenInput?.value || '').trim();
   return {
     deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
     notifications: {
@@ -250,29 +258,198 @@ function collectNotificationSettingsPayload() {
       activeProvider: 'telegram',
       telegram: {
         enabled: Boolean(el.qsTelegramRemoteControlEnabled?.checked),
+        ...(remoteBotToken ? { botToken: remoteBotToken } : {}),
         allowedChatId: String(el.qsTelegramAllowedChatIdInput?.value || '').trim(),
       },
     },
   };
 }
 
+function updateSecretToggleLabel(button: HTMLButtonElement | null | undefined, input: HTMLInputElement | null | undefined) {
+  if (!button || !input) {
+    return;
+  }
+  const label = input.type === 'text' ? t('hideSecret') : t('showSecret');
+  button.textContent = label;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+}
+
+function toggleSecretVisibility(input: HTMLInputElement | null | undefined, button: HTMLButtonElement | null | undefined) {
+  if (!input) {
+    return;
+  }
+  input.type = input.type === 'password' ? 'text' : 'password';
+  updateSecretToggleLabel(button, input);
+}
+
 async function saveNotificationSettings(options: { silent?: boolean } = {}) {
   const result = await codexdesk.updateSettings(collectNotificationSettingsPayload());
   if (result?.error) {
-    window.alert(localizeKnownText(result.error));
+    showAppNotice(localizeKnownText(result.error), 'error');
     applySnapshot(result?.snapshot || {});
     renderAll();
     return null;
   }
   applySnapshot(result?.snapshot || result);
-  if (el.qsTelegramBotTokenInput) {
-    el.qsTelegramBotTokenInput.value = '';
-  }
   renderSettings();
   if (!options.silent) {
     showAppNotice(t('settingsSaved'), 'success');
   }
   return result;
+}
+
+type TelegramTestTarget = {
+  label: string;
+  ready: boolean;
+  run: () => Promise<{ ok?: boolean; error?: string }>;
+};
+
+function collectTelegramTestTargets(): TelegramTestTarget[] {
+  const targets: TelegramTestTarget[] = [];
+  if (el.qsTelegramEnabled?.checked) {
+    const telegramSettings = state.settings.notifications?.providers?.telegram;
+    targets.push({
+      label: t('telegramTestNotificationLabel'),
+      ready: Boolean(telegramSettings?.hasBotToken && String(telegramSettings?.chatId || '').trim()),
+      run: () => codexdesk.testNotificationProvider(),
+    });
+  }
+  if (el.qsTelegramRemoteControlEnabled?.checked) {
+    const telegramRemoteControl = state.settings.remoteControl?.providers?.telegram;
+    targets.push({
+      label: t('telegramTestRemoteLabel'),
+      ready: Boolean(telegramRemoteControl?.hasBotToken && String(telegramRemoteControl?.allowedChatId || '').trim()),
+      run: () => codexdesk.testRemoteControlProvider(),
+    });
+  }
+  return targets;
+}
+
+async function testTelegramSettings() {
+  const hasCheckedTarget = Boolean(el.qsTelegramEnabled?.checked || el.qsTelegramRemoteControlEnabled?.checked);
+  if (!hasCheckedTarget) {
+    showAppNotice(t('telegramTestNoSelection'), 'error');
+    return;
+  }
+  const saved = await saveNotificationSettings({ silent: true });
+  if (!saved) {
+    return;
+  }
+  const targets = collectTelegramTestTargets();
+  const failures: string[] = [];
+  const readyTargets = targets.filter((item) => {
+    if (item.ready) {
+      return true;
+    }
+    failures.push(t('telegramTestSkippedIncomplete', { label: item.label }));
+    return false;
+  });
+  if (!readyTargets.length) {
+    showAppNotice(t('telegramTestNoReadyConfig'), 'error');
+    return;
+  }
+  const results = await Promise.all(readyTargets.map(async (item) => {
+    try {
+      return {
+        label: item.label,
+        result: await item.run(),
+      };
+    } catch (error) {
+      return {
+        label: item.label,
+        result: {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }));
+  let successCount = 0;
+  const successLabels: string[] = [];
+  results.forEach(({ label, result }) => {
+    if (result?.ok) {
+      successCount += 1;
+      successLabels.push(label);
+      return;
+    }
+    failures.push(t('telegramTestFailed', {
+      label,
+      error: localizeKnownText(String(result?.error || 'Telegram 请求失败')),
+    }));
+  });
+  if (!failures.length) {
+    showAppNotice(t('telegramTestSummarySuccess', { labels: successLabels.join('、') }), 'success');
+    return;
+  }
+  if (successCount > 0) {
+    showAppNotice([
+      t('telegramTestSummaryPartial', {
+        successCount: String(successCount),
+        failureCount: String(failures.length),
+      }),
+      failures.join('\n'),
+    ].filter(Boolean).join('\n'), 'error');
+    return;
+  }
+  showAppNotice(t('telegramTestSummaryFailed', { details: failures.join('\n') }), 'error');
+}
+
+const telegramLogsState = {
+  loading: false,
+  loaded: false,
+  text: '',
+  path: '',
+  count: 0,
+};
+
+function renderTelegramLogsPane() {
+  if (el.qsTelegramLogsPath) {
+    el.qsTelegramLogsPath.value = telegramLogsState.path;
+    el.qsTelegramLogsPath.title = telegramLogsState.path || '-';
+  }
+  if (el.qsTelegramLogsCount) {
+    el.qsTelegramLogsCount.textContent = String(Math.max(0, Number(telegramLogsState.count) || 0));
+  }
+  if (el.qsTelegramLogsOutput) {
+    if (telegramLogsState.loading) {
+      el.qsTelegramLogsOutput.value = t('telegramLogsLoading');
+    } else {
+      el.qsTelegramLogsOutput.value = telegramLogsState.text || t('telegramLogsEmpty');
+    }
+  }
+  if (el.qsTelegramLogsRefresh) {
+    el.qsTelegramLogsRefresh.disabled = telegramLogsState.loading;
+  }
+  if (el.qsTelegramLogsCopy) {
+    el.qsTelegramLogsCopy.disabled = telegramLogsState.loading || Math.max(0, Number(telegramLogsState.count) || 0) <= 0;
+  }
+}
+
+async function refreshTelegramLogs() {
+  if (!codexdesk || typeof codexdesk.getTelegramLogs !== 'function') {
+    return;
+  }
+  telegramLogsState.loading = true;
+  renderTelegramLogsPane();
+  try {
+    const result = await codexdesk.getTelegramLogs();
+    if (result?.error) {
+      throw new Error(String(result.error || '读取 Telegram 日志失败'));
+    }
+    telegramLogsState.loaded = true;
+    telegramLogsState.path = String(result?.logPath || '').trim();
+    telegramLogsState.count = Math.max(0, Number(result?.logCount || 0) || 0);
+    telegramLogsState.text = String(result?.logsText || '').trim();
+    renderTelegramLogsPane();
+  } catch (error) {
+    telegramLogsState.text = '';
+    renderTelegramLogsPane();
+    showAppNotice(localizeKnownText(error instanceof Error ? error.message : String(error)), 'error');
+  } finally {
+    telegramLogsState.loading = false;
+    renderTelegramLogsPane();
+  }
 }
 
 function dragEventHasFiles(event: DragEvent): boolean {
@@ -1939,9 +2116,18 @@ async function init() {
     conversation: 'menuConversation',
     runtime: 'menuRuntime',
     integration: 'menuNotification',
+    'integration-telegram': 'providerTelegram',
     view: 'menuInterface',
     window: 'menuWindow',
     help: 'menuHelp',
+    'help-telegram-logs': 'helpTelegramLogs',
+  };
+  const resolveQuickSettingsParentPane = (paneName) => {
+    const normalized = String(paneName || '').trim();
+    if (!normalized || normalized === 'root' || !normalized.includes('-')) {
+      return 'root';
+    }
+    return String(normalized.split('-')[0] || 'root').trim() || 'root';
   };
   let quickSettingsPane = 'root';
   const setQuickSettingsPane = (paneName) => {
@@ -1983,6 +2169,9 @@ async function init() {
       const key = quickSettingsPaneTitleKey[target] || 'quickSettings';
       detailTitle.setAttribute('data-i18n-key', key);
       detailTitle.textContent = t(key);
+    }
+    if (target === 'help-telegram-logs' && !telegramLogsState.loaded && !telegramLogsState.loading) {
+      refreshTelegramLogs().catch(() => {});
     }
   };
 
@@ -2382,7 +2571,14 @@ async function init() {
       if (backBtn) {
         event.preventDefault();
         event.stopPropagation();
-        setQuickSettingsPane('root');
+        setQuickSettingsPane(resolveQuickSettingsParentPane(quickSettingsPane));
+        return;
+      }
+      const paneRoute = target?.closest<HTMLElement>('[data-pane-route]');
+      if (paneRoute) {
+        event.preventDefault();
+        event.stopPropagation();
+        setQuickSettingsPane(paneRoute.getAttribute('data-pane-route'));
         return;
       }
       const button = target?.closest('button[data-action]');
@@ -2764,6 +2960,18 @@ async function init() {
     });
   }
 
+  if (el.qsTelegramToggleTokenVisibility) {
+    el.qsTelegramToggleTokenVisibility.addEventListener('click', () => {
+      toggleSecretVisibility(el.qsTelegramBotTokenInput, el.qsTelegramToggleTokenVisibility);
+    });
+  }
+
+  if (el.qsTelegramToggleRemoteTokenVisibility) {
+    el.qsTelegramToggleRemoteTokenVisibility.addEventListener('click', () => {
+      toggleSecretVisibility(el.qsTelegramRemoteBotTokenInput, el.qsTelegramToggleRemoteTokenVisibility);
+    });
+  }
+
   if (el.qsNotificationProviderTelegram) {
     el.qsNotificationProviderTelegram.addEventListener('click', () => {
       state.settings.notifications.activeProvider = 'telegram';
@@ -2773,44 +2981,43 @@ async function init() {
 
   if (el.qsTelegramTest) {
     el.qsTelegramTest.addEventListener('click', async () => {
-      const saved = await saveNotificationSettings({ silent: true });
-      if (!saved) {
-        return;
-      }
-      const result = await codexdesk.testNotificationProvider();
-      if (result?.ok) {
-        showAppNotice(t('telegramTestSuccess'), 'success');
-        return;
-      }
-      showAppNotice(localizeKnownText(String(result?.error || 'Telegram 通知发送失败')), 'error');
+      await testTelegramSettings();
     });
   }
-
-  if (el.qsTelegramClearToken) {
-    el.qsTelegramClearToken.addEventListener('click', async () => {
-      const result = await codexdesk.updateSettings({
-        deviceIdentity: String(el.qsDeviceIdentityInput?.value || '').trim(),
-        notifications: {
-          activeProvider: 'telegram',
-          telegram: {
-            enabled: Boolean(el.qsTelegramEnabled?.checked),
-            chatId: String(el.qsTelegramChatIdInput?.value || '').trim(),
-            clearBotToken: true,
-          },
-        },
-      });
-      if (result?.error) {
-        window.alert(localizeKnownText(result.error));
-        applySnapshot(result?.snapshot || {});
-        renderAll();
+  if (el.qsTelegramLogsRefresh) {
+    el.qsTelegramLogsRefresh.addEventListener('click', async () => {
+      await refreshTelegramLogs();
+    });
+  }
+  if (el.qsTelegramLogsCopy) {
+    el.qsTelegramLogsCopy.addEventListener('click', async () => {
+      const text = String(telegramLogsState.text || '').trim();
+      if (!text || Math.max(0, Number(telegramLogsState.count) || 0) <= 0) {
         return;
       }
-      if (el.qsTelegramBotTokenInput) {
-        el.qsTelegramBotTokenInput.value = '';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const helper = document.createElement('textarea');
+          helper.value = text;
+          helper.setAttribute('readonly', 'readonly');
+          helper.style.position = 'fixed';
+          helper.style.opacity = '0';
+          helper.style.pointerEvents = 'none';
+          document.body.appendChild(helper);
+          helper.focus();
+          helper.select();
+          try {
+            document.execCommand('copy');
+          } finally {
+            document.body.removeChild(helper);
+          }
+        }
+        showAppNotice(t('telegramLogsCopySuccess'), 'success');
+      } catch (error) {
+        showAppNotice(localizeKnownText(error instanceof Error ? error.message : String(error)), 'error');
       }
-      applySnapshot(result?.snapshot || result);
-      renderSettings();
-      showAppNotice(t('settingsSaved'), 'success');
     });
   }
 
@@ -3228,6 +3435,7 @@ async function init() {
   });
 
   runDocsCaptureSequence().catch(() => {});
+  renderTelegramLogsPane();
 
   renderCurrentTimeDisplay();
   setInterval(() => {

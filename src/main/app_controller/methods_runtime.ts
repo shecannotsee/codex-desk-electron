@@ -48,6 +48,34 @@ function securitySnapshot(controller) {
   };
 }
 
+function normalizeNotificationFailureEventMessage(message, exitCode = '') {
+  const text = String(message || '').trim();
+  if (!text) {
+    return '';
+  }
+  if (/^通知发送失败[:：]/.test(text)) {
+    return '';
+  }
+  if (/^当前任务非正常结束，剩余\s+\d+\s+条排队消息已停止自动执行$/.test(text)) {
+    return '';
+  }
+  if (/^任务失败，退出码\b/.test(text)) {
+    return '';
+  }
+  if (/^turn\.failed\b/i.test(text)) {
+    const detail = text.replace(/^turn\.failed\b[:：\s-]*/i, '').trim();
+    return detail || '';
+  }
+  if (
+    Number.isInteger(Number(exitCode))
+    && Number(exitCode) > 0
+    && text === `任务失败，退出码 ${Number(exitCode)}`
+  ) {
+    return '';
+  }
+  return text;
+}
+
 const runtimeMethods = {
   _emit(event) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
@@ -695,6 +723,34 @@ const runtimeMethods = {
     };
     pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
     this._emit({ type: 'runtime-event-append', conversationId, item });
+  },
+
+  _resolveNotificationFailureReason(conversationId, {
+    fallback = '',
+    exitCode = '',
+  } = {}) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const events = Array.isArray(runtime?.events) ? runtime.events : [];
+    for (const level of ['error', 'warn']) {
+      for (let index = events.length - 1; index >= 0; index -= 1) {
+        const item = events[index];
+        if (String(item?.level || '').trim().toLowerCase() !== level) {
+          continue;
+        }
+        const resolved = normalizeNotificationFailureEventMessage(item?.message, exitCode);
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+    const fallbackText = String(fallback || '').trim();
+    if (fallbackText) {
+      return fallbackText;
+    }
+    if (Number.isInteger(Number(exitCode)) && Number(exitCode) > 0) {
+      return `任务失败，退出码 ${Number(exitCode)}`;
+    }
+    return '任务失败';
   },
 
   _removeLastStructuredEventIf(conversationId, predicate) {

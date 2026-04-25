@@ -738,6 +738,12 @@ const chatMethods = {
       this._releaseRunner(targetId, runner);
       this._persist();
       const normalizedExitCode = Number(result.exitCode || 0);
+      const notificationFailureText = normalizedExitCode === 0
+        ? ''
+        : this._resolveNotificationFailureReason(targetId, {
+          fallback: finalText || `任务失败，退出码 ${normalizedExitCode}`,
+          exitCode: normalizedExitCode,
+        });
       this.notifyConversationResult(targetId, normalizedExitCode === 0
         ? {
           status: 'completed',
@@ -748,7 +754,7 @@ const chatMethods = {
           status: 'failed',
           userText: completedUserText,
           assistantText: finalText,
-          errorText: finalText || `任务失败，退出码 ${normalizedExitCode}`,
+          errorText: notificationFailureText,
           exitCode: normalizedExitCode,
         }).then((notifyResult) => {
         if (!notifyResult || notifyResult.skipped) {

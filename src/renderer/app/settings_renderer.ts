@@ -154,6 +154,16 @@ function renderSettings() {
   }
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);
+  Array.from(document.querySelectorAll<HTMLElement>('[data-chat-font-size]')).forEach((node) => {
+    const value = Number(node.getAttribute('data-chat-font-size') || '');
+    node.classList.toggle('active', Number.isFinite(value) && value === state.ui.chatFontSize);
+  });
+  if (el.qsLangZh) {
+    el.qsLangZh.setAttribute('aria-pressed', currentLang() === 'zh-CN' ? 'true' : 'false');
+  }
+  if (el.qsLangEn) {
+    el.qsLangEn.setAttribute('aria-pressed', currentLang() === 'en-US' ? 'true' : 'false');
+  }
   if (el.qsAppName) {
     el.qsAppName.textContent = String(state.appInfo?.name || 'Codex Desk').trim() || 'Codex Desk';
   }

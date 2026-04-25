@@ -92,7 +92,6 @@ const MENU_TEXT = {
     refreshVersion: '获取 Codex 版本',
     refreshModel: '获取模型',
 
-    toggleSettings: '隐藏/显示配置信息',
     toggleRuntime: '隐藏/显示右侧面板',
     toggleSidebar: '隐藏/显示左侧会话',
     language: '语言',
@@ -147,7 +146,6 @@ const MENU_TEXT = {
     refreshVersion: 'Refresh Codex Version',
     refreshModel: 'Refresh Model',
 
-    toggleSettings: 'Toggle Config Rows',
     toggleRuntime: 'Toggle Runtime Panel',
     toggleSidebar: 'Toggle Left Sidebar',
     language: 'Language',
@@ -527,7 +525,6 @@ function applyMenuLanguage(language) {
     {
       label: text.view,
       submenu: [
-        { label: text.toggleSettings, click: () => sendMenuAction('ui:toggle-settings') },
         { label: text.toggleRuntime, click: () => sendMenuAction('ui:toggle-runtime') },
         { label: text.toggleSidebar, click: () => sendMenuAction('ui:toggle-sidebar') },
         { type: 'separator' },

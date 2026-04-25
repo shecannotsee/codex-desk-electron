@@ -132,12 +132,8 @@ function renderRunButtons() {
   el.btnCloseConv.textContent = t('closeCurrentConversation');
   el.btnClearChat.textContent = t('clearChat');
   el.btnClearRuntime.textContent = t('clearRuntime');
-  el.btnToggleSettings.textContent = state.ui.settingsPanelHidden ? t('toggleSettingsShow') : t('toggleSettingsHide');
   el.btnToggleRuntime.textContent = state.ui.runtimePanelHidden ? t('toggleRuntimeShow') : t('toggleRuntimeHide');
   el.btnToggleSidebar.textContent = state.ui.sidebarHidden ? t('toggleSidebarShow') : t('toggleSidebarHide');
-  if (el.qsToggleSettings) {
-    el.qsToggleSettings.textContent = state.ui.settingsPanelHidden ? t('toggleSettingsShow') : t('toggleSettingsHide');
-  }
   if (el.qsToggleRuntime) {
     el.qsToggleRuntime.textContent = state.ui.runtimePanelHidden ? t('toggleRuntimeShow') : t('toggleRuntimeHide');
   }
@@ -223,7 +219,6 @@ function renderTabs() {
 function renderLayout() {
   el.contentRow.classList.toggle('runtime-hidden', state.ui.runtimePanelHidden);
   el.runtimePanel.classList.toggle('hidden', state.ui.runtimePanelHidden);
-  el.workspace.classList.toggle('settings-hidden', state.ui.settingsPanelHidden);
   el.appRoot.classList.toggle('sidebar-hidden', state.ui.sidebarHidden);
 }
 
@@ -299,9 +294,9 @@ function renderLocaleTexts() {
     el.labelLanguage.textContent = `${t('language')}:`;
   }
   if (el.labelZoomFactor) {
-    el.labelZoomFactor.textContent = `${t('appZoom')}:`;
+    el.labelZoomFactor.textContent = t('appZoom');
   }
-  el.labelFontSize.textContent = `${t('chatFontSize')}:`;
+  el.labelFontSize.textContent = t('chatFontSize');
   el.tabBtnStructured.textContent = t('tabStructured');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
   el.tabBtnRaw.textContent = t('tabRaw');

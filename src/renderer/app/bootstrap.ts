@@ -1250,7 +1250,6 @@ async function init() {
     'conversation:stop': el.btnStop,
     'meta:refresh-codex-version': el.btnRefreshVersion,
     'meta:refresh-model': el.btnRefreshModel,
-    'ui:toggle-settings': el.btnToggleSettings,
     'ui:toggle-runtime': el.btnToggleRuntime,
     'ui:toggle-sidebar': el.btnToggleSidebar,
   };
@@ -1272,6 +1271,13 @@ async function init() {
       if (state.ui.language !== 'en-US') {
         el.languageSelect.value = 'en-US';
         el.languageSelect.dispatchEvent(new Event('change'));
+      }
+      return;
+    }
+    if (action.startsWith('ui:chat-font-size:')) {
+      const value = Number(action.slice('ui:chat-font-size:'.length));
+      if (Number.isFinite(value)) {
+        setChatFontSize(value);
       }
       return;
     }
@@ -2247,12 +2253,6 @@ async function init() {
     renderAll();
   });
 
-  el.btnToggleSettings.addEventListener('click', () => {
-    state.ui.settingsPanelHidden = !state.ui.settingsPanelHidden;
-    saveUiPrefs();
-    renderAll();
-  });
-
   el.btnToggleRuntime.addEventListener('click', () => {
     state.ui.runtimePanelHidden = !state.ui.runtimePanelHidden;
     saveUiPrefs();
@@ -2502,16 +2502,15 @@ async function init() {
       const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
       syncZoomControls(nextPercent);
       lockQuickSettingsAutoHide();
-      setAppZoomFactor(nextPercent / 100, { persist: false, rerenderControls: false }).catch(() => {
-        syncZoomControls(currentAppZoomPercent());
-      });
     });
 
     el.zoomFactorRange.addEventListener('change', () => {
       const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
       lockQuickSettingsAutoHide(360);
       setAppZoomFactor(nextPercent / 100, { rerenderControls: false }).then((applied) => {
-        syncZoomControls(Math.round(applied * 100));
+        const appliedPercent = Math.round(applied * 100);
+        syncZoomControls(appliedPercent);
+        showZoomHud(appliedPercent);
       }).catch(() => {
         syncZoomControls(currentAppZoomPercent());
       });

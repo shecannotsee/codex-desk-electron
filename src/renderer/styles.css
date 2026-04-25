@@ -3681,10 +3681,22 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   padding: 13px 18px 14px;
 }
 
+.quick-settings-setting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .quick-settings-font-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.quick-settings-zoom-row {
+  flex-wrap: wrap;
 }
 
 .quick-settings-number-wrap {
@@ -3722,6 +3734,16 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   text-align: right;
 }
 
+.quick-settings-value-chip {
+  min-width: 58px;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(51, 144, 236, 0.16);
+  color: #1f5f93;
+}
+
 .quick-settings-inline-action {
   flex: 0 0 auto;
   padding: 6px 10px;
@@ -3731,6 +3753,11 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   color: #2c4359;
   font-size: 12px;
   font-weight: 700;
+}
+
+.quick-settings-step-action {
+  min-width: 52px;
+  justify-content: center;
 }
 
 .quick-settings-action-btn {
@@ -3798,6 +3825,97 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   font-weight: 700;
   color: #62809c;
   margin-bottom: 8px;
+}
+
+.quick-settings-font-preview {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(201, 216, 232, 0.82);
+  color: #28435a;
+  font-size: calc(var(--chat-font-size) + 1px);
+  line-height: 1.55;
+}
+
+.quick-settings-size-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-settings-size-chip {
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid #c9d8e8;
+  background: rgba(255, 255, 255, 0.92);
+  color: #35506a;
+  font-size: 12px;
+  font-weight: 700;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.quick-settings-size-chip:hover:not(:disabled) {
+  border-color: rgba(51, 144, 236, 0.46);
+  transform: translateY(-1px);
+}
+
+.quick-settings-size-chip.active {
+  border-color: #3390ec;
+  background: rgba(51, 144, 236, 0.12);
+  color: #165589;
+}
+
+.quick-settings-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quick-settings-choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 78px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  border: 1px solid #c9d8e8;
+  background: rgba(255, 255, 255, 0.92);
+  color: #28435a;
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.quick-settings-choice-card:hover:not(:disabled) {
+  border-color: rgba(51, 144, 236, 0.44);
+  box-shadow: 0 10px 18px rgba(51, 144, 236, 0.08);
+  transform: translateY(-1px);
+}
+
+.quick-settings-choice-card.active {
+  border-color: #3390ec;
+  background: linear-gradient(180deg, rgba(51, 144, 236, 0.14) 0%, rgba(51, 144, 236, 0.08) 100%);
+  box-shadow: 0 12px 22px rgba(51, 144, 236, 0.12);
+}
+
+.quick-settings-choice-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #173750;
+}
+
+.quick-settings-choice-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6f89a2;
+}
+
+@media (max-width: 520px) {
+  .quick-settings-size-presets,
+  .quick-settings-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .quick-settings-segmented {
@@ -5002,6 +5120,15 @@ html[data-theme='dark'] .quick-settings-checkbox {
   color: #dbe4f0;
 }
 
+html[data-theme='dark'] .quick-settings-value-chip,
+html[data-theme='dark'] .quick-settings-font-preview,
+html[data-theme='dark'] .quick-settings-size-chip,
+html[data-theme='dark'] .quick-settings-choice-card {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: #334a60;
+  color: #e6eef8;
+}
+
 html[data-theme='dark'] .quick-settings-text-input {
   border-color: #334a60;
   background: rgba(15, 23, 42, 0.82);
@@ -5021,6 +5148,21 @@ html[data-theme='dark'] .quick-settings-pill.active {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #ffffff;
+}
+
+html[data-theme='dark'] .quick-settings-size-chip.active,
+html[data-theme='dark'] .quick-settings-choice-card.active {
+  border-color: rgba(96, 165, 250, 0.72);
+  background: rgba(37, 99, 235, 0.18);
+  color: #f8fbff;
+}
+
+html[data-theme='dark'] .quick-settings-choice-title {
+  color: #f3f8fe;
+}
+
+html[data-theme='dark'] .quick-settings-choice-desc {
+  color: #9db2c7;
 }
 
 html[data-theme='dark'] .quick-settings-action-card {

@@ -226,21 +226,33 @@
                   </section>
 
                   <section class="quick-settings-pane" data-pane="view">
-                    <button id="qs-toggle-settings" type="button" class="quick-settings-item" data-action="ui:toggle-settings">隐藏配置信息</button>
                     <button id="qs-toggle-runtime" type="button" class="quick-settings-item" data-action="ui:toggle-runtime">隐藏右侧面板</button>
                     <button id="qs-toggle-sidebar" type="button" class="quick-settings-item" data-action="ui:toggle-sidebar">隐藏左侧会话</button>
                     <div class="quick-settings-toggle-row">
-                      <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
-                      <div class="quick-settings-font-row">
+                      <div class="quick-settings-setting-head">
+                        <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
+                        <span id="zoom-factor-value" class="quick-settings-static-value quick-settings-value-chip" aria-live="polite">100%</span>
+                      </div>
+                      <div class="quick-settings-font-row quick-settings-zoom-row">
+                        <button type="button" class="quick-settings-inline-action quick-settings-step-action" data-action="view:zoom-out" data-i18n-key="zoomOut">缩小</button>
                         <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
-                        <div class="quick-settings-number-wrap">
-                          <span id="zoom-factor-value" class="quick-settings-static-value" aria-live="polite">100%</span>
-                        </div>
+                        <button type="button" class="quick-settings-inline-action quick-settings-step-action" data-action="view:zoom-in" data-i18n-key="zoomIn">放大</button>
                         <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
                       </div>
+                      <div class="quick-settings-form-hint" data-i18n-key="appZoomHint">拖动滑块时先预览数值，松手后再应用，避免整个界面在拖动过程中来回跳动。</div>
                     </div>
                     <div class="quick-settings-toggle-row">
-                      <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
+                      <div class="quick-settings-setting-head">
+                        <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
+                        <span class="quick-settings-form-hint" data-i18n-key="chatFontSizeHint">只影响对话内容，不影响整体界面。</span>
+                      </div>
+                      <div class="quick-settings-font-preview" data-i18n-key="chatFontPreview">这是对话字号预览，阅读感受会跟随你当前的设置变化。</div>
+                      <div class="quick-settings-size-presets">
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:13" data-chat-font-size="13" data-i18n-key="chatFontSizePresetCompact">紧凑</button>
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:15" data-chat-font-size="15" data-i18n-key="chatFontSizePresetDefault">默认</button>
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:17" data-chat-font-size="17" data-i18n-key="chatFontSizePresetComfortable">舒适</button>
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:19" data-chat-font-size="19" data-i18n-key="chatFontSizePresetLarge">更大</button>
+                      </div>
                       <div class="quick-settings-font-row">
                         <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="15" />
                         <div class="quick-settings-number-wrap">
@@ -260,10 +272,19 @@
                       </div>
                     </div>
                     <div class="quick-settings-toggle-row">
-                      <span class="quick-settings-inline-label" data-i18n-key="language">语言</span>
-                      <div class="quick-settings-segmented">
-                        <button id="qs-lang-zh" type="button" class="quick-settings-pill" data-action="ui:language:zh-CN" data-i18n-key="languageZh">中文</button>
-                        <button id="qs-lang-en" type="button" class="quick-settings-pill" data-action="ui:language:en-US" data-i18n-key="languageEn">English</button>
+                      <div class="quick-settings-setting-head">
+                        <span class="quick-settings-inline-label" data-i18n-key="language">语言</span>
+                        <span class="quick-settings-form-hint" data-i18n-key="languageHint">修改后立即应用到界面和菜单。</span>
+                      </div>
+                      <div class="quick-settings-choice-grid">
+                        <button id="qs-lang-zh" type="button" class="quick-settings-choice-card" data-action="ui:language:zh-CN">
+                          <span class="quick-settings-choice-title" data-i18n-key="languageZh">中文</span>
+                          <span class="quick-settings-choice-desc" data-i18n-key="languageZhHint">简体中文界面</span>
+                        </button>
+                        <button id="qs-lang-en" type="button" class="quick-settings-choice-card" data-action="ui:language:en-US">
+                          <span class="quick-settings-choice-title" data-i18n-key="languageEn">English</span>
+                          <span class="quick-settings-choice-desc" data-i18n-key="languageEnHint">English interface</span>
+                        </button>
                       </div>
                     </div>
                   </section>
@@ -392,7 +413,6 @@
         <button id="btn-export-session" class="menu-moved">导出当前会话JSONL</button>
         <button id="btn-clear-chat" class="menu-moved">清空当前对话内容</button>
         <button id="btn-clear-runtime" class="menu-moved">清空右侧运行日志</button>
-        <button id="btn-toggle-settings" class="menu-moved">隐藏配置信息</button>
         <button id="btn-toggle-runtime" class="menu-moved">隐藏右侧面板</button>
         <button id="btn-toggle-sidebar" class="menu-moved">隐藏左侧会话</button>
       </section>

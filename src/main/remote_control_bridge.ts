@@ -7,7 +7,14 @@ const {
   formatTelegramLogs,
   listTelegramLogs,
 } = require('./telegram_log_store');
-const { postTelegram, sendTelegramMessage } = require('./telegram_bridge');
+const {
+  answerTelegramCallbackQuery,
+  editTelegramMessage,
+  postTelegram,
+  sendTelegramMessage,
+  setTelegramCoordinatorOffset,
+  subscribeTelegramUpdates,
+} = require('./telegram_bridge');
 
 function normalizeIncomingText(text) {
   return String(text || '')
@@ -130,9 +137,8 @@ class TelegramRemoteControlService {
     this.handlers = options.handlers && typeof options.handlers === 'object' ? options.handlers : {};
     this.controlSettings = normalizeRemoteControlSettings(options.controlSettings || {}).telegram;
     this.deviceIdentity = normalizeIdentity(options.deviceIdentity || '');
-    this.pollTimer = null;
-    this.started = false;
-    this.isPolling = false;
+    this.updateSubscription = null;
+    this.subscriptionKey = '';
   }
 
   updateConfig(options: any = {}) {
@@ -164,51 +170,36 @@ class TelegramRemoteControlService {
   }
 
   start() {
-    this.started = true;
-    this._schedulePoll(0);
+    this._syncUpdateSubscription();
   }
 
   stop() {
-    this.started = false;
-    if (this.pollTimer) {
-      clearTimeout(this.pollTimer);
-      this.pollTimer = null;
+    if (typeof this.updateSubscription === 'function') {
+      this.updateSubscription();
     }
+    this.updateSubscription = null;
+    this.subscriptionKey = '';
   }
 
-  _schedulePoll(delayMs = 1500) {
-    if (!this.started || this.pollTimer || this.isPolling || !this.isReady()) {
+  _syncUpdateSubscription() {
+    const nextKey = this.isReady()
+      ? String(this.controlSettings?.botToken || '').trim()
+      : '';
+    if (!nextKey) {
+      this.stop();
       return;
     }
-    this.pollTimer = setTimeout(() => {
-      this.pollTimer = null;
-      this._pollOnce().catch(() => {}).finally(() => {
-        if (this.started) {
-          this._schedulePoll(400);
-        }
-      });
-    }, Math.max(0, Number(delayMs) || 0));
-  }
-
-  async _pollOnce() {
-    if (!this.started || this.isPolling || !this.isReady()) {
+    setTelegramCoordinatorOffset(this.controlSettings, this.controlSettings.lastUpdateId);
+    if (this.updateSubscription && this.subscriptionKey === nextKey) {
       return;
     }
-    this.isPolling = true;
-    try {
-      const lastUpdateId = Math.max(0, Number(this.controlSettings.lastUpdateId || 0) || 0);
-      const response = await postTelegram(this.controlSettings, 'getUpdates', {
-        offset: lastUpdateId + 1,
-        timeout: 25,
-        allowed_updates: ['message', 'callback_query'],
-      }, 30000);
-      const updates = Array.isArray(response?.result) ? response.result : [];
-      let highestUpdateId = lastUpdateId;
-      for (const update of updates) {
-        const updateId = Math.max(0, Number(update?.update_id || 0) || 0);
-        if (updateId > highestUpdateId) {
-          highestUpdateId = updateId;
-        }
+    this.stop();
+    this.subscriptionKey = nextKey;
+    this.updateSubscription = subscribeTelegramUpdates({
+      settings: this.controlSettings,
+      startFrom: this.controlSettings.lastUpdateId,
+      allowedUpdates: ['message', 'callback_query'],
+      onUpdate: async (update) => {
         const callbackQuery = update?.callback_query;
         if (callbackQuery && typeof callbackQuery === 'object') {
           try {
@@ -219,11 +210,11 @@ class TelegramRemoteControlService {
               await this._sendReply(chatId, `远程控制处理失败: ${error?.message || String(error)}`);
             }
           }
-          continue;
+          return;
         }
         const message = update?.message;
         if (!message || typeof message !== 'object') {
-          continue;
+          return;
         }
         try {
           await this._handleMessage(message);
@@ -233,16 +224,20 @@ class TelegramRemoteControlService {
             await this._sendReply(chatId, `远程控制处理失败: ${error?.message || String(error)}`);
           }
         }
-      }
-      if (highestUpdateId > lastUpdateId) {
+      },
+      onOffsetChange: async (highestUpdateId) => {
+        if (highestUpdateId <= Math.max(0, Number(this.controlSettings.lastUpdateId || 0) || 0)) {
+          return;
+        }
         this.controlSettings.lastUpdateId = highestUpdateId;
         await this.handlers.updateState?.({
           lastUpdateId: highestUpdateId,
         });
-      }
-    } finally {
-      this.isPolling = false;
-    }
+      },
+      onError: async (error) => {
+        appendTelegramLog('warn', `远程控制轮询失败: ${error?.message || String(error)}`);
+      },
+    });
   }
 
   async _handleMessage(message) {
@@ -345,7 +340,6 @@ class TelegramRemoteControlService {
       await this._answerCallbackQuery(callbackQueryId, `已切换到 ${truncateText(result.title || result.conversationId, 24)}`);
       return;
     }
-    await this._answerCallbackQuery(callbackQueryId, '未知操作');
   }
 
   async _handleCommand(chatId, text) {
@@ -483,32 +477,22 @@ class TelegramRemoteControlService {
     if (!chatId || !messageId) {
       return;
     }
-    try {
-      await postTelegram({
-        ...this.controlSettings,
-        chatId,
-      }, 'editMessageText', {
-        chat_id: chatId,
-        message_id: messageId,
-        text,
-        disable_web_page_preview: true,
-        ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
-      }, 15000);
-    } catch (error) {
-      appendTelegramLog('warn', `远程控制编辑消息失败: ${error?.message || String(error)}`);
+    const result = await editTelegramMessage({
+      ...this.controlSettings,
+      chatId,
+    }, chatId, messageId, text, {
+      replyMarkup: options.replyMarkup || null,
+      logLabel: 'Telegram 远程控制',
+    });
+    if (!result?.ok) {
       await this._sendReply(chatId, text, options);
     }
   }
 
   async _answerCallbackQuery(callbackQueryId, text = '') {
-    try {
-      await postTelegram(this.controlSettings, 'answerCallbackQuery', {
-        callback_query_id: callbackQueryId,
-        ...(text ? { text: truncateText(text, 180) } : {}),
-      }, 10000);
-    } catch (error) {
-      appendTelegramLog('warn', `远程控制回调确认失败: ${error?.message || String(error)}`);
-    }
+    await answerTelegramCallbackQuery(this.controlSettings, callbackQueryId, truncateText(text, 180), {
+      logLabel: 'Telegram 远程控制',
+    });
   }
 }
 

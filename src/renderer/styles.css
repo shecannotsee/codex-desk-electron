@@ -679,15 +679,16 @@ button:hover:not(:disabled) {
 .current-time-chip {
   flex: 0 0 auto;
   justify-content: center;
-  border: 1px solid #d2deea;
-  border-radius: 999px;
-  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 4px;
   min-height: 34px;
   max-width: 220px;
-  color: #46627a;
-  background: #f5f8fc;
-  font-size: calc(12px * var(--chat-font-scale));
-  line-height: 1;
+  color: #38546d;
+  background: transparent;
+  font-size: calc(15px * var(--chat-font-scale));
+  font-weight: 600;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4054,9 +4055,9 @@ html[data-theme='dark'] #session-id {
 }
 
 html[data-theme='dark'] .current-time-chip {
-  border-color: #38506a;
-  background: rgba(38, 56, 74, 0.72);
-  color: #d7e6f5;
+  border-color: transparent;
+  background: transparent;
+  color: #e3effb;
 }
 
 html[data-theme='dark'] .usage-meta-label {

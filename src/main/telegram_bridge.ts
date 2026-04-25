@@ -55,6 +55,13 @@ function normalizeTelegramText(text, limit = 1200) {
   return `${value.slice(0, limit).trimEnd()}...`;
 }
 
+function escapeTelegramHtml(text = '') {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function normalizeTelegramApiError(message = '', statusCode = 0) {
   const text = String(message || '').trim();
   const lower = text.toLowerCase();
@@ -376,6 +383,10 @@ function resolveConversationLabel(conversationId = '', conversationTitle = '', l
     : resolvedConversationId;
 }
 
+function buildTelegramLabelLine(label = '', value = '') {
+  return `<b>${escapeTelegramHtml(label)}:</b> ${escapeTelegramHtml(value || '-')}`;
+}
+
 function buildConversationResultHeaderLines({
   deviceIdentity = '',
   status = 'completed',
@@ -389,11 +400,11 @@ function buildConversationResultHeaderLines({
     ? 'failed'
     : 'completed';
   const lines = [
-    `Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${normalizedStatus === 'failed' ? '对话失败' : '对话完成'}`,
-    `对话: ${resolveConversationLabel(conversationId, conversationTitle, titleLimit)}`,
+    escapeTelegramHtml(`Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${normalizedStatus === 'failed' ? '对话失败' : '对话完成'}`),
+    buildTelegramLabelLine('对话', resolveConversationLabel(conversationId, conversationTitle, titleLimit)),
   ];
   if (totalPages > 1) {
-    lines.push(`第 ${Math.max(1, Number(page) || 1)}/${Math.max(1, Number(totalPages) || 1)} 页`);
+    lines.push(escapeTelegramHtml(`第 ${Math.max(1, Number(page) || 1)}/${Math.max(1, Number(totalPages) || 1)} 页`));
   }
   return lines;
 }
@@ -437,10 +448,10 @@ function splitTelegramContent(text = '', limit = 1000) {
 function buildLabeledSectionLines(label = '', text = '', chunkLimit = 1000) {
   const parts = splitTelegramContent(text, chunkLimit);
   if (parts.length <= 1) {
-    return [`${label}: ${parts[0] || '-'}`];
+    return [buildTelegramLabelLine(label, parts[0] || '-')];
   }
   return parts.map((part, index) => (
-    `${label}${index === 0 ? '' : `（续 ${index + 1}/${parts.length}）`}: ${part}`
+    buildTelegramLabelLine(`${label}${index === 0 ? '' : `（续 ${index + 1}/${parts.length}）`}`, part)
   ));
 }
 
@@ -490,15 +501,15 @@ function buildConversationResultSummaryMessage({
     conversationTitle,
     titleLimit: TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.title,
   });
-  lines.push(`用户: ${normalizeTelegramText(userText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.user) || '-'}`);
+  lines.push(buildTelegramLabelLine('用户', normalizeTelegramText(userText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.user) || '-'));
   if (normalizedStatus === 'failed') {
-    lines.push(`退出码: ${String(exitCode || '').trim() || '-'}`);
-    lines.push(`错误: ${normalizeTelegramText(errorText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.detail) || '-'}`);
+    lines.push(buildTelegramLabelLine('退出码', String(exitCode || '').trim() || '-'));
+    lines.push(buildTelegramLabelLine('错误', normalizeTelegramText(errorText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.detail) || '-'));
   } else {
-    lines.push(`回复: ${normalizeTelegramText(assistantText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.detail) || '-'}`);
+    lines.push(buildTelegramLabelLine('回复', normalizeTelegramText(assistantText, TELEGRAM_NOTIFICATION_SUMMARY_LIMITS.detail) || '-'));
   }
   if (expandable) {
-    lines.push('内容已省略，点击下方按钮展开全文。');
+    lines.push(escapeTelegramHtml('内容已省略，点击下方按钮展开全文。'));
   }
   return lines.join('\n');
 }
@@ -527,7 +538,7 @@ function buildConversationResultDetailPages({
     ...buildLabeledSectionLines('用户', userText, 1400),
   ];
   if (normalizedStatus === 'failed') {
-    detailLines.push(`退出码: ${String(exitCode || '').trim() || '-'}`);
+    detailLines.push(buildTelegramLabelLine('退出码', String(exitCode || '').trim() || '-'));
     detailLines.push(...buildLabeledSectionLines('错误', errorText, 1800));
   } else {
     detailLines.push(...buildLabeledSectionLines('回复', assistantText, 1800));
@@ -618,6 +629,7 @@ async function sendTelegramMessage(settings, messageText, options: any = {}) {
         chat_id: chatId,
         text: normalizeTelegramText(messageText, TELEGRAM_MESSAGE_LIMIT),
         disable_web_page_preview: true,
+        ...(options.parseMode ? { parse_mode: String(options.parseMode).trim() } : {}),
         ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
       });
       if (attempt > 1) {
@@ -648,6 +660,7 @@ async function editTelegramMessage(settings, chatId, messageId, messageText, opt
       message_id: Math.max(0, Number(messageId || 0) || 0),
       text: normalizeTelegramText(messageText, TELEGRAM_MESSAGE_LIMIT),
       disable_web_page_preview: true,
+      ...(options.parseMode ? { parse_mode: String(options.parseMode).trim() } : {}),
       ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
     }, 15000);
     return { ok: true, result };
@@ -681,7 +694,10 @@ async function sendConversationCompletedNotification(settings, payload) {
     deviceIdentity: normalizeIdentity(payload?.deviceIdentity || ''),
     expandable: false,
   });
-  return sendTelegramMessage(settings, message, { logLabel: 'Telegram 通知' });
+  return sendTelegramMessage(settings, message, {
+    logLabel: 'Telegram 通知',
+    parseMode: 'HTML',
+  });
 }
 
 async function sendConversationFailedNotification(settings, payload) {
@@ -691,7 +707,10 @@ async function sendConversationFailedNotification(settings, payload) {
     deviceIdentity: normalizeIdentity(payload?.deviceIdentity || ''),
     expandable: false,
   });
-  return sendTelegramMessage(settings, message, { logLabel: 'Telegram 通知' });
+  return sendTelegramMessage(settings, message, {
+    logLabel: 'Telegram 通知',
+    parseMode: 'HTML',
+  });
 }
 
 async function testTelegramConnection(settings, deviceIdentity = '') {
@@ -876,6 +895,7 @@ class TelegramBotModule {
     }
     if (action === 'summary') {
       await editTelegramMessage(settings, chatId, messageId, entry.summaryText, {
+        parseMode: 'HTML',
         replyMarkup: this._buildNotificationReplyMarkup(notificationId, 'summary'),
         logLabel: 'Telegram 通知',
       });
@@ -887,6 +907,7 @@ class TelegramBotModule {
     if (action === 'page') {
       const page = Math.max(1, Math.min(entry.pages.length, Number(pageRaw || 1) || 1));
       await editTelegramMessage(settings, chatId, messageId, entry.pages[page - 1], {
+        parseMode: 'HTML',
         replyMarkup: this._buildNotificationReplyMarkup(notificationId, 'page', page, entry.pages.length),
         logLabel: 'Telegram 通知',
       });
@@ -928,6 +949,7 @@ class TelegramBotModule {
       : null;
     const result = await sendTelegramMessage(settings, summaryText, {
       logLabel: 'Telegram 通知',
+      parseMode: 'HTML',
       ...(replyMarkup ? { replyMarkup } : {}),
     });
     if (!result?.ok || !notificationId) {

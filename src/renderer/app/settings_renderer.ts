@@ -29,6 +29,20 @@ function securityStatusLabel() {
   return unlocked ? t('securityStatusUnlocked') : t('securityStatusLocked');
 }
 
+function securityStatusSummary(hasActiveMessagingUsage: boolean) {
+  const hasMasterPassword = Boolean(state.settings.security?.hasMasterPassword);
+  const unlocked = Boolean(state.settings.security?.unlocked);
+  if (!hasMasterPassword) {
+    return t('securityStatusSummaryUnset');
+  }
+  if (unlocked) {
+    return t('securityStatusSummaryUnlocked');
+  }
+  return hasActiveMessagingUsage
+    ? t('securityStatusSummaryLockedActive')
+    : t('securityStatusSummaryLockedIdle');
+}
+
 function renderSettings() {
   const meta = ensureMeta(state.activeConversationId);
   if (el.aboutCodexVersionInput) {
@@ -52,20 +66,45 @@ function renderSettings() {
   const telegramSettings = state.settings.notifications?.providers?.telegram;
   const telegramRemoteControl = state.settings.remoteControl?.providers?.telegram;
   const security = state.settings.security;
-  const canEditSecrets = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
-  const isCredentialLocked = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
-  const hasActiveTelegramUsage = Boolean(telegramSettings?.enabled || telegramRemoteControl?.enabled);
+  const hasMasterPassword = Boolean(security?.hasMasterPassword);
+  const isUnlocked = Boolean(security?.unlocked);
+  const canEditSecrets = !hasMasterPassword || isUnlocked;
+  const isCredentialLocked = hasMasterPassword && !isUnlocked;
+  const showUnlockCard = hasMasterPassword && !isUnlocked;
+  const showLockCard = hasMasterPassword && isUnlocked;
+  const showPasswordCard = !hasMasterPassword || isUnlocked;
+  const showPasswordLockedNote = hasMasterPassword && !isUnlocked;
+  const hasActiveMessagingUsage = Boolean(telegramSettings?.enabled || telegramRemoteControl?.enabled);
   if (el.qsNotificationProviderTelegram) {
     el.qsNotificationProviderTelegram.classList.toggle('active', activeNotificationProvider === 'telegram');
   }
   if (el.qsSecurityRuntimeAlert) {
-    el.qsSecurityRuntimeAlert.classList.toggle('hidden', !(isCredentialLocked && hasActiveTelegramUsage));
+    el.qsSecurityRuntimeAlert.classList.toggle('hidden', !(isCredentialLocked && hasActiveMessagingUsage));
   }
   if (el.qsTelegramLockAlert) {
-    el.qsTelegramLockAlert.classList.toggle('hidden', !(isCredentialLocked && hasActiveTelegramUsage));
+    el.qsTelegramLockAlert.classList.toggle('hidden', !(isCredentialLocked && hasActiveMessagingUsage));
   }
   if (el.qsSecurityStatusValue) {
     el.qsSecurityStatusValue.textContent = securityStatusLabel();
+  }
+  const securitySummary = securityStatusSummary(hasActiveMessagingUsage);
+  if (el.qsSecurityEntryStatus) {
+    el.qsSecurityEntryStatus.textContent = securitySummary;
+  }
+  if (el.qsSecurityStatusExplainer) {
+    el.qsSecurityStatusExplainer.textContent = securitySummary;
+  }
+  if (el.qsSecurityUnlockCard) {
+    el.qsSecurityUnlockCard.classList.toggle('hidden', !showUnlockCard);
+  }
+  if (el.qsSecurityLockCard) {
+    el.qsSecurityLockCard.classList.toggle('hidden', !showLockCard);
+  }
+  if (el.qsSecurityPasswordCard) {
+    el.qsSecurityPasswordCard.classList.toggle('hidden', !showPasswordCard);
+  }
+  if (el.qsSecurityPasswordLockedNote) {
+    el.qsSecurityPasswordLockedNote.classList.toggle('hidden', !showPasswordLockedNote);
   }
   if (el.qsTelegramEnabled) {
     el.qsTelegramEnabled.checked = Boolean(telegramSettings?.enabled);
@@ -123,40 +162,40 @@ function renderSettings() {
     el.qsAppVersion.textContent = rawVersion ? `v${rawVersion.replace(/^v/i, '')}` : 'v-';
   }
   if (el.qsTelegramTest) {
-    el.qsTelegramTest.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+    el.qsTelegramTest.disabled = isCredentialLocked;
   }
   if (el.qsSecurityUnlockInput) {
-    el.qsSecurityUnlockInput.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+    el.qsSecurityUnlockInput.disabled = !showUnlockCard;
   }
   renderSecretVisibilityToggle(el.qsSecurityUnlockToggle, el.qsSecurityUnlockInput);
   if (el.qsSecurityUnlockToggle) {
-    el.qsSecurityUnlockToggle.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+    el.qsSecurityUnlockToggle.disabled = !showUnlockCard;
   }
   if (el.qsSecurityUnlockAction) {
-    el.qsSecurityUnlockAction.disabled = !Boolean(security?.hasMasterPassword) || Boolean(security?.unlocked);
+    el.qsSecurityUnlockAction.disabled = !showUnlockCard;
   }
   if (el.qsSecurityLockAction) {
-    el.qsSecurityLockAction.disabled = !Boolean(security?.hasMasterPassword) || !Boolean(security?.unlocked);
+    el.qsSecurityLockAction.disabled = !showLockCard;
   }
   if (el.qsSecurityNewPasswordInput) {
-    el.qsSecurityNewPasswordInput.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+    el.qsSecurityNewPasswordInput.disabled = !showPasswordCard;
   }
   renderSecretVisibilityToggle(el.qsSecurityNewPasswordToggle, el.qsSecurityNewPasswordInput);
   if (el.qsSecurityNewPasswordToggle) {
-    el.qsSecurityNewPasswordToggle.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+    el.qsSecurityNewPasswordToggle.disabled = !showPasswordCard;
   }
   if (el.qsSecurityConfirmPasswordInput) {
-    el.qsSecurityConfirmPasswordInput.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+    el.qsSecurityConfirmPasswordInput.disabled = !showPasswordCard;
   }
   renderSecretVisibilityToggle(el.qsSecurityConfirmPasswordToggle, el.qsSecurityConfirmPasswordInput);
   if (el.qsSecurityConfirmPasswordToggle) {
-    el.qsSecurityConfirmPasswordToggle.disabled = Boolean(security?.hasMasterPassword) && !Boolean(security?.unlocked);
+    el.qsSecurityConfirmPasswordToggle.disabled = !showPasswordCard;
   }
   if (el.qsSecuritySetPasswordAction) {
-    el.qsSecuritySetPasswordAction.disabled = Boolean(security?.hasMasterPassword);
+    el.qsSecuritySetPasswordAction.disabled = hasMasterPassword || !showPasswordCard;
   }
   if (el.qsSecurityChangePasswordAction) {
-    el.qsSecurityChangePasswordAction.disabled = !Boolean(security?.hasMasterPassword) || !Boolean(security?.unlocked);
+    el.qsSecurityChangePasswordAction.disabled = !hasMasterPassword || !isUnlocked || !showPasswordCard;
   }
 }
 

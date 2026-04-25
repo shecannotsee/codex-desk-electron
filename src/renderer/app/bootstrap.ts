@@ -1993,11 +1993,15 @@ async function init() {
 
   const openCredentialVaultPane = () => {
     setQuickSettingsPane('integration-security');
-    if (el.qsSecurityUnlockInput && !el.qsSecurityUnlockInput.disabled) {
-      window.setTimeout(() => {
+    window.setTimeout(() => {
+      if (el.qsSecurityUnlockInput && !el.qsSecurityUnlockInput.disabled && !el.qsSecurityUnlockCard.classList.contains('hidden')) {
         el.qsSecurityUnlockInput.focus();
-      }, 0);
-    }
+        return;
+      }
+      if (el.qsSecurityNewPasswordInput && !el.qsSecurityNewPasswordInput.disabled && !el.qsSecurityPasswordCard.classList.contains('hidden')) {
+        el.qsSecurityNewPasswordInput.focus();
+      }
+    }, 0);
   };
 
   if (el.qsSecurityRuntimeUnlock) {
@@ -2098,6 +2102,9 @@ async function init() {
   }
 
   if (el.qsSecurityUnlockInput) {
+    el.qsSecurityUnlockInput.addEventListener('input', () => {
+      integrationSettings.clearUnlockError();
+    });
     el.qsSecurityUnlockInput.addEventListener('keydown', async (event) => {
       if (event.key !== 'Enter') {
         return;
@@ -2120,10 +2127,16 @@ async function init() {
   };
 
   if (el.qsSecurityNewPasswordInput) {
+    el.qsSecurityNewPasswordInput.addEventListener('input', () => {
+      integrationSettings.clearPasswordError();
+    });
     el.qsSecurityNewPasswordInput.addEventListener('keydown', runMasterPasswordSubmitFromKeyboard);
   }
 
   if (el.qsSecurityConfirmPasswordInput) {
+    el.qsSecurityConfirmPasswordInput.addEventListener('input', () => {
+      integrationSettings.clearPasswordError();
+    });
     el.qsSecurityConfirmPasswordInput.addEventListener('keydown', runMasterPasswordSubmitFromKeyboard);
   }
 

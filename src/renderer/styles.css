@@ -3605,6 +3605,16 @@ html[data-theme='light'] .msg-toggle-render[aria-pressed='true'] {
   color: #6f89a2;
 }
 
+.quick-settings-inline-error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  background: rgba(254, 226, 226, 0.82);
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .quick-settings-alert-card {
   border: 1px solid rgba(226, 145, 20, 0.34);
   background:
@@ -4959,6 +4969,12 @@ html[data-theme='dark'] .quick-settings-toggle-row {
 html[data-theme='dark'] .quick-settings-form-label,
 html[data-theme='dark'] .quick-settings-form-hint {
   color: #9db2c7;
+}
+
+html[data-theme='dark'] .quick-settings-inline-error {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
 }
 
 html[data-theme='dark'] .quick-settings-alert-card {

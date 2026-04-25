@@ -28,6 +28,11 @@ const telegramLogsState = {
   count: 0,
 };
 
+const securityFormState = {
+  unlockError: '',
+  passwordError: '',
+};
+
 let credentialRuntimeNoticeShown = false;
 
 function collectNotificationSettingsPayload() {
@@ -74,6 +79,38 @@ function clearSecurityDraftInputs() {
   if (el.qsSecurityConfirmPasswordInput) {
     el.qsSecurityConfirmPasswordInput.value = '';
   }
+}
+
+function renderSecurityInlineError(target: HTMLElement | null | undefined, message: string) {
+  if (!target) {
+    return;
+  }
+  const text = String(message || '').trim();
+  target.textContent = text;
+  target.classList.toggle('hidden', !text);
+}
+
+function setUnlockError(message: string) {
+  securityFormState.unlockError = String(message || '').trim();
+  renderSecurityInlineError(el.qsSecurityUnlockError, securityFormState.unlockError);
+}
+
+function setPasswordError(message: string) {
+  securityFormState.passwordError = String(message || '').trim();
+  renderSecurityInlineError(el.qsSecurityPasswordError, securityFormState.passwordError);
+}
+
+function clearUnlockError() {
+  setUnlockError('');
+}
+
+function clearPasswordError() {
+  setPasswordError('');
+}
+
+function clearSecurityErrors() {
+  clearUnlockError();
+  clearPasswordError();
 }
 
 function collectTelegramTestTargets(): TelegramTestTarget[] {
@@ -261,42 +298,49 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
   const submitMasterPasswordUpdate = async (mode: MasterPasswordMode) => {
     const password = String(el.qsSecurityNewPasswordInput?.value || '');
     const confirmPassword = String(el.qsSecurityConfirmPasswordInput?.value || '');
+    clearPasswordError();
     if (!password.trim()) {
-      hooks.showNotice(t('securityPasswordEmpty'), 'error');
+      setPasswordError(t('securityPasswordEmpty'));
+      el.qsSecurityNewPasswordInput?.focus();
       return;
     }
     if (password !== confirmPassword) {
-      hooks.showNotice(t('securityPasswordMismatch'), 'error');
+      setPasswordError(t('securityPasswordMismatch'));
+      el.qsSecurityConfirmPasswordInput?.focus();
       return;
     }
     const result = await codexdesk.setMasterPassword(password);
     if (result?.error) {
-      hooks.showNotice(localizeKnownText(String(result.error || '')), 'error');
+      setPasswordError(localizeKnownText(String(result.error || '')));
       hooks.applySnapshot(result?.snapshot || {});
       renderAll();
       return;
     }
     applyResultSnapshot(result);
     clearSecurityDraftInputs();
+    clearSecurityErrors();
     renderSettings();
     hooks.showNotice(t(mode === 'set' ? 'securitySetPasswordSuccess' : 'securityChangePasswordSuccess'), 'success');
   };
 
   const unlockMasterPassword = async () => {
     const password = String(el.qsSecurityUnlockInput?.value || '');
+    clearUnlockError();
     if (!password.trim()) {
-      hooks.showNotice(t('securityPasswordEmpty'), 'error');
+      setUnlockError(t('securityPasswordEmpty'));
+      el.qsSecurityUnlockInput?.focus();
       return;
     }
     const result = await codexdesk.unlockMasterPassword(password);
     if (result?.error) {
-      hooks.showNotice(localizeKnownText(String(result.error || '')), 'error');
+      setUnlockError(localizeKnownText(String(result.error || '')));
       hooks.applySnapshot(result?.snapshot || {});
       renderAll();
       return;
     }
     applyResultSnapshot(result);
     clearSecurityDraftInputs();
+    clearSecurityErrors();
     renderSettings();
     hooks.showNotice(t('securityUnlockSuccess'), 'success');
   };
@@ -311,6 +355,7 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
     }
     applyResultSnapshot(result);
     clearSecurityDraftInputs();
+    clearSecurityErrors();
     renderSettings();
     hooks.showNotice(t('securityLockSuccess'), 'success');
   };
@@ -332,6 +377,8 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
       input.type = input.type === 'password' ? 'text' : 'password';
       updateSecretToggleLabel(button, input);
     },
+    clearUnlockError,
+    clearPasswordError,
     renderTelegramLogsPane,
     refreshTelegramLogs,
     refreshCredentialRuntimeLockNotice,

@@ -104,12 +104,13 @@
                       <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，发送到通讯工具的消息会带上这个标识。</div>
                     </div>
                     <div class="quick-settings-form-card">
-                      <div class="quick-settings-inline-label" data-i18n-key="securityEntryTitle">凭据保护</div>
+                      <div class="quick-settings-inline-label" data-i18n-key="securityEntryTitle">通知解锁与保护</div>
                       <button id="qs-integration-security" type="button" class="quick-settings-item" data-pane-route="integration-security">
-                        <span data-i18n-key="securityPaneTitle">凭据保护</span>
+                        <span data-i18n-key="securityPaneTitle">通知解锁与保护</span>
                         <span class="quick-settings-chevron">›</span>
                       </button>
-                      <div class="quick-settings-form-hint" data-i18n-key="securityEntryHint">用主密码加密保存已接入通讯工具的敏感凭据，锁定后需要解锁才能使用。</div>
+                      <div id="qs-security-entry-status" class="quick-settings-form-hint">当前未设置解锁密码。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityEntryHint">如果你开启了通知或远程对话，锁定后它们会暂停。想继续发送，请先解锁。</div>
                     </div>
                     <div class="quick-settings-form-card">
                       <div class="quick-settings-inline-label" data-i18n-key="notificationProviderLabel">通讯工具</div>
@@ -123,42 +124,55 @@
 
                   <section class="quick-settings-pane" data-pane="integration-security">
                     <div class="quick-settings-form-card">
-                      <div class="quick-settings-form-title" data-i18n-key="securityPaneTitle">凭据保护</div>
-                      <div class="quick-settings-form-hint" data-i18n-key="securityPaneHint">主密码只用于保护本地保存的通讯凭据。设置后，已接入通讯工具的敏感凭据会以加密形式保存在当前设备；应用重启后默认需要先解锁，通知、远程对话和测试才可继续使用。</div>
+                      <div class="quick-settings-form-title" data-i18n-key="securityPaneTitle">通知解锁与保护</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityPaneHint">这里保护你保存的通讯工具连接信息，例如 Bot Token。设置主密码后，应用重启默认会处于锁定状态；想继续发送通知、远程对话或测试，需要先解锁。</div>
                       <div class="quick-settings-inline-meta-actions">
                         <span class="quick-settings-form-label" data-i18n-key="securityStatusLabel">当前状态</span>
                         <span id="qs-security-status-value" class="quick-settings-static-value">-</span>
                       </div>
+                      <div id="qs-security-status-explainer" class="quick-settings-form-hint">当前未设置解锁密码。</div>
                     </div>
-                    <div class="quick-settings-form-card">
-                      <div class="quick-settings-form-title" data-i18n-key="securityUnlockAction">解锁凭据</div>
-                      <label class="quick-settings-form-label" for="qs-security-unlock-input" data-i18n-key="securityUnlockPasswordLabel">主密码</label>
+                    <div id="qs-security-unlock-card" class="quick-settings-form-card">
+                      <div class="quick-settings-form-title" data-i18n-key="securityUnlockSectionTitle">恢复通知与远程对话</div>
+                      <label class="quick-settings-form-label" for="qs-security-unlock-input" data-i18n-key="securityUnlockPasswordLabel">解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-unlock-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="输入主密码后解锁凭据" />
+                        <input id="qs-security-unlock-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="输入你设置的主密码后恢复通知" />
                         <button id="qs-security-unlock-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
-                      <div class="quick-settings-form-hint" data-i18n-key="securityLockedHint">当前已锁定。解锁后才可查看、修改或使用已保存的通讯凭据；已启用的通知、远程对话和测试也会在锁定时暂停。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityLockedHint">当前处于锁定状态。通知、远程对话和测试发送都不会执行；想恢复它们，请先解锁。</div>
+                      <div id="qs-security-unlock-error" class="quick-settings-inline-error hidden" aria-live="polite"></div>
                       <div class="quick-settings-form-actions">
-                        <button id="qs-security-unlock-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securityUnlockAction">解锁凭据</button>
-                        <button id="qs-security-lock-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityLockAction">立即锁定</button>
+                        <button id="qs-security-unlock-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securityUnlockAction">解锁并恢复通知</button>
                       </div>
                     </div>
-                    <div class="quick-settings-form-card quick-settings-action-card">
-                      <div class="quick-settings-form-title" data-i18n-key="securitySetPasswordAction">设置主密码</div>
-                      <label class="quick-settings-form-label" for="qs-security-new-password-input" data-i18n-key="securityNewPasswordLabel">新主密码</label>
+                    <div id="qs-security-lock-card" class="quick-settings-form-card quick-settings-action-card hidden">
+                      <div class="quick-settings-form-title" data-i18n-key="securityLockSectionTitle">暂停通知与远程对话</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securityUnlockedHint">当前已解锁。你可以修改通讯工具连接信息，也可以重新设置解锁密码。</div>
+                      <div class="quick-settings-form-actions">
+                        <button id="qs-security-lock-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityLockAction">锁定并暂停通知</button>
+                      </div>
+                    </div>
+                    <div id="qs-security-password-locked-note" class="quick-settings-form-card quick-settings-alert-card hidden">
+                      <div class="quick-settings-alert-title" data-i18n-key="securityPasswordLockedTitle">修改解锁密码前需要先解锁</div>
+                      <div class="quick-settings-alert-text" data-i18n-key="securityPasswordLockedHint">当前已锁定，所以这里先不显示修改密码输入框。先输入你设置过的主密码完成解锁，再回来修改。</div>
+                    </div>
+                    <div id="qs-security-password-card" class="quick-settings-form-card quick-settings-action-card">
+                      <div class="quick-settings-form-title" data-i18n-key="securitySetPasswordSectionTitle">设置或修改解锁密码</div>
+                      <label class="quick-settings-form-label" for="qs-security-new-password-input" data-i18n-key="securityNewPasswordLabel">新的解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-new-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="设置新的本地主密码" />
+                        <input id="qs-security-new-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="设置新的解锁密码" />
                         <button id="qs-security-new-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
-                      <label class="quick-settings-form-label" for="qs-security-confirm-password-input" data-i18n-key="securityConfirmPasswordLabel">确认主密码</label>
+                      <label class="quick-settings-form-label" for="qs-security-confirm-password-input" data-i18n-key="securityConfirmPasswordLabel">再次输入解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-confirm-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="再次输入主密码" />
+                        <input id="qs-security-confirm-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="再次输入新的解锁密码" />
                         <button id="qs-security-confirm-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
-                      <div class="quick-settings-form-hint" data-i18n-key="securitySetPasswordHint">设置主密码后，后续保存的通讯凭据会改为加密保存。</div>
+                      <div class="quick-settings-form-hint" data-i18n-key="securitySetPasswordHint">设置后，你保存的通讯工具连接信息会在本机加密保存。</div>
+                      <div id="qs-security-password-error" class="quick-settings-inline-error hidden" aria-live="polite"></div>
                       <div class="quick-settings-form-actions">
-                        <button id="qs-security-set-password-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securitySetPasswordAction">设置主密码</button>
-                        <button id="qs-security-change-password-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityChangePasswordAction">修改主密码</button>
+                        <button id="qs-security-set-password-action" type="button" class="quick-settings-action-btn primary" data-i18n-key="securitySetPasswordAction">设置解锁密码</button>
+                        <button id="qs-security-change-password-action" type="button" class="quick-settings-action-btn secondary" data-i18n-key="securityChangePasswordAction">修改解锁密码</button>
                       </div>
                     </div>
                   </section>

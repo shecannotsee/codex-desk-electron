@@ -599,6 +599,8 @@ function localizeKnownText(input) {
     ['Telegram 凭据已锁定，请先解锁', 'Telegram credentials are locked; unlock them first'],
     ['Telegram 凭据已锁定，请先在设置 > 凭据保护中解锁', 'Telegram credentials are locked; unlock them first in Settings > Credential Vault'],
     ['通讯凭据已锁定，请先在设置 > 凭据保护中解锁', 'Messaging credentials are locked; unlock them first in Settings > Credential Vault'],
+    ['Telegram 通知和远程对话当前已暂停，请先在设置 > 通知解锁与保护中解锁', 'Telegram notifications and remote chat are paused. Unlock them first in Settings > Messaging Unlock & Protection'],
+    ['当前已启用的通知和远程对话已暂停，请先在设置 > 通知解锁与保护中解锁', 'Enabled notifications and remote chat are paused. Unlock them first in Settings > Messaging Unlock & Protection'],
     ['请先解锁后再修改主密码', 'Unlock credentials before changing the master password'],
     ['主密码不能为空', 'Master password cannot be empty'],
     ['主密码错误', 'Incorrect master password'],

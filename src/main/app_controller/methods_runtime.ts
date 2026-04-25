@@ -24,7 +24,7 @@ function isCompletedPhase(phaseText) {
 const MAX_RUNTIME_EVENTS = 500;
 const MAX_RUNTIME_WORKFLOW = 500;
 const MAX_RUNTIME_RAW = 1000;
-const TELEGRAM_VAULT_LOCKED_ERROR = '通讯凭据已锁定，请先在设置 > 凭据保护中解锁';
+const TELEGRAM_VAULT_LOCKED_ERROR = '当前已启用的通知和远程对话已暂停，请先在设置 > 通知解锁与保护中解锁';
 
 function pushBounded(list, item, limit) {
   if (!Array.isArray(list)) {

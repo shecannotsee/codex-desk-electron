@@ -555,6 +555,31 @@ function localizeKnownText(input) {
     return String(input || '');
   }
   let text = String(input || '');
+  const patternReplacements: Array<[RegExp, string | ((...args: string[]) => string)]> = [
+    [/^请求[:：]\s*/gm, 'Request: '],
+    [/^收到新请求，准备执行\.\.\.$/gm, 'Received new request, preparing to run...'],
+    [/^启动 app-server[:：]\s*/gm, 'Starting app-server: '],
+    [/^已恢复原生会话[:：]\s*/gm, 'Resumed native session: '],
+    [/^已创建原生会话[:：]\s*/gm, 'Created native session: '],
+    [/^已分叉原生会话[:：]\s*/gm, 'Forked native session: '],
+    [/^使用原生会话续聊[:：]\s*/gm, 'Continue with native session: '],
+    [/^创建新的 Codex 原生会话$/gm, 'Create a new native Codex session'],
+    [/^会话ID[:：]\s*/gm, 'Session ID: '],
+    [/^模型[:：]\s*/gm, 'Model: '],
+    [/^Codex版本[:：]\s*/gm, 'Codex Version: '],
+    [/^运行中回复[:：]\s*/gm, 'Reply in progress: '],
+    [/^用户手动重试上一条消息[:：]\s*/gm, 'User manually retried the previous message: '],
+    [/^本次请求附带\s+(\d+)\s+个图片附件$/gm, (_, count) => `This request includes ${count} image attachment(s)`],
+    [/^检测到\s+(\d+)\s+个图片附件，已切换到 exec --image 模式$/gm, (_, count) => `Detected ${count} image attachment(s); switched to exec --image mode`],
+    [/^计划\s+(\d+\/\d+)$/gm, 'Plan $1'],
+    [/^阶段进展\s+#(\d+)[:：]\s*/gm, 'Progress #$1: '],
+    [/^阶段进展[:：]\s*/gm, 'Progress: '],
+    [/^进行中[:：]\s*/gm, 'In progress: '],
+    [/^已完成\s+(\d+\/\d+)$/gm, 'Completed $1'],
+  ];
+  for (const [pattern, replacement] of patternReplacements) {
+    text = text.replace(pattern, replacement as never);
+  }
   const replacements = [
     ['请先新建对话。', 'Please create a conversation first.'],
     ['会话不存在', 'Conversation not found'],
@@ -576,6 +601,9 @@ function localizeKnownText(input) {
     ['已关闭当前对话', 'Current conversation closed'],
     ['已清空当前对话内容', 'Current conversation content cleared'],
     ['已清空右侧运行日志（结构化事件/运行步骤/事件原文）', 'Runtime logs on the right have been cleared'],
+    ['暂无计划步骤', 'No plan steps yet'],
+    ['未命名步骤', 'Unnamed step'],
+    ['(进行中)', '(In progress)'],
     ['后台运行中', 'Running in background'],
     ['空闲', 'Idle'],
     ['已完成', 'Completed'],

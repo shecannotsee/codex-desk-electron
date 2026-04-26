@@ -1,6 +1,6 @@
 import { codexdesk } from './codexdesk.js';
 import type { AppSnapshot, GenericResult } from './types.js';
-import { el, localizeKnownText, state, t } from './state_i18n.js';
+import { currentLang, el, localizeKnownText, state, t } from './state_i18n.js';
 import { renderAll, renderSettings } from './renderers.js';
 
 type NoticeTone = 'info' | 'success' | 'error';
@@ -29,8 +29,10 @@ const telegramLogsState = {
 };
 
 const securityFormState = {
-  unlockError: '',
-  passwordError: '',
+  unlockErrorKey: '',
+  unlockErrorText: '',
+  passwordErrorKey: '',
+  passwordErrorText: '',
 };
 
 let credentialRuntimeNoticeShown = false;
@@ -90,14 +92,38 @@ function renderSecurityInlineError(target: HTMLElement | null | undefined, messa
   target.classList.toggle('hidden', !text);
 }
 
-function setUnlockError(message: string) {
-  securityFormState.unlockError = String(message || '').trim();
-  renderSecurityInlineError(el.qsSecurityUnlockError, securityFormState.unlockError);
+function resolveLocalizedErrorText(key: string, text: string) {
+  if (key) {
+    return t(key);
+  }
+  const raw = String(text || '').trim();
+  if (!raw) {
+    return '';
+  }
+  return currentLang() === 'en-US' ? localizeKnownText(raw) : raw;
 }
 
-function setPasswordError(message: string) {
-  securityFormState.passwordError = String(message || '').trim();
-  renderSecurityInlineError(el.qsSecurityPasswordError, securityFormState.passwordError);
+function renderSecurityErrors() {
+  renderSecurityInlineError(
+    el.qsSecurityUnlockError,
+    resolveLocalizedErrorText(securityFormState.unlockErrorKey, securityFormState.unlockErrorText),
+  );
+  renderSecurityInlineError(
+    el.qsSecurityPasswordError,
+    resolveLocalizedErrorText(securityFormState.passwordErrorKey, securityFormState.passwordErrorText),
+  );
+}
+
+function setUnlockError(message: string, key = '') {
+  securityFormState.unlockErrorKey = String(key || '').trim();
+  securityFormState.unlockErrorText = String(message || '').trim();
+  renderSecurityErrors();
+}
+
+function setPasswordError(message: string, key = '') {
+  securityFormState.passwordErrorKey = String(key || '').trim();
+  securityFormState.passwordErrorText = String(message || '').trim();
+  renderSecurityErrors();
 }
 
 function clearUnlockError() {
@@ -111,6 +137,11 @@ function clearPasswordError() {
 function clearSecurityErrors() {
   clearUnlockError();
   clearPasswordError();
+}
+
+function joinLocalizedLabels(labels: string[]) {
+  const items = labels.map((label) => String(label || '').trim()).filter(Boolean);
+  return items.join(currentLang() === 'en-US' ? ', ' : '、');
 }
 
 function collectTelegramTestTargets(): TelegramTestTarget[] {
@@ -249,11 +280,11 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
       }
       failures.push(t('telegramTestFailed', {
         label,
-        error: localizeKnownText(String(result?.error || 'Telegram 请求失败')),
+        error: localizeKnownText(String(result?.error || t('telegramRequestFailedFallback'))),
       }));
     });
     if (!failures.length) {
-      hooks.showNotice(t('telegramTestSummarySuccess', { labels: successLabels.join('、') }), 'success');
+      hooks.showNotice(t('telegramTestSummarySuccess', { labels: joinLocalizedLabels(successLabels) }), 'success');
       return;
     }
     if (successCount > 0) {
@@ -278,7 +309,7 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
     try {
       const result = await codexdesk.getTelegramLogs();
       if (result?.error) {
-        throw new Error(String(result.error || '读取 Telegram 日志失败'));
+        throw new Error(String(result.error || t('telegramLogsReadFailedFallback')));
       }
       telegramLogsState.loaded = true;
       telegramLogsState.path = String(result?.logPath || '').trim();
@@ -300,12 +331,12 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
     const confirmPassword = String(el.qsSecurityConfirmPasswordInput?.value || '');
     clearPasswordError();
     if (!password.trim()) {
-      setPasswordError(t('securityPasswordEmpty'));
+      setPasswordError('', 'securityPasswordEmpty');
       el.qsSecurityNewPasswordInput?.focus();
       return;
     }
     if (password !== confirmPassword) {
-      setPasswordError(t('securityPasswordMismatch'));
+      setPasswordError('', 'securityPasswordMismatch');
       el.qsSecurityConfirmPasswordInput?.focus();
       return;
     }
@@ -327,7 +358,7 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
     const password = String(el.qsSecurityUnlockInput?.value || '');
     clearUnlockError();
     if (!password.trim()) {
-      setUnlockError(t('securityPasswordEmpty'));
+      setUnlockError('', 'securityPasswordEmpty');
       el.qsSecurityUnlockInput?.focus();
       return;
     }
@@ -380,6 +411,10 @@ export function createIntegrationSettingsController(hooks: IntegrationSettingsHo
     clearUnlockError,
     clearPasswordError,
     renderTelegramLogsPane,
+    renderLocalizedState() {
+      renderTelegramLogsPane();
+      renderSecurityErrors();
+    },
     refreshTelegramLogs,
     refreshCredentialRuntimeLockNotice,
     saveNotificationSettings,

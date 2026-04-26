@@ -129,7 +129,7 @@ function formatWorkflowItemMarkdown(item: WorkflowItem | null | undefined): stri
     return '';
   }
   if (item.type === 'assistant-progress') {
-    const title = '进展';
+    const title = t('runtimeWorkflowProgressLabel');
     const body = formatProgressText(item.body || '');
     if (title && body) {
       return `**${title}**\n\n${body}`;
@@ -137,7 +137,7 @@ function formatWorkflowItemMarkdown(item: WorkflowItem | null | undefined): stri
     return body || title;
   }
   if (item.type === 'plan') {
-    const title = String(localizeKnownText(item.title || item.tag || '计划')).trim();
+    const title = String(localizeKnownText(item.title || item.tag || t('runtimeWorkflowPlanLabel'))).trim();
     const body = String(localizeKnownText(item.body || '')).trim();
     if (title && body) {
       return `**${title}**\n\n${body}`;
@@ -179,15 +179,15 @@ function renderWorkflowRequestTip(): string {
   return [
     '<div class="runtime-step runtime-step-static tag-TIPS">',
     '<div class="runtime-step-head">',
-    '<span class="left">提示 | 运行提示</span>',
+    `<span class="left">${escapeHtml(t('runtimeWorkflowTipsLabel'))} | ${escapeHtml(t('runtimeWorkflowTipsTitle'))}</span>`,
     '<span class="right-group">',
-    '<button type="button" class="runtime-step-toggle runtime-step-toggle-static" disabled>说明</button>',
+    `<button type="button" class="runtime-step-toggle runtime-step-toggle-static" disabled>${escapeHtml(t('runtimeWorkflowTipsButton'))}</button>`,
     '</span>',
     '</div>',
     '<div class="runtime-step-body runtime-step-note-list">',
-    '<button type="button" class="runtime-step-note-button" disabled>计划与阶段进展会显示在这里</button>',
-    '<button type="button" class="runtime-step-note-button" disabled>结构化事件可直接跳到事件原文</button>',
-    '<button type="button" class="runtime-step-note-button" disabled>完整命令与 JSON 请看事件原文</button>',
+    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNotePlan'))}</button>`,
+    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNoteStructured'))}</button>`,
+    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNoteRaw'))}</button>`,
     '</div>',
     '</div>',
   ].join('');
@@ -380,7 +380,7 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
       return [
         `<div class="runtime-step tag-REQUEST${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
         '<div class="runtime-step-head">',
-        `<span class="left">请求 | ${escapeHtml(t('roleYou'))}</span>`,
+        `<span class="left">${escapeHtml(t('runtimeWorkflowRequestLabel'))} | ${escapeHtml(t('roleYou'))}</span>`,
         '<span class="right-group">',
         `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
         `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
@@ -394,10 +394,13 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
 
     if (item.type === 'plan') {
       const collapsedLine = String(localizeKnownText(item.preview || item.title || '')).trim();
+      const rawPlanTag = String(item.tag || '').trim();
+      const planTag = rawPlanTag.toUpperCase() === 'PLAN' || !rawPlanTag ? t('runtimeWorkflowPlanTag') : rawPlanTag;
+      const planTitle = localizeKnownText(item.title || t('runtimeWorkflowPlanLabel'));
       return [
         `<div class="runtime-step tag-${escapeHtml(item.tag || 'PLAN')}${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
         '<div class="runtime-step-head">',
-        `<span class="left">${escapeHtml(item.tag || 'PLAN')} | ${escapeHtml(localizeKnownText(item.title || '计划'))}</span>`,
+        `<span class="left">${escapeHtml(planTag)} | ${escapeHtml(planTitle)}</span>`,
         '<span class="right-group">',
         `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
         `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
@@ -411,7 +414,9 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
 
     if (item.type === 'assistant-progress') {
       const segmentIndex = Number(item.segmentIndex || 0) || 0;
-      const title = segmentIndex > 0 ? `阶段进展 #${segmentIndex}` : '阶段进展';
+      const title = segmentIndex > 0
+        ? t('runtimeWorkflowProgressIndexed', { index: segmentIndex })
+        : t('runtimeWorkflowProgressLabel');
       const progressStatus = item.status === 'running' ? t('stateRunning') : t('stateSuccess');
       const collapsedLine = progressCollapsedLine(item.body || '');
       return [

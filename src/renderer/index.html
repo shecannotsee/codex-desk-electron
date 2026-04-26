@@ -62,7 +62,7 @@
                   </button>
                 </div>
                 <div class="quick-settings-detail-footer quick-settings-root-footer">
-                  <div class="quick-settings-app-info" aria-label="application info">
+                  <div class="quick-settings-app-info" data-i18n-aria-label-key="applicationInfoAriaLabel">
                     <div id="qs-app-name" class="quick-settings-app-name">Codex Desk</div>
                     <div id="qs-app-version" class="quick-settings-app-version">v-</div>
                     <div id="qs-app-desc" class="quick-settings-app-desc" data-i18n-key="aboutDialogDesc">Codex Desk 是 Codex CLI 的桌面图形客户端。</div>
@@ -100,7 +100,7 @@
                     </div>
                     <div class="quick-settings-form-card">
                       <label class="quick-settings-form-label" for="qs-device-identity-input" data-i18n-key="deviceIdentityLabel">设备身份标识</label>
-                      <input id="qs-device-identity-input" class="quick-settings-text-input" type="text" placeholder="例如: desk-office" />
+                      <input id="qs-device-identity-input" class="quick-settings-text-input" type="text" data-i18n-placeholder-key="deviceIdentityPlaceholder" placeholder="例如: desk-office" />
                       <div class="quick-settings-form-hint" data-i18n-key="deviceIdentityHint">用于区分不同 Codex Desk 实例，发送到通讯工具的消息会带上这个标识。</div>
                     </div>
                     <div class="quick-settings-form-card">
@@ -136,7 +136,7 @@
                       <div class="quick-settings-form-title" data-i18n-key="securityUnlockSectionTitle">恢复通知与远程对话</div>
                       <label class="quick-settings-form-label" for="qs-security-unlock-input" data-i18n-key="securityUnlockPasswordLabel">解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-unlock-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="输入你设置的主密码后恢复通知" />
+                        <input id="qs-security-unlock-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" data-i18n-placeholder-key="securityUnlockPasswordPlaceholder" placeholder="输入你设置的主密码后恢复通知" />
                         <button id="qs-security-unlock-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
                       <div class="quick-settings-form-hint" data-i18n-key="securityLockedHint">当前处于锁定状态。通知、远程对话和测试发送都不会执行；想恢复它们，请先解锁。</div>
@@ -160,12 +160,12 @@
                       <div class="quick-settings-form-title" data-i18n-key="securitySetPasswordSectionTitle">设置或修改解锁密码</div>
                       <label class="quick-settings-form-label" for="qs-security-new-password-input" data-i18n-key="securityNewPasswordLabel">新的解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-new-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="设置新的解锁密码" />
+                        <input id="qs-security-new-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" data-i18n-placeholder-key="securityNewPasswordPlaceholder" placeholder="设置新的解锁密码" />
                         <button id="qs-security-new-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
                       <label class="quick-settings-form-label" for="qs-security-confirm-password-input" data-i18n-key="securityConfirmPasswordLabel">再次输入解锁密码</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-security-confirm-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" placeholder="再次输入新的解锁密码" />
+                        <input id="qs-security-confirm-password-input" class="quick-settings-text-input" type="password" autocomplete="new-password" spellcheck="false" data-i18n-placeholder-key="securityConfirmPasswordPlaceholder" placeholder="再次输入新的解锁密码" />
                         <button id="qs-security-confirm-password-toggle" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
                       <div class="quick-settings-form-hint" data-i18n-key="securitySetPasswordHint">设置后，你保存的通讯工具连接信息会在本机加密保存。</div>
@@ -193,11 +193,11 @@
                       </label>
                       <label class="quick-settings-form-label" for="qs-telegram-bot-token-input" data-i18n-key="telegramBotToken">Bot Token</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存 Token" />
+                        <input id="qs-telegram-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" data-i18n-placeholder-key="telegramBotTokenPlaceholder" placeholder="留空则保持当前已保存 Token" />
                         <button id="qs-telegram-toggle-token-visibility" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
                       <label class="quick-settings-form-label" for="qs-telegram-chat-id-input" data-i18n-key="telegramChatId">Chat ID</label>
-                      <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入接收通知的 chat id" />
+                      <input id="qs-telegram-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder-key="telegramChatIdPlaceholder" placeholder="填入接收通知的 chat id" />
                       <div class="quick-settings-form-hint" data-i18n-key="telegramHint">完成或失败时会推送结果。通知里会显示重命名后的对话名称和对话 ID。</div>
                     </div>
                     <div class="quick-settings-form-card">
@@ -208,11 +208,11 @@
                       </label>
                       <label class="quick-settings-form-label" for="qs-telegram-remote-bot-token-input" data-i18n-key="telegramRemoteBotToken">远程对话 Bot Token</label>
                       <div class="quick-settings-secret-row">
-                        <input id="qs-telegram-remote-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" placeholder="留空则保持当前已保存远程对话 Token" />
+                        <input id="qs-telegram-remote-bot-token-input" class="quick-settings-text-input" type="password" autocomplete="off" spellcheck="false" data-i18n-placeholder-key="telegramRemoteBotTokenPlaceholder" placeholder="留空则保持当前已保存远程对话 Token" />
                         <button id="qs-telegram-toggle-remote-token-visibility" type="button" class="quick-settings-inline-action" data-i18n-key="showSecret">显示</button>
                       </div>
                       <label class="quick-settings-form-label" for="qs-telegram-allowed-chat-id-input" data-i18n-key="telegramAllowedChatId">远程对话 Chat ID</label>
-                      <input id="qs-telegram-allowed-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="填入允许远程对话的 chat id" />
+                      <input id="qs-telegram-allowed-chat-id-input" class="quick-settings-text-input" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder-key="telegramAllowedChatIdPlaceholder" placeholder="填入允许远程对话的 chat id" />
                       <div class="quick-settings-form-hint" data-i18n-key="telegramRemoteControlHint">开启后，去 Telegram 里发送 /help 查看可用命令。</div>
                     </div>
                     <div class="quick-settings-form-card quick-settings-action-card">
@@ -265,6 +265,7 @@
                             step="1"
                             value="15"
                             inputmode="numeric"
+                            data-i18n-aria-label-key="chatFontSizeInputAriaLabel"
                             aria-label="chat font size"
                           />
                           <span class="quick-settings-number-suffix">px</span>

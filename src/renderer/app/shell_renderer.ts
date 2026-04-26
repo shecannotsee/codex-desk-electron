@@ -222,8 +222,21 @@ function renderLayout() {
   el.appRoot.classList.toggle('sidebar-hidden', state.ui.sidebarHidden);
 }
 
+function applyLocalizedAttribute(attrName: string, keyAttrName: string) {
+  Array.from(document.querySelectorAll<HTMLElement>(`[${keyAttrName}]`)).forEach((node) => {
+    const key = node.getAttribute(keyAttrName);
+    if (!key) {
+      return;
+    }
+    node.setAttribute(attrName, t(key));
+  });
+}
+
 function renderLocaleTexts() {
   document.documentElement.lang = currentLang();
+  applyLocalizedAttribute('placeholder', 'data-i18n-placeholder-key');
+  applyLocalizedAttribute('title', 'data-i18n-title-key');
+  applyLocalizedAttribute('aria-label', 'data-i18n-aria-label-key');
   if (el.sidebarTitle) {
     el.sidebarTitle.textContent = t('sidebarTitle');
   }

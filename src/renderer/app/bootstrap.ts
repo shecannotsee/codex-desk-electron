@@ -2515,6 +2515,7 @@ async function init() {
     state.ui.language = el.languageSelect.value === 'en-US' ? 'en-US' : 'zh-CN';
     saveUiPrefs();
     renderAll();
+    integrationSettings.renderLocalizedState();
     syncMenuLanguage();
   });
 

@@ -356,6 +356,64 @@ class CodexRunner extends EventEmitter {
     return `${value.slice(0, limit).trimEnd()}...`;
   }
 
+  _normalizePlanStatus(status = '') {
+    const text = String(status || '').trim().toLowerCase();
+    if (text === 'completed' || text === 'done' || text === 'success') {
+      return 'completed';
+    }
+    if (text === 'in_progress' || text === 'inprogress' || text === 'running' || text === 'active') {
+      return 'in_progress';
+    }
+    return 'pending';
+  }
+
+  _emitPlanUpdateFromItem(eventType, item) {
+    const itemType = String(item?.type || '').trim().toLowerCase();
+    if (itemType !== 'todo_list') {
+      return false;
+    }
+
+    const todoItems = Array.isArray(item?.items) ? item.items : [];
+    let firstPendingIndex = -1;
+    const plan = todoItems
+      .map((entry, index) => {
+        const step = String(entry?.text || '').trim();
+        if (!step) {
+          return null;
+        }
+        if (entry?.completed) {
+          return {
+            step,
+            status: 'completed',
+          };
+        }
+        if (firstPendingIndex < 0) {
+          firstPendingIndex = index;
+        }
+        return {
+          step,
+          status: 'pending',
+        };
+      })
+      .filter(Boolean);
+
+    if (firstPendingIndex >= 0 && eventType !== 'item.completed') {
+      const firstPending = plan.find((entry) => entry?.status === 'pending');
+      if (firstPending) {
+        firstPending.status = 'in_progress';
+      }
+    }
+
+    this.emit('plan_update', {
+      explanation: '',
+      plan: plan.map((entry) => ({
+        step: String(entry?.step || '').trim(),
+        status: this._normalizePlanStatus(entry?.status),
+      })),
+    });
+    return true;
+  }
+
   _emitItemStep(eventType, item) {
     const itemType = String(item.type || '').trim().toLowerCase();
     const itemText = String(item.text || '').trim();
@@ -563,11 +621,15 @@ class CodexRunner extends EventEmitter {
       return;
     }
 
-    if (eventType === 'item.started' || eventType === 'item.completed') {
+    if (eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') {
       if (event.item && typeof event.item === 'object') {
+        if (this._emitPlanUpdateFromItem(eventType, event.item)) {
+          return;
+        }
         this._emitItemStep(eventType, event.item);
         this._emitAssistantUpdate(eventType, event.item);
       }
+      return;
     }
 
     if (eventType === 'response.output_text.delta') {

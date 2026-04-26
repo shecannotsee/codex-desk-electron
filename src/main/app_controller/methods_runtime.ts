@@ -76,7 +76,130 @@ function normalizeNotificationFailureEventMessage(message, exitCode = '') {
   return text;
 }
 
+function normalizeWorkflowPlanStatus(status = '') {
+  const text = String(status || '').trim().toLowerCase();
+  if (text === 'completed' || text === 'done' || text === 'success') {
+    return 'completed';
+  }
+  if (text === 'in_progress' || text === 'inprogress' || text === 'running' || text === 'active') {
+    return 'in_progress';
+  }
+  return 'pending';
+}
+
+function buildWorkflowPlanBody(explanation = '', plan = []) {
+  const lines = [];
+  const note = String(explanation || '').trim();
+  if (note) {
+    lines.push(`> ${note}`);
+    lines.push('');
+  }
+  const items = Array.isArray(plan) ? plan : [];
+  if (!items.length) {
+    lines.push('- [ ] 暂无计划步骤');
+    return lines.join('\n');
+  }
+  items.forEach((item) => {
+    const stepText = String(item?.step || '').trim() || '未命名步骤';
+    const status = normalizeWorkflowPlanStatus(item?.status);
+    if (status === 'completed') {
+      lines.push(`- [x] ${stepText}`);
+      return;
+    }
+    if (status === 'in_progress') {
+      lines.push(`- [ ] ${stepText} **(进行中)**`);
+      return;
+    }
+    lines.push(`- [ ] ${stepText}`);
+  });
+  return lines.join('\n');
+}
+
+function summarizeWorkflowPlan(plan = []) {
+  const items = Array.isArray(plan) ? plan : [];
+  const total = items.length;
+  let completed = 0;
+  let activeStep = '';
+  items.forEach((item) => {
+    const status = normalizeWorkflowPlanStatus(item?.status);
+    if (status === 'completed') {
+      completed += 1;
+      return;
+    }
+    if (!activeStep && status === 'in_progress') {
+      activeStep = String(item?.step || '').trim();
+    }
+  });
+  const preview = activeStep
+    ? `进行中: ${activeStep}`
+    : (total > 0 ? `已完成 ${completed}/${total}` : '暂无计划步骤');
+  return {
+    total,
+    completed,
+    activeStep,
+    preview,
+  };
+}
+
+function summarizeWorkflowPurposeText(text = '', limit = 140) {
+  const normalized = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (!normalized) {
+    return '';
+  }
+  const firstParagraph = normalized.split(/\n{2,}/)[0]?.replace(/\s+/g, ' ').trim() || '';
+  if (!firstParagraph) {
+    return '';
+  }
+  return normalizePreview(firstParagraph, limit);
+}
+
+function buildStructuredProgressMessage(body = '', segmentIndex = 0) {
+  const preview = normalizePreview(body, 96);
+  if (!preview) {
+    return '';
+  }
+  const index = Number(segmentIndex || 0);
+  return index > 0
+    ? `阶段进展 #${index}: ${preview}`
+    : `阶段进展: ${preview}`;
+}
+
+function inferStructuredEventKind(level = '', message = '', metaKey = '') {
+  const normalizedLevel = String(level || '').trim().toLowerCase();
+  const text = String(message || '').trim();
+  const key = String(metaKey || '').trim();
+  if (!text && !key) {
+    return '';
+  }
+  if (key === '会话ID' || key === '模型') {
+    return 'startup';
+  }
+  if (/^请求[:：]/.test(text) || /^收到新请求/.test(text)) {
+    return 'request';
+  }
+  if (
+    normalizedLevel === 'hint'
+    && (
+      /^启动 app-server[:：]/.test(text)
+      || /^已(恢复|创建|分叉)原生会话[:：]/.test(text)
+      || /^使用原生会话续聊[:：]/.test(text)
+      || /^创建新的 Codex 原生会话$/.test(text)
+      || /^当前为本地拼接上下文模式/.test(text)
+    )
+  ) {
+    return 'startup';
+  }
+  return '';
+}
+
 const runtimeMethods = {
+  _inferStructuredEventKind(level = '', message = '', metaKey = '') {
+    return inferStructuredEventKind(level, message, metaKey);
+  },
+
   _emit(event) {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       return;
@@ -693,13 +816,18 @@ const runtimeMethods = {
     };
   },
 
-  _appendStructuredEvent(conversationId, level, message) {
+  _appendStructuredEvent(conversationId, level, message, options = {}) {
+    const optionBag = options && typeof options === 'object' ? options : {};
     this.structuredEventSeq += 1;
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
       id: `evt-${Date.now()}-${this.structuredEventSeq}`,
       level,
       message: String(message || ''),
+      ...(Reflect.has(optionBag, 'kind') ? { kind: Reflect.get(optionBag, 'kind') } : {}),
+      ...(Reflect.has(optionBag, 'body') ? { body: Reflect.get(optionBag, 'body') } : {}),
+      ...(Reflect.has(optionBag, 'rawRefId') ? { rawRefId: Reflect.get(optionBag, 'rawRefId') } : {}),
+      ...(Reflect.has(optionBag, 'rawRefLabel') ? { rawRefLabel: Reflect.get(optionBag, 'rawRefLabel') } : {}),
       timestamp: tsLabel(),
     };
     pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
@@ -719,6 +847,75 @@ const runtimeMethods = {
       kind: 'assistant-update',
       body,
       message: `运行中回复: ${normalizePreview(body, 180)}`,
+      timestamp: tsLabel(),
+    };
+    pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
+    this._emit({ type: 'runtime-event-append', conversationId, item });
+  },
+
+  _appendStructuredAssistantProgress(conversationId, text, options = {}) {
+    const body = String(text || '').trim();
+    if (!body) {
+      return;
+    }
+    const optionBag = options && typeof options === 'object' ? options : {};
+    const roundIndex = Math.max(1, Number(Reflect.get(optionBag, 'roundIndex') || 0) || 1);
+    const providedSegmentIndex = Number(Reflect.get(optionBag, 'segmentIndex') || 0) || 0;
+    const eventIndex = this._findLastStructuredEventIndex(
+      conversationId,
+      (item) => item?.kind === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === roundIndex,
+    );
+    const nextTimestamp = tsLabel();
+    if (eventIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const current = runtime.events[eventIndex] || {};
+      const segmentIndex = Number(current.segmentIndex || providedSegmentIndex || 0) || 0;
+      this._updateStructuredEvent(conversationId, eventIndex, {
+        ...current,
+        body,
+        message: buildStructuredProgressMessage(body, segmentIndex),
+        timestamp: nextTimestamp,
+      });
+      return;
+    }
+
+    this.structuredEventSeq += 1;
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      id: `evt-${Date.now()}-${this.structuredEventSeq}`,
+      level: 'hint',
+      kind: 'assistant-progress',
+      roundIndex,
+      segmentIndex: providedSegmentIndex || this._nextAssistantProgressSegmentIndex(conversationId, roundIndex),
+      body,
+      status: 'running',
+      message: buildStructuredProgressMessage(
+        body,
+        providedSegmentIndex || this._nextAssistantProgressSegmentIndex(conversationId, roundIndex),
+      ),
+      timestamp: nextTimestamp,
+    };
+    pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
+    this._emit({ type: 'runtime-event-append', conversationId, item });
+  },
+
+  _appendStructuredRequestEvent(conversationId, text, options = {}) {
+    const body = String(text || '').trim();
+    if (!body) {
+      return;
+    }
+    const optionBag = options && typeof options === 'object' ? options : {};
+    this.structuredEventSeq += 1;
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      id: `evt-${Date.now()}-${this.structuredEventSeq}`,
+      level: 'hint',
+      kind: 'request',
+      roundIndex: Number(Reflect.get(optionBag, 'roundIndex') || 0) || 0,
+      body,
+      message: `请求: ${normalizePreview(body, 180)}`,
       timestamp: tsLabel(),
     };
     pushBounded(runtime.events, item, MAX_RUNTIME_EVENTS);
@@ -758,14 +955,7 @@ const runtimeMethods = {
     if (typeof predicate !== 'function') {
       return false;
     }
-    let targetIndex = -1;
-    for (let index = runtime.events.length - 1; index >= 0; index -= 1) {
-      const item = runtime.events[index];
-      if (predicate(item)) {
-        targetIndex = index;
-        break;
-      }
-    }
+    const targetIndex = this._findLastStructuredEventIndex(conversationId, predicate);
     if (targetIndex < 0) {
       return false;
     }
@@ -775,21 +965,41 @@ const runtimeMethods = {
   },
 
   _appendWorkflowRoundHeader(conversationId, roundIndex, userText) {
-    const runtime = this.runtimeStore.ensure(conversationId);
-    const item = {
-      type: 'round',
-      channel: 'progress',
-      importance: 'high',
-      sourceKind: 'request',
-      roundIndex,
-      preview: normalizePreview(userText),
-      timestamp: tsLabel(),
-    };
-    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
-    this._emit({ type: 'runtime-workflow-append', conversationId, item });
+    this._appendStructuredRequestEvent(conversationId, userText, { roundIndex });
   },
 
-  _appendWorkflowStep(conversationId, stepText) {
+  _resolveLatestWorkflowPurpose(conversationId, roundIndex) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const items = Array.isArray(runtime.workflow) ? runtime.workflow : [];
+    const targetRound = Number(roundIndex || 0);
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index];
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      if (targetRound > 0 && Number(item.roundIndex || 0) !== targetRound) {
+        continue;
+      }
+      if (item.type === 'assistant-progress') {
+        const purpose = summarizeWorkflowPurposeText(item.body || '');
+        if (purpose) {
+          return purpose;
+        }
+      }
+      if (item.type === 'plan') {
+        const planItems = Array.isArray(item.planItems) ? item.planItems : [];
+        const active = planItems.find((entry) => String(entry?.status || '').trim().toLowerCase() === 'in_progress');
+        const pending = planItems.find((entry) => String(entry?.status || '').trim().toLowerCase() === 'pending');
+        const purpose = summarizeWorkflowPurposeText(active?.step || pending?.step || item.preview || '');
+        if (purpose) {
+          return purpose;
+        }
+      }
+    }
+    return '';
+  },
+
+  _appendWorkflowStep(conversationId, stepText, options = {}) {
     const text = String(stepText || '').trim();
     if (!text) {
       return;
@@ -849,6 +1059,11 @@ const runtimeMethods = {
       sourceKind = 'request';
     }
 
+    const commandPurpose = String(Reflect.get(options || {}, 'purpose') || '').trim();
+    if ((tag === 'RUN' || tag === 'DONE') && commandPurpose) {
+      body = `目的: ${commandPurpose}\n\n${body}`;
+    }
+
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
       type: 'step',
@@ -859,6 +1074,7 @@ const runtimeMethods = {
       channel,
       importance,
       sourceKind,
+      ...(commandPurpose ? { commandPurpose } : {}),
       body,
       timestamp: tsLabel(),
     };
@@ -893,8 +1109,94 @@ const runtimeMethods = {
     this._appendWorkflowAssistantMessage(conversationId, roundIndex, text, 'running');
   },
 
+  _appendWorkflowAssistantProgress(conversationId, roundIndex, text, options = {}) {
+    const body = String(text || '').trim();
+    if (!body) {
+      return;
+    }
+    const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
+    const optionBag = options && typeof options === 'object' ? options : {};
+    const providedSegmentIndex = Number(Reflect.get(optionBag, 'segmentIndex') || 0) || 0;
+    const workflowIndex = this._findLastWorkflowItemIndex(
+      conversationId,
+      (item) => item?.type === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === targetRound,
+    );
+    const nextTimestamp = tsLabel();
+    if (workflowIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const current = runtime.workflow[workflowIndex] || {};
+      this._updateWorkflowItem(conversationId, workflowIndex, {
+        ...current,
+        body,
+        timestamp: nextTimestamp,
+      });
+      return;
+    }
+
+    const segmentIndex = providedSegmentIndex || this._nextAssistantProgressSegmentIndex(conversationId, targetRound);
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      type: 'assistant-progress',
+      roundIndex: targetRound,
+      stepIndex: 997,
+      segmentIndex,
+      title: `assistant-progress-${segmentIndex}`,
+      tag: 'PROG',
+      channel: 'status',
+      importance: 'high',
+      sourceKind: 'assistant-progress',
+      body,
+      status: 'running',
+      timestamp: nextTimestamp,
+    };
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
+    this._emit({ type: 'runtime-workflow-append', conversationId, item });
+  },
+
   _appendWorkflowAssistantReply(conversationId, roundIndex, text) {
     this._appendWorkflowAssistantMessage(conversationId, roundIndex, text, 'success');
+  },
+
+  _upsertWorkflowPlan(conversationId, roundIndex, {
+    explanation = '',
+    plan = [],
+  } = {}) {
+    const summary = summarizeWorkflowPlan(plan);
+    const runtime = this.runtimeStore.ensure(conversationId);
+    for (let index = runtime.workflow.length - 1; index >= 0; index -= 1) {
+      const item = runtime.workflow[index];
+      if (
+        item
+        && item.type === 'plan'
+        && Number(item.roundIndex || 0) === Number(roundIndex || 0)
+      ) {
+        runtime.workflow.splice(index, 1);
+        this._emit({ type: 'runtime-workflow-pop', conversationId, index });
+        break;
+      }
+    }
+    const item = {
+      type: 'plan',
+      roundIndex: Number(roundIndex || 0) || 0,
+      stepIndex: 998,
+      title: summary.total > 0 ? `计划 ${summary.completed}/${summary.total}` : '计划',
+      tag: 'PLAN',
+      channel: 'progress',
+      importance: 'high',
+      sourceKind: 'plan',
+      body: buildWorkflowPlanBody(explanation, plan),
+      preview: summary.preview,
+      planExplanation: String(explanation || '').trim(),
+      planItems: Array.isArray(plan) ? plan.map((entry) => ({
+        step: String(entry?.step || '').trim(),
+        status: normalizeWorkflowPlanStatus(entry?.status),
+      })) : [],
+      timestamp: tsLabel(),
+    };
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
+    this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
   _removeLastWorkflowItemIf(conversationId, predicate) {
@@ -902,20 +1204,151 @@ const runtimeMethods = {
     if (typeof predicate !== 'function') {
       return false;
     }
-    let targetIndex = -1;
-    for (let index = runtime.workflow.length - 1; index >= 0; index -= 1) {
-      const item = runtime.workflow[index];
-      if (predicate(item)) {
-        targetIndex = index;
-        break;
-      }
-    }
+    const targetIndex = this._findLastWorkflowItemIndex(conversationId, predicate);
     if (targetIndex < 0) {
       return false;
     }
     runtime.workflow.splice(targetIndex, 1);
     this._emit({ type: 'runtime-workflow-pop', conversationId, index: targetIndex });
     return true;
+  },
+
+  _findLastStructuredEventIndex(conversationId, predicate) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (typeof predicate !== 'function') {
+      return -1;
+    }
+    for (let index = runtime.events.length - 1; index >= 0; index -= 1) {
+      const item = runtime.events[index];
+      if (predicate(item)) {
+        return index;
+      }
+    }
+    return -1;
+  },
+
+  _updateStructuredEvent(conversationId, index, nextItem) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (!Number.isInteger(index) || index < 0 || index >= runtime.events.length) {
+      return false;
+    }
+    runtime.events[index] = nextItem;
+    this._emit({ type: 'runtime-event-update', conversationId, index, item: nextItem });
+    return true;
+  },
+
+  _findLastWorkflowItemIndex(conversationId, predicate) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (typeof predicate !== 'function') {
+      return -1;
+    }
+    for (let index = runtime.workflow.length - 1; index >= 0; index -= 1) {
+      const item = runtime.workflow[index];
+      if (predicate(item)) {
+        return index;
+      }
+    }
+    return -1;
+  },
+
+  _updateWorkflowItem(conversationId, index, nextItem) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    if (!Number.isInteger(index) || index < 0 || index >= runtime.workflow.length) {
+      return false;
+    }
+    runtime.workflow[index] = nextItem;
+    this._emit({ type: 'runtime-workflow-update', conversationId, index, item: nextItem });
+    return true;
+  },
+
+  _nextAssistantProgressSegmentIndex(conversationId, roundIndex) {
+    const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
+    const runtime = this.runtimeStore.ensure(conversationId);
+    let maxIndex = 0;
+    for (const item of runtime.workflow) {
+      if (item?.type !== 'assistant-progress') {
+        continue;
+      }
+      if (Number(item?.roundIndex || 0) !== targetRound) {
+        continue;
+      }
+      maxIndex = Math.max(maxIndex, Number(item?.segmentIndex || 0) || 0);
+    }
+    for (const item of runtime.events) {
+      if (item?.kind !== 'assistant-progress') {
+        continue;
+      }
+      if (Number(item?.roundIndex || 0) !== targetRound) {
+        continue;
+      }
+      maxIndex = Math.max(maxIndex, Number(item?.segmentIndex || 0) || 0);
+    }
+    return maxIndex + 1;
+  },
+
+  _resolveAssistantProgressSegmentIndex(conversationId, roundIndex) {
+    const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
+    const runningWorkflowIndex = this._findLastWorkflowItemIndex(
+      conversationId,
+      (item) => item?.type === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === targetRound,
+    );
+    if (runningWorkflowIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const segmentIndex = Number(runtime.workflow[runningWorkflowIndex]?.segmentIndex || 0) || 0;
+      if (segmentIndex > 0) {
+        return segmentIndex;
+      }
+    }
+    const runningEventIndex = this._findLastStructuredEventIndex(
+      conversationId,
+      (item) => item?.kind === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === targetRound,
+    );
+    if (runningEventIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const segmentIndex = Number(runtime.events[runningEventIndex]?.segmentIndex || 0) || 0;
+      if (segmentIndex > 0) {
+        return segmentIndex;
+      }
+    }
+    return this._nextAssistantProgressSegmentIndex(conversationId, targetRound);
+  },
+
+  _sealAssistantProgressSegments(conversationId, roundIndex, status = 'success') {
+    const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
+    const nextStatus = String(status || 'success').trim() || 'success';
+    const structuredIndex = this._findLastStructuredEventIndex(
+      conversationId,
+      (item) => item?.kind === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === targetRound,
+    );
+    if (structuredIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const current = runtime.events[structuredIndex] || {};
+      this._updateStructuredEvent(conversationId, structuredIndex, {
+        ...current,
+        status: nextStatus,
+      });
+    }
+
+    const workflowIndex = this._findLastWorkflowItemIndex(
+      conversationId,
+      (item) => item?.type === 'assistant-progress'
+        && item?.status === 'running'
+        && Number(item?.roundIndex || 0) === targetRound,
+    );
+    if (workflowIndex >= 0) {
+      const runtime = this.runtimeStore.ensure(conversationId);
+      const current = runtime.workflow[workflowIndex] || {};
+      this._updateWorkflowItem(conversationId, workflowIndex, {
+        ...current,
+        status: nextStatus,
+      });
+    }
   },
 
   _appendRawJsonLine(conversationId, payload, direction = 'received') {
@@ -928,7 +1361,9 @@ const runtimeMethods = {
     const normalizedDirection = typeof payload === 'object' && payload
       ? String(payload.direction || direction || 'received').trim().toLowerCase() || 'received'
       : String(direction || 'received').trim().toLowerCase() || 'received';
+    this.rawEventSeq += 1;
     const item = {
+      id: `raw-${Date.now()}-${this.rawEventSeq}`,
       direction: normalizedDirection === 'sent' ? 'sent' : 'received',
       line: rawText,
       timestamp: tsLabel(),
@@ -936,6 +1371,22 @@ const runtimeMethods = {
     const runtime = this.runtimeStore.ensure(conversationId);
     pushBounded(runtime.raw, item, MAX_RUNTIME_RAW);
     this._emit({ type: 'runtime-raw-append', conversationId, line: item });
+  },
+
+  _latestRawItem(conversationId, predicate = null) {
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const items = Array.isArray(runtime?.raw) ? runtime.raw : [];
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index];
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      if (typeof predicate === 'function' && !predicate(item)) {
+        continue;
+      }
+      return item;
+    }
+    return null;
   },
 
   _setStartedAt(conversationId, startedAt) {

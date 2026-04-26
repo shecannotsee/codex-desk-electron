@@ -433,16 +433,37 @@ function applyEvent(event: AppEvent | null | undefined) {
       }
       break;
     }
+    case 'runtime-event-update': {
+      const runtime = ensureRuntime(id);
+      const index = Number(event.index);
+      if (Number.isInteger(index) && index >= 0 && index < runtime.events.length) {
+        runtime.events[index] = (event.item || {}) as RuntimeEventItem;
+      }
+      if (isActiveConversation && state.activeTab === 'structured') {
+        renderJobs.runtimeStructured = true;
+      }
+      break;
+    }
     case 'runtime-workflow-append':
       ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
       trimRuntimeState(state.runtimeByConversation[id]);
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'workflow') {
-          renderJobs.runtimeWorkflow = true;
-        }
+        renderJobs.runtimeWorkflow = true;
       }
       break;
+    case 'runtime-workflow-update': {
+      const runtime = ensureRuntime(id);
+      const index = Number(event.index);
+      if (Number.isInteger(index) && index >= 0 && index < runtime.workflow.length) {
+        runtime.workflow[index] = (event.item || {}) as WorkflowItem;
+      }
+      if (isActiveConversation) {
+        renderJobs.chatTransient = true;
+        renderJobs.runtimeWorkflow = true;
+      }
+      break;
+    }
     case 'runtime-workflow-pop': {
       const runtime = ensureRuntime(id);
       const index = Number(event.index);
@@ -453,9 +474,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       }
       if (isActiveConversation) {
         renderJobs.chatTransient = true;
-        if (state.activeTab === 'workflow') {
-          renderJobs.runtimeWorkflow = true;
-        }
+        renderJobs.runtimeWorkflow = true;
       }
       break;
     }
@@ -475,6 +494,7 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
+        renderJobs.runtimeWorkflow = true;
       }
       break;
     case 'runtime-started-at':
@@ -548,6 +568,7 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
+        renderJobs.runtimeWorkflow = true;
       }
       break;
     case 'queue-updated':

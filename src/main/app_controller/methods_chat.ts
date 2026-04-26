@@ -520,8 +520,7 @@ const chatMethods = {
     )) {}
 
     this._appendWorkflowRoundHeader(targetId, roundIndex, userText);
-    this._appendWorkflowStep(targetId, `R${roundIndex}-S0. 请求: ${userText}`);
-    this._appendStructuredEvent(targetId, 'info', '收到新请求，准备执行...');
+    this._appendStructuredEvent(targetId, 'hint', '收到新请求，准备执行...', { kind: 'request' });
     this._setPhase(targetId, '准备中...');
     this._setStartedAt(targetId, Date.now());
 
@@ -598,7 +597,9 @@ const chatMethods = {
     });
 
     runner.on('event', (level, message) => {
-      this._appendStructuredEvent(targetId, level, message);
+      this._appendStructuredEvent(targetId, level, message, {
+        kind: this._inferStructuredEventKind(level, message),
+      });
     });
 
     runner.on('raw_line', (line) => {
@@ -625,7 +626,9 @@ const chatMethods = {
 
       this._emit({ type: 'meta-updated', conversationId: targetId, key, value });
       if (!USAGE_META_KEYS.has(key)) {
-        this._appendStructuredEvent(targetId, 'hint', `${key}: ${value}`);
+        this._appendStructuredEvent(targetId, 'hint', `${key}: ${value}`, {
+          kind: this._inferStructuredEventKind('hint', `${key}: ${value}`, key),
+        });
       }
     });
 
@@ -653,6 +656,17 @@ const chatMethods = {
       if (enableStreamPreview) {
         this._maybeEmitStreamingAssistantUpdate(targetId, runner, '', { text: previewText, force: true });
       }
+      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+      const segmentIndex = this._resolveAssistantProgressSegmentIndex(targetId, currentRound);
+      this._appendStructuredAssistantProgress(targetId, previewText, { roundIndex: currentRound, segmentIndex });
+      this._appendWorkflowAssistantProgress(targetId, currentRound, previewText, { segmentIndex });
+    });
+
+    runner.on('plan_update', (payload) => {
+      this._markRequestWaitNoticeResponded(runner);
+      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
+      this._sealAssistantProgressSegments(targetId, currentRound);
+      this._upsertWorkflowPlan(targetId, currentRound, payload);
     });
 
     runner.on('step', (step) => {
@@ -660,15 +674,37 @@ const chatMethods = {
       const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
       const stepIndex = (this.stepIndexByRunner.get(runner) || 0) + 1;
       this.stepIndexByRunner.set(runner, stepIndex);
+      this._sealAssistantProgressSegments(targetId, currentRound);
 
-      const textStep = `R${currentRound}-S${stepIndex}. ${String(step || '').trim()}`;
-      this._appendWorkflowStep(targetId, textStep);
+      const rawStep = String(step || '').trim();
+      const commandPurpose = /执行命令:|命令执行完成/.test(rawStep)
+        ? this._resolveLatestWorkflowPurpose(targetId, currentRound)
+        : '';
+      const textStep = `R${currentRound}-S${stepIndex}. ${rawStep}`;
+      this._appendWorkflowStep(targetId, textStep, { purpose: commandPurpose });
 
-      let summary = String(step || '').replace(/\s+/g, ' ').trim();
+      let summary = rawStep.replace(/\s+/g, ' ').trim();
+      if (commandPurpose && /执行命令:|命令执行完成/.test(rawStep)) {
+        summary = `${summary} | 目的: ${commandPurpose}`;
+      }
       if (summary.length > 160) {
         summary = `${summary.slice(0, 160).trimEnd()}...`;
       }
-      this._appendStructuredEvent(targetId, 'info', `R${currentRound}-S${stepIndex}: ${summary}`);
+      const latestRawItem = this._latestRawItem(
+        targetId,
+        (item) => String(item?.direction || '').trim().toLowerCase() === 'received',
+      );
+      this._appendStructuredEvent(
+        targetId,
+        'info',
+        `R${currentRound}-S${stepIndex}: ${summary}`,
+        {
+          kind: 'step-summary',
+          body: rawStep,
+          ...(latestRawItem?.id ? { rawRefId: String(latestRawItem.id) } : {}),
+          rawRefLabel: '查看原文',
+        },
+      );
     });
 
     runner.on('finished', (result) => {
@@ -688,6 +724,7 @@ const chatMethods = {
       }
 
       const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
+      this._sealAssistantProgressSegments(targetId, currentRound);
       while (this._removeLastStructuredEventIf(
         targetId,
         (item) => item?.kind === 'assistant-update',

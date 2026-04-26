@@ -131,6 +131,7 @@ class AppController {
     this.stepIndexByRunner = new Map();
     this.roundIndexByRunner = new Map();
     this.structuredEventSeq = 0;
+    this.rawEventSeq = 0;
     this.persistTimer = null;
 
     for (const conv of this.conversations) {

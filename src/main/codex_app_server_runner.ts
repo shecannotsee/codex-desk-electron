@@ -27,6 +27,17 @@ function normalizeAssistantCompareText(text) {
     .trim();
 }
 
+function normalizePlanStatus(status = '') {
+  const text = toSnakeCase(status || '');
+  if (text === 'completed' || text === 'done' || text === 'success') {
+    return 'completed';
+  }
+  if (text === 'in_progress' || text === 'running' || text === 'active') {
+    return 'in_progress';
+  }
+  return 'pending';
+}
+
 class CodexAppServerRunner extends EventEmitter {
   constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
     super();
@@ -339,6 +350,21 @@ class CodexAppServerRunner extends EventEmitter {
       }
       this.emit('status', '正在分析请求...');
       this.emit('event', 'info', 'turn.started');
+      return;
+    }
+
+    if (method === 'turn/plan/updated') {
+      const rawPlan = Array.isArray(params?.plan) ? params.plan : [];
+      const plan = rawPlan
+        .map((entry) => ({
+          step: String(entry?.step || '').trim(),
+          status: normalizePlanStatus(entry?.status),
+        }))
+        .filter((entry) => entry.step);
+      this.emit('plan_update', {
+        explanation: String(params?.explanation || '').trim(),
+        plan,
+      });
       return;
     }
 

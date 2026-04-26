@@ -1210,6 +1210,8 @@ body.composer-resizing {
 
 .raw-event-inline-entry {
   margin: 0 0 calc(12px * var(--chat-font-scale));
+  border-radius: 12px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .raw-event-inline-head {
@@ -1248,6 +1250,12 @@ body.composer-resizing {
   overflow-wrap: anywhere;
   color: #183247;
   background: transparent;
+}
+
+.raw-event-inline-entry.is-focused {
+  padding: calc(8px * var(--chat-font-scale)) calc(10px * var(--chat-font-scale));
+  background: rgba(96, 165, 250, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
 }
 
 .input-row {
@@ -1759,16 +1767,35 @@ body.composer-resizing .composer-resize-handle::before {
 }
 
 .runtime-event {
-  margin: calc(4px * var(--chat-font-scale)) 0;
+  margin: calc(6px * var(--chat-font-scale)) 0;
   font-size: var(--chat-font-size);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+  display: flex;
+  align-items: flex-start;
+  gap: calc(10px * var(--chat-font-scale));
+  border-radius: 10px;
+}
+
+.runtime-event-main {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .runtime-event .ts {
   color: #94a3b8;
+}
+
+.runtime-event.is-linkable {
+  cursor: pointer;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.runtime-event.is-linkable:hover {
+  background: rgba(96, 165, 250, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.12);
 }
 
 .runtime-event.level-error {
@@ -1789,6 +1816,14 @@ body.composer-resizing .composer-resize-handle::before {
 
 .runtime-event.level-muted {
   color: #64748b;
+}
+
+.runtime-event.kind-request {
+  color: #60a5fa;
+}
+
+.runtime-event.kind-startup {
+  color: #c084fc;
 }
 
 .queued-preview-item {
@@ -1913,12 +1948,16 @@ body.composer-resizing .composer-resize-handle::before {
 .runtime-step.tag-THINK { border-left-color: #7c3aed; }
 .runtime-step.tag-RUN { border-left-color: #0369a1; }
 .runtime-step.tag-DONE { border-left-color: #0f766e; }
+.runtime-step.tag-PLAN { border-left-color: #c084fc; }
+.runtime-step.tag-PROG { border-left-color: #38bdf8; }
 .runtime-step.tag-REPLY { border-left-color: #0f766e; }
 .runtime-step.tag-ROUND { border-left-color: #b45309; }
 
 .runtime-step.tag-THINK,
 .runtime-step.tag-RUN,
 .runtime-step.tag-DONE,
+.runtime-step.tag-PLAN,
+.runtime-step.tag-PROG,
 .runtime-step.tag-REPLY,
 .runtime-step.tag-ROUND {
   border-left-color: #1e293b;
@@ -1952,6 +1991,78 @@ body.composer-resizing .composer-resize-handle::before {
   align-items: center;
   gap: calc(6px * var(--chat-font-scale));
   flex-shrink: 0;
+}
+
+.runtime-request-tip {
+  margin-bottom: calc(12px * var(--chat-font-scale));
+  padding: calc(10px * var(--chat-font-scale)) calc(12px * var(--chat-font-scale));
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  border-left: 3px solid rgba(96, 165, 250, 0.72);
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(15, 23, 42, 0.94));
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.04);
+}
+
+.runtime-request-tip-head {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--chat-font-scale));
+  margin-bottom: calc(6px * var(--chat-font-scale));
+}
+
+.runtime-request-tip-head .marker {
+  width: calc(7px * var(--chat-font-scale));
+  height: calc(7px * var(--chat-font-scale));
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.14);
+  flex: 0 0 auto;
+}
+
+.runtime-request-tip-head .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(28px * var(--chat-font-scale));
+  padding: calc(2px * var(--chat-font-scale)) calc(8px * var(--chat-font-scale));
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.1);
+  color: #bfdbfe;
+  font-size: calc(10px * var(--chat-font-scale));
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.runtime-request-tip-head .label {
+  color: #dbeafe;
+  font-size: calc(12px * var(--chat-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.runtime-request-tip-body {
+  color: #cbd5e1;
+  line-height: 1.6;
+  font-size: var(--chat-font-size);
+  overflow-wrap: anywhere;
+}
+
+.runtime-request-tip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8px * var(--chat-font-scale));
+}
+
+.runtime-request-tip-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(28px * var(--chat-font-scale));
+  padding: calc(4px * var(--chat-font-scale)) calc(10px * var(--chat-font-scale));
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #cbd5e1;
+  font-size: calc(11px * var(--chat-font-scale));
+  line-height: 1.45;
 }
 
 .runtime-step.tag-REPLY {
@@ -4777,6 +4888,34 @@ html[data-theme='dark'] .runtime-step.tag-DONE .runtime-step-head .left {
   color: #9ee0b8;
 }
 
+html[data-theme='dark'] .runtime-step.tag-PLAN {
+  border-left-color: #c084fc;
+  box-shadow: inset 0 0 0 1px rgba(192, 132, 252, 0.22);
+}
+
+html[data-theme='dark'] .runtime-step.tag-PLAN .runtime-step-head {
+  background: linear-gradient(90deg, rgba(147, 51, 234, 0.24), rgba(23, 33, 43, 0.96));
+  border-bottom-color: rgba(192, 132, 252, 0.34);
+}
+
+html[data-theme='dark'] .runtime-step.tag-PLAN .runtime-step-head .left {
+  color: #e8d1ff;
+}
+
+html[data-theme='dark'] .runtime-step.tag-PROG {
+  border-left-color: #38bdf8;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.22);
+}
+
+html[data-theme='dark'] .runtime-step.tag-PROG .runtime-step-head {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.24), rgba(23, 33, 43, 0.96));
+  border-bottom-color: rgba(56, 189, 248, 0.34);
+}
+
+html[data-theme='dark'] .runtime-step.tag-PROG .runtime-step-head .left {
+  color: #c9ecff;
+}
+
 html[data-theme='dark'] .runtime-step.tag-REPLY {
   border-left-color: #2dd4bf;
   box-shadow: inset 0 0 0 1px rgba(45, 212, 191, 0.22);
@@ -4799,6 +4938,8 @@ html[data-theme='dark'] .runtime-step.tag-ROUND {
 html[data-theme='dark'] .runtime-step.tag-THINK,
 html[data-theme='dark'] .runtime-step.tag-RUN,
 html[data-theme='dark'] .runtime-step.tag-DONE,
+html[data-theme='dark'] .runtime-step.tag-PLAN,
+html[data-theme='dark'] .runtime-step.tag-PROG,
 html[data-theme='dark'] .runtime-step.tag-REPLY,
 html[data-theme='dark'] .runtime-step.tag-ROUND {
   border-left-color: #1e293b;

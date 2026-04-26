@@ -140,11 +140,10 @@ function renderRunButtons() {
   if (el.qsToggleSidebar) {
     el.qsToggleSidebar.textContent = state.ui.sidebarHidden ? t('toggleSidebarShow') : t('toggleSidebarHide');
   }
-  if (el.qsLangZh && el.qsLangEn) {
-    const isZh = currentLang() === 'zh-CN';
-    el.qsLangZh.classList.toggle('active', isZh);
-    el.qsLangEn.classList.toggle('active', !isZh);
-  }
+  el.qsLanguageOptions.forEach((node) => {
+    const value = String(node.getAttribute('data-language-option') || '').trim();
+    node.classList.toggle('active', value === currentLang());
+  });
   if (el.qsRootThemeToggle && el.qsRootThemeSwitch) {
     const isDark = state.ui.theme === 'dark';
     el.qsRootThemeToggle.classList.toggle('active', isDark);

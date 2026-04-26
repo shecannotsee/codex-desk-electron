@@ -150,20 +150,16 @@ function renderSettings() {
     el.zoomFactorRange.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
   }
   if (el.zoomFactorValue) {
-    el.zoomFactorValue.textContent = `${Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100)}%`;
+    el.zoomFactorValue.value = String(Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100));
   }
   el.fontSizeRange.value = String(state.ui.chatFontSize);
   el.fontSizeValue.value = String(state.ui.chatFontSize);
-  Array.from(document.querySelectorAll<HTMLElement>('[data-chat-font-size]')).forEach((node) => {
-    const value = Number(node.getAttribute('data-chat-font-size') || '');
-    node.classList.toggle('active', Number.isFinite(value) && value === state.ui.chatFontSize);
+  el.qsLanguageOptions.forEach((node) => {
+    const value = String(node.getAttribute('data-language-option') || '').trim();
+    const active = value === currentLang();
+    node.setAttribute('aria-checked', active ? 'true' : 'false');
+    node.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  if (el.qsLangZh) {
-    el.qsLangZh.setAttribute('aria-pressed', currentLang() === 'zh-CN' ? 'true' : 'false');
-  }
-  if (el.qsLangEn) {
-    el.qsLangEn.setAttribute('aria-pressed', currentLang() === 'en-US' ? 'true' : 'false');
-  }
   if (el.qsAppName) {
     el.qsAppName.textContent = String(state.appInfo?.name || 'Codex Desk').trim() || 'Codex Desk';
   }

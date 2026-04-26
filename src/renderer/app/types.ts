@@ -430,8 +430,9 @@ export interface UiElementRefs {
   qsToggleSidebar: HTMLButtonElement;
   labelZoomFactor: HTMLElement;
   zoomFactorRange: HTMLInputElement;
-  zoomFactorValue: HTMLElement;
+  zoomFactorValue: HTMLInputElement;
   btnZoomResetInline: HTMLButtonElement;
+  qsLanguageOptions: HTMLButtonElement[];
   qsLangZh: HTMLButtonElement;
   qsLangEn: HTMLButtonElement;
   qsRootThemeToggle: HTMLButtonElement;

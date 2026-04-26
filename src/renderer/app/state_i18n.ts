@@ -109,7 +109,7 @@ const DRAFT_PREFS_KEY = 'codexdesk.drafts.v1';
 const NO_CONVERSATION_DRAFT_KEY = '__no_conversation__';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
-const CHAT_FONT_SIZE_DEFAULT = 15;
+const CHAT_FONT_SIZE_DEFAULT = 12;
 const APP_ZOOM_MIN = 0.5;
 const APP_ZOOM_MAX = 2.5;
 const APP_ZOOM_DEFAULT = 1;
@@ -1308,6 +1308,7 @@ function resolvePermissionSummary() {
 export {
   APP_ZOOM_DEFAULT,
   APP_ZOOM_STEP,
+  CHAT_FONT_SIZE_DEFAULT,
   CHAT_FONT_SIZE_MAX,
   CHAT_FONT_SIZE_MIN,
   currentLang,

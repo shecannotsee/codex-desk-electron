@@ -231,30 +231,47 @@
                     <div class="quick-settings-toggle-row">
                       <div class="quick-settings-setting-head">
                         <label id="label-zoom-factor" class="quick-settings-inline-label" for="zoom-factor-range" data-i18n-key="appZoom">界面缩放</label>
-                        <span id="zoom-factor-value" class="quick-settings-static-value quick-settings-value-chip" aria-live="polite">100%</span>
+                        <span class="quick-settings-form-hint" data-i18n-key="appZoomHint">影响整个界面。</span>
                       </div>
                       <div class="quick-settings-font-row quick-settings-zoom-row">
-                        <button type="button" class="quick-settings-inline-action quick-settings-step-action" data-action="view:zoom-out" data-i18n-key="zoomOut">缩小</button>
                         <input id="zoom-factor-range" class="font-size-range quick-settings-font-range" type="range" min="50" max="250" step="10" value="100" />
-                        <button type="button" class="quick-settings-inline-action quick-settings-step-action" data-action="view:zoom-in" data-i18n-key="zoomIn">放大</button>
-                        <button id="btn-zoom-reset-inline" type="button" class="quick-settings-inline-action" data-action="view:zoom-reset" data-i18n-key="resetZoom">实际大小</button>
+                        <div class="quick-settings-number-wrap">
+                          <input
+                            id="zoom-factor-value"
+                            class="font-size-value quick-settings-font-value"
+                            type="number"
+                            min="50"
+                            max="250"
+                            step="10"
+                            value="100"
+                            inputmode="numeric"
+                            data-i18n-aria-label-key="appZoomInputAriaLabel"
+                            aria-label="app zoom"
+                          />
+                          <span class="quick-settings-number-suffix">%</span>
+                        </div>
                       </div>
-                      <div class="quick-settings-form-hint" data-i18n-key="appZoomHint">拖动滑块时先预览数值，松手后再应用，避免整个界面在拖动过程中来回跳动。</div>
+                      <div class="quick-settings-size-presets quick-settings-zoom-actions" data-i18n-aria-label-key="zoomActionsAriaLabel">
+                        <button type="button" class="quick-settings-size-chip quick-settings-zoom-chip" data-action="view:zoom-out" data-i18n-key="zoomOut">缩小</button>
+                        <button type="button" class="quick-settings-size-chip quick-settings-zoom-chip" data-action="view:zoom-in" data-i18n-key="zoomIn">放大</button>
+                        <button
+                          id="btn-zoom-reset-inline"
+                          type="button"
+                          class="quick-settings-size-chip quick-settings-zoom-chip"
+                          data-action="view:zoom-reset"
+                          data-i18n-key="appZoomDefaultButton"
+                          data-i18n-title-key="appZoomDefaultButtonTitle"
+                          title="恢复到 100%"
+                        >默认</button>
+                      </div>
                     </div>
                     <div class="quick-settings-toggle-row">
                       <div class="quick-settings-setting-head">
                         <label id="label-font-size" class="quick-settings-inline-label" for="font-size-range" data-i18n-key="chatFontSize">对话字号</label>
-                        <span class="quick-settings-form-hint" data-i18n-key="chatFontSizeHint">只影响对话内容，不影响整体界面。</span>
-                      </div>
-                      <div class="quick-settings-font-preview" data-i18n-key="chatFontPreview">这是对话字号预览，阅读感受会跟随你当前的设置变化。</div>
-                      <div class="quick-settings-size-presets">
-                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:13" data-chat-font-size="13" data-i18n-key="chatFontSizePresetCompact">紧凑</button>
-                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:15" data-chat-font-size="15" data-i18n-key="chatFontSizePresetDefault">默认</button>
-                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:17" data-chat-font-size="17" data-i18n-key="chatFontSizePresetComfortable">舒适</button>
-                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:19" data-chat-font-size="19" data-i18n-key="chatFontSizePresetLarge">更大</button>
+                        <span class="quick-settings-form-hint" data-i18n-key="chatFontSizeHint">只影响对话文字。</span>
                       </div>
                       <div class="quick-settings-font-row">
-                        <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="15" />
+                        <input id="font-size-range" class="font-size-range quick-settings-font-range" type="range" min="12" max="24" step="1" value="12" />
                         <div class="quick-settings-number-wrap">
                           <input
                             id="font-size-value"
@@ -263,7 +280,7 @@
                             min="12"
                             max="24"
                             step="1"
-                            value="15"
+                            value="12"
                             inputmode="numeric"
                             data-i18n-aria-label-key="chatFontSizeInputAriaLabel"
                             aria-label="chat font size"
@@ -271,20 +288,38 @@
                           <span class="quick-settings-number-suffix">px</span>
                         </div>
                       </div>
+                      <div class="quick-settings-size-presets">
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:decrease" data-i18n-key="chatFontSizeDecrease">减小</button>
+                        <button type="button" class="quick-settings-size-chip" data-action="ui:chat-font-size:increase" data-i18n-key="chatFontSizeIncrease">增大</button>
+                        <button
+                          type="button"
+                          class="quick-settings-size-chip"
+                          data-action="ui:chat-font-size:default"
+                          data-i18n-key="chatFontSizeDefaultButton"
+                          data-i18n-title-key="chatFontSizeDefaultButtonTitle"
+                          title="恢复到 12px"
+                        >默认</button>
+                      </div>
                     </div>
                     <div class="quick-settings-toggle-row">
                       <div class="quick-settings-setting-head">
                         <span class="quick-settings-inline-label" data-i18n-key="language">语言</span>
                         <span class="quick-settings-form-hint" data-i18n-key="languageHint">修改后立即应用到界面和菜单。</span>
                       </div>
-                      <div class="quick-settings-choice-grid">
-                        <button id="qs-lang-zh" type="button" class="quick-settings-choice-card" data-action="ui:language:zh-CN">
-                          <span class="quick-settings-choice-title" data-i18n-key="languageZh">中文</span>
-                          <span class="quick-settings-choice-desc" data-i18n-key="languageZhHint">简体中文界面</span>
+                      <div class="quick-settings-language-menu" role="menu">
+                        <button id="qs-lang-zh" type="button" class="quick-settings-language-item" data-action="ui:language:zh-CN" data-language-option="zh-CN" role="menuitemradio">
+                          <span class="quick-settings-language-copy">
+                            <span class="quick-settings-choice-title" data-i18n-key="languageZh">中文</span>
+                            <span class="quick-settings-choice-desc" data-i18n-key="languageZhHint">简体中文界面</span>
+                          </span>
+                          <span class="quick-settings-language-check" aria-hidden="true">✓</span>
                         </button>
-                        <button id="qs-lang-en" type="button" class="quick-settings-choice-card" data-action="ui:language:en-US">
-                          <span class="quick-settings-choice-title" data-i18n-key="languageEn">English</span>
-                          <span class="quick-settings-choice-desc" data-i18n-key="languageEnHint">English interface</span>
+                        <button id="qs-lang-en" type="button" class="quick-settings-language-item" data-action="ui:language:en-US" data-language-option="en-US" role="menuitemradio">
+                          <span class="quick-settings-language-copy">
+                            <span class="quick-settings-choice-title" data-i18n-key="languageEn">English</span>
+                            <span class="quick-settings-choice-desc" data-i18n-key="languageEnHint">English interface</span>
+                          </span>
+                          <span class="quick-settings-language-check" aria-hidden="true">✓</span>
                         </button>
                       </div>
                     </div>

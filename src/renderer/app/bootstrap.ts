@@ -16,6 +16,7 @@ import type {
 import {
   APP_ZOOM_DEFAULT,
   APP_ZOOM_STEP,
+  CHAT_FONT_SIZE_DEFAULT,
   CHAT_FONT_SIZE_MAX,
   CHAT_FONT_SIZE_MIN,
   applyChatFontSize,
@@ -627,7 +628,7 @@ function syncZoomControls(percent) {
     el.zoomFactorRange.value = String(nextPercent);
   }
   if (el.zoomFactorValue) {
-    el.zoomFactorValue.textContent = `${nextPercent}%`;
+    el.zoomFactorValue.value = String(nextPercent);
   }
 }
 
@@ -640,14 +641,15 @@ function showZoomHud(percent) {
   }
   const nextPercent = Math.round(Number(percent) || currentAppZoomPercent());
   el.zoomHud.textContent = `${nextPercent}%`;
-  el.zoomHud.classList.remove('zoom-hud-visible');
   window.clearTimeout(zoomHudHideTimer);
-  window.requestAnimationFrame(() => {
-    el.zoomHud.classList.add('zoom-hud-visible');
-  });
+  if (!el.zoomHud.classList.contains('zoom-hud-visible')) {
+    window.requestAnimationFrame(() => {
+      el.zoomHud.classList.add('zoom-hud-visible');
+    });
+  }
   zoomHudHideTimer = window.setTimeout(() => {
     el.zoomHud.classList.remove('zoom-hud-visible');
-  }, 900);
+  }, 760);
 }
 
 function lockQuickSettingsAutoHide(durationMs = 260) {
@@ -1281,22 +1283,32 @@ async function init() {
       return;
     }
 
-    if (action === 'ui:language:zh-CN') {
-      if (state.ui.language !== 'zh-CN') {
-        el.languageSelect.value = 'zh-CN';
-        el.languageSelect.dispatchEvent(new Event('change'));
+    if (action.startsWith('ui:language:')) {
+      const nextLanguage = action.slice('ui:language:'.length).trim();
+      if (!nextLanguage) {
+        return;
       }
-      return;
-    }
-    if (action === 'ui:language:en-US') {
-      if (state.ui.language !== 'en-US') {
-        el.languageSelect.value = 'en-US';
+      if (state.ui.language !== nextLanguage && Array.from(el.languageSelect.options).some((option) => option.value === nextLanguage)) {
+        el.languageSelect.value = nextLanguage;
         el.languageSelect.dispatchEvent(new Event('change'));
       }
       return;
     }
     if (action.startsWith('ui:chat-font-size:')) {
-      const value = Number(action.slice('ui:chat-font-size:'.length));
+      const nextAction = action.slice('ui:chat-font-size:'.length).trim();
+      if (nextAction === 'decrease') {
+        setChatFontSize(state.ui.chatFontSize - 1);
+        return;
+      }
+      if (nextAction === 'increase') {
+        setChatFontSize(state.ui.chatFontSize + 1);
+        return;
+      }
+      if (nextAction === 'default') {
+        setChatFontSize(CHAT_FONT_SIZE_DEFAULT);
+        return;
+      }
+      const value = Number(nextAction);
       if (Number.isFinite(value)) {
         setChatFontSize(value);
       }
@@ -2524,6 +2536,7 @@ async function init() {
       const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
       syncZoomControls(nextPercent);
       lockQuickSettingsAutoHide();
+      showZoomHud(nextPercent);
     });
 
     el.zoomFactorRange.addEventListener('change', () => {
@@ -2538,6 +2551,52 @@ async function init() {
       });
     });
   }
+
+  const commitZoomInput = () => {
+    const raw = String(el.zoomFactorValue.value || '').trim();
+    if (!raw) {
+      syncZoomControls(currentAppZoomPercent());
+      return;
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value)) {
+      syncZoomControls(currentAppZoomPercent());
+      return;
+    }
+    lockQuickSettingsAutoHide(360);
+    setAppZoomFactor(value / 100, { rerenderControls: false }).then((applied) => {
+      const appliedPercent = Math.round(applied * 100);
+      syncZoomControls(appliedPercent);
+      showZoomHud(appliedPercent);
+    }).catch(() => {
+      syncZoomControls(currentAppZoomPercent());
+    });
+  };
+
+  el.zoomFactorValue.addEventListener('focus', () => {
+    el.zoomFactorValue.select();
+  });
+  el.zoomFactorValue.addEventListener('input', () => {
+    const raw = String(el.zoomFactorValue.value || '').trim();
+    if (!raw) {
+      return;
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 50 || value > 250) {
+      return;
+    }
+    syncZoomControls(value);
+    lockQuickSettingsAutoHide();
+    showZoomHud(value);
+  });
+  el.zoomFactorValue.addEventListener('change', commitZoomInput);
+  el.zoomFactorValue.addEventListener('blur', commitZoomInput);
+  el.zoomFactorValue.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitZoomInput();
+    }
+  });
 
   el.fontSizeRange.addEventListener('input', () => {
     setChatFontSize(el.fontSizeRange.value);

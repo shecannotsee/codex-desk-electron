@@ -176,18 +176,18 @@ function renderWorkflowRunningPanel(conversationId: string): string {
 }
 
 function renderWorkflowRequestTip(): string {
+  const inlineTips = [
+    t('runtimeWorkflowTipsNotePlan'),
+    t('runtimeWorkflowTipsNoteStructured'),
+    t('runtimeWorkflowTipsNoteRaw'),
+  ].join('，');
   return [
     '<div class="runtime-step runtime-step-static tag-TIPS">',
     '<div class="runtime-step-head">',
     `<span class="left">${escapeHtml(t('runtimeWorkflowTipsLabel'))} | ${escapeHtml(t('runtimeWorkflowTipsTitle'))}</span>`,
-    '<span class="right-group">',
-    `<button type="button" class="runtime-step-toggle runtime-step-toggle-static" disabled>${escapeHtml(t('runtimeWorkflowTipsButton'))}</button>`,
-    '</span>',
     '</div>',
     '<div class="runtime-step-body runtime-step-note-list">',
-    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNotePlan'))}</button>`,
-    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNoteStructured'))}</button>`,
-    `<button type="button" class="runtime-step-note-button" disabled>${escapeHtml(t('runtimeWorkflowTipsNoteRaw'))}</button>`,
+    `<div class="runtime-step-note-inline">${escapeHtml(inlineTips)}</div>`,
     '</div>',
     '</div>',
   ].join('');

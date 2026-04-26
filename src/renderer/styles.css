@@ -2006,37 +2006,17 @@ body.composer-resizing .composer-resize-handle::before {
 }
 
 .runtime-step-note-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(8px * var(--chat-font-scale));
+  display: block;
 }
 
-.runtime-step-note-button {
-  min-height: calc(30px * var(--chat-font-scale));
-  padding: calc(4px * var(--chat-font-scale)) calc(10px * var(--chat-font-scale));
-  border-radius: 999px;
-  border: 1px solid rgba(71, 85, 105, 0.72);
-  background: rgba(15, 23, 42, 0.9);
+.runtime-step-note-inline {
   color: #cbd5e1;
   font-size: calc(11px * var(--chat-font-scale));
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.45;
-  box-shadow: none;
-  transform: none;
-}
-
-.runtime-step-note-button:disabled {
-  opacity: 1;
-  cursor: default;
-}
-
-.runtime-step-toggle.runtime-step-toggle-static:disabled {
-  opacity: 1;
-  cursor: default;
-}
-
-.runtime-step-note-button:hover:not(:disabled) {
-  transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .runtime-step.tag-TIPS .runtime-step-head {

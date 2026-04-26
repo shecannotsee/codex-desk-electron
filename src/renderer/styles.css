@@ -1823,7 +1823,11 @@ body.composer-resizing .composer-resize-handle::before {
 }
 
 .runtime-event.kind-startup {
-  color: #c084fc;
+  color: #a78bfa;
+}
+
+.runtime-event.kind-assistant-progress {
+  color: #38bdf8;
 }
 
 .queued-preview-item {

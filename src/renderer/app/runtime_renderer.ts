@@ -177,16 +177,17 @@ function renderWorkflowRunningPanel(conversationId: string): string {
 
 function renderWorkflowRequestTip(): string {
   return [
-    '<div class="runtime-request-tip">',
-    '<div class="runtime-request-tip-head">',
-    '<span class="marker" aria-hidden="true"></span>',
-    '<span class="label">运行提示</span>',
-    '<span class="badge">Tips</span>',
+    '<div class="runtime-step runtime-step-static tag-TIPS">',
+    '<div class="runtime-step-head">',
+    '<span class="left">提示 | 运行提示</span>',
+    '<span class="right-group">',
+    '<button type="button" class="runtime-step-toggle runtime-step-toggle-static" disabled>说明</button>',
+    '</span>',
     '</div>',
-    '<div class="runtime-request-tip-list">',
-    '<span class="runtime-request-tip-item">计划与阶段进展会显示在这里</span>',
-    '<span class="runtime-request-tip-item">结构化事件可直接跳到事件原文</span>',
-    '<span class="runtime-request-tip-item">完整命令与 JSON 请看事件原文</span>',
+    '<div class="runtime-step-body runtime-step-note-list">',
+    '<button type="button" class="runtime-step-note-button" disabled>计划与阶段进展会显示在这里</button>',
+    '<button type="button" class="runtime-step-note-button" disabled>结构化事件可直接跳到事件原文</button>',
+    '<button type="button" class="runtime-step-note-button" disabled>完整命令与 JSON 请看事件原文</button>',
     '</div>',
     '</div>',
   ].join('');
@@ -373,6 +374,23 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
     const index = startIndex + offset;
     const collapsed = isWorkflowStepCollapsed(state.activeConversationId, index);
     const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
+
+    if (item.type === 'round') {
+      const collapsedLine = messagePreview(localizeKnownText(item.body || item.preview || ''));
+      return [
+        `<div class="runtime-step tag-REQUEST${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
+        '<div class="runtime-step-head">',
+        `<span class="left">请求 | ${escapeHtml(t('roleYou'))}</span>`,
+        '<span class="right-group">',
+        `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
+        `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
+        '</span>',
+        '</div>',
+        `<div class="runtime-step-body">${renderMarkdownLike(localizeKnownText(item.body || item.preview || ''))}</div>`,
+        `<div class="runtime-step-collapsed-line">${escapeHtml(collapsedLine)}</div>`,
+        '</div>',
+      ].join('');
+    }
 
     if (item.type === 'plan') {
       const collapsedLine = String(localizeKnownText(item.preview || item.title || '')).trim();

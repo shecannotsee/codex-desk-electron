@@ -167,6 +167,24 @@ function buildStructuredProgressMessage(body = '', segmentIndex = 0) {
     : `阶段进展: ${preview}`;
 }
 
+function extractIncrementalProgressText(fullText = '', previousFullText = '') {
+  const current = String(fullText || '').trim();
+  const previous = String(previousFullText || '').trim();
+  if (!current) {
+    return '';
+  }
+  if (!previous) {
+    return current;
+  }
+  if (current === previous) {
+    return '';
+  }
+  if (current.startsWith(previous)) {
+    return current.slice(previous.length).replace(/^\s+/, '').trim();
+  }
+  return current;
+}
+
 function inferStructuredEventKind(level = '', message = '', metaKey = '') {
   const normalizedLevel = String(level || '').trim().toLowerCase();
   const text = String(message || '').trim();
@@ -854,8 +872,8 @@ const runtimeMethods = {
   },
 
   _appendStructuredAssistantProgress(conversationId, text, options = {}) {
-    const body = String(text || '').trim();
-    if (!body) {
+    const fullText = String(text || '').trim();
+    if (!fullText) {
       return;
     }
     const optionBag = options && typeof options === 'object' ? options : {};
@@ -872,8 +890,13 @@ const runtimeMethods = {
       const runtime = this.runtimeStore.ensure(conversationId);
       const current = runtime.events[eventIndex] || {};
       const segmentIndex = Number(current.segmentIndex || providedSegmentIndex || 0) || 0;
+      const previousFullText = String(current.previousFullText || '').trim();
+      const body = extractIncrementalProgressText(fullText, previousFullText)
+        || String(current.body || '').trim()
+        || fullText;
       this._updateStructuredEvent(conversationId, eventIndex, {
         ...current,
+        fullText,
         body,
         message: buildStructuredProgressMessage(body, segmentIndex),
         timestamp: nextTimestamp,
@@ -881,6 +904,11 @@ const runtimeMethods = {
       return;
     }
 
+    const previousFullText = this._latestAssistantProgressFullText(conversationId, roundIndex);
+    const body = extractIncrementalProgressText(fullText, previousFullText);
+    if (!body) {
+      return;
+    }
     this.structuredEventSeq += 1;
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
@@ -889,6 +917,8 @@ const runtimeMethods = {
       kind: 'assistant-progress',
       roundIndex,
       segmentIndex: providedSegmentIndex || this._nextAssistantProgressSegmentIndex(conversationId, roundIndex),
+      previousFullText,
+      fullText,
       body,
       status: 'running',
       message: buildStructuredProgressMessage(
@@ -966,6 +996,26 @@ const runtimeMethods = {
 
   _appendWorkflowRoundHeader(conversationId, roundIndex, userText) {
     this._appendStructuredRequestEvent(conversationId, userText, { roundIndex });
+    const body = String(userText || '').trim();
+    if (!body) {
+      return;
+    }
+    const runtime = this.runtimeStore.ensure(conversationId);
+    const item = {
+      type: 'round',
+      roundIndex: Number(roundIndex || 0) || 0,
+      stepIndex: 0,
+      title: `请求 ${Number(roundIndex || 0) || 0}`,
+      tag: 'REQUEST',
+      channel: 'progress',
+      importance: 'high',
+      sourceKind: 'request',
+      preview: normalizePreview(body),
+      body,
+      timestamp: tsLabel(),
+    };
+    pushBounded(runtime.workflow, item, MAX_RUNTIME_WORKFLOW);
+    this._emit({ type: 'runtime-workflow-append', conversationId, item });
   },
 
   _resolveLatestWorkflowPurpose(conversationId, roundIndex) {
@@ -981,7 +1031,7 @@ const runtimeMethods = {
         continue;
       }
       if (item.type === 'assistant-progress') {
-        const purpose = summarizeWorkflowPurposeText(item.body || '');
+        const purpose = summarizeWorkflowPurposeText(item.fullText || item.body || '');
         if (purpose) {
           return purpose;
         }
@@ -1110,8 +1160,8 @@ const runtimeMethods = {
   },
 
   _appendWorkflowAssistantProgress(conversationId, roundIndex, text, options = {}) {
-    const body = String(text || '').trim();
-    if (!body) {
+    const fullText = String(text || '').trim();
+    if (!fullText) {
       return;
     }
     const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
@@ -1127,8 +1177,13 @@ const runtimeMethods = {
     if (workflowIndex >= 0) {
       const runtime = this.runtimeStore.ensure(conversationId);
       const current = runtime.workflow[workflowIndex] || {};
+      const previousFullText = String(current.previousFullText || '').trim();
+      const body = extractIncrementalProgressText(fullText, previousFullText)
+        || String(current.body || '').trim()
+        || fullText;
       this._updateWorkflowItem(conversationId, workflowIndex, {
         ...current,
+        fullText,
         body,
         timestamp: nextTimestamp,
       });
@@ -1136,6 +1191,11 @@ const runtimeMethods = {
     }
 
     const segmentIndex = providedSegmentIndex || this._nextAssistantProgressSegmentIndex(conversationId, targetRound);
+    const previousFullText = this._latestAssistantProgressFullText(conversationId, targetRound);
+    const body = extractIncrementalProgressText(fullText, previousFullText);
+    if (!body) {
+      return;
+    }
     const runtime = this.runtimeStore.ensure(conversationId);
     const item = {
       type: 'assistant-progress',
@@ -1147,6 +1207,8 @@ const runtimeMethods = {
       channel: 'status',
       importance: 'high',
       sourceKind: 'assistant-progress',
+      previousFullText,
+      fullText,
       body,
       status: 'running',
       timestamp: nextTimestamp,
@@ -1284,6 +1346,25 @@ const runtimeMethods = {
       maxIndex = Math.max(maxIndex, Number(item?.segmentIndex || 0) || 0);
     }
     return maxIndex + 1;
+  },
+
+  _latestAssistantProgressFullText(conversationId, roundIndex) {
+    const targetRound = Math.max(1, Number(roundIndex || 0) || 1);
+    const runtime = this.runtimeStore.ensure(conversationId);
+    for (let index = runtime.workflow.length - 1; index >= 0; index -= 1) {
+      const item = runtime.workflow[index];
+      if (item?.type !== 'assistant-progress') {
+        continue;
+      }
+      if (Number(item?.roundIndex || 0) !== targetRound) {
+        continue;
+      }
+      const text = String(item?.fullText || item?.body || '').trim();
+      if (text) {
+        return text;
+      }
+    }
+    return '';
   },
 
   _resolveAssistantProgressSegmentIndex(conversationId, roundIndex) {

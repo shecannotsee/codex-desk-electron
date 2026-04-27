@@ -35,7 +35,6 @@ import {
   currentConversation,
   ensureMeta,
   ensureRuntime,
-  findConversationById,
   hasActiveConversation,
   isConversationRunning,
   isMessageCollapsed,
@@ -72,6 +71,8 @@ import {
   bindQueuePopover,
   hideQueuePopover,
 } from './queue_popover_controller.js';
+import { createContextMenuController } from './context_menu_controller.js';
+import { createQuickSettingsController } from './quick_settings_controller.js';
 import { createIntegrationSettingsController } from './integration_settings.js';
 import { showAppNotice } from './app_notice.js';
 import {
@@ -228,137 +229,6 @@ async function init() {
     });
   }
 
-  let contextMenuConversationId = '';
-  const hideConversationContextMenu = () => {
-    if (!el.contextMenu) {
-      return;
-    }
-    el.contextMenu.classList.add('hidden');
-    contextMenuConversationId = '';
-  };
-
-  const showConversationContextMenu = (x, y, conversationId = '') => {
-    if (!el.contextMenu) {
-      return;
-    }
-    contextMenuConversationId = String(conversationId || '');
-    const hasTarget = Boolean(contextMenuConversationId);
-    const targetConversation = findConversationById(contextMenuConversationId);
-    if (el.ctxImportConv) {
-      el.ctxImportConv.disabled = false;
-    }
-    if (el.ctxExportConv) {
-      el.ctxExportConv.disabled = !hasTarget;
-    }
-    if (el.ctxRenameConv) {
-      el.ctxRenameConv.disabled = !hasTarget;
-    }
-    if (el.ctxPinConv) {
-      el.ctxPinConv.disabled = !hasTarget;
-      el.ctxPinConv.textContent = hasTarget && Number(targetConversation?.pinnedAt || 0) > 0
-        ? t('contextMenuUnpin')
-        : t('contextMenuPin');
-    }
-    if (el.ctxCloseConv) {
-      el.ctxCloseConv.disabled = !hasTarget;
-    }
-    el.contextMenu.classList.remove('hidden');
-    el.contextMenu.style.left = '0px';
-    el.contextMenu.style.top = '0px';
-    const rect = el.contextMenu.getBoundingClientRect();
-    const margin = 8;
-    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
-    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
-    const left = Math.max(margin, Math.min(x, maxLeft));
-    const top = Math.max(margin, Math.min(y, maxTop));
-    el.contextMenu.style.left = `${left}px`;
-    el.contextMenu.style.top = `${top}px`;
-  };
-
-  const hideChatContextMenu = () => {
-    if (!el.chatContextMenu) {
-      return;
-    }
-    el.chatContextMenu.classList.add('hidden');
-  };
-
-  let chatContextSelectionText = '';
-
-  const currentSelectionText = () => {
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLTextAreaElement
-      || (active instanceof HTMLInputElement && !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(String(active.type || '').toLowerCase()))
-    ) {
-      const start = Number(active.selectionStart);
-      const end = Number(active.selectionEnd);
-      if (Number.isInteger(start) && Number.isInteger(end) && end > start) {
-        return String(active.value || '').slice(start, end);
-      }
-    }
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
-      return '';
-    }
-    return selection.toString();
-  };
-
-  const hasSelectionText = () => String(currentSelectionText() || '').length > 0;
-
-  const copyPlainText = async (text) => {
-    const content = String(text || '');
-    if (!content) {
-      return;
-    }
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      await navigator.clipboard.writeText(content);
-      return;
-    }
-    const helper = document.createElement('textarea');
-    helper.value = content;
-    helper.setAttribute('readonly', 'readonly');
-    helper.style.position = 'fixed';
-    helper.style.opacity = '0';
-    helper.style.pointerEvents = 'none';
-    document.body.appendChild(helper);
-    helper.focus();
-    helper.select();
-    try {
-      document.execCommand('copy');
-    } finally {
-      document.body.removeChild(helper);
-    }
-  };
-
-  const showChatContextMenu = (x, y) => {
-    if (!el.chatContextMenu) {
-      return;
-    }
-    chatContextSelectionText = currentSelectionText();
-    const showCopy = chatContextSelectionText.length > 0;
-    if (el.ctxCopySelection) {
-      el.ctxCopySelection.classList.toggle('hidden', !showCopy);
-      el.ctxCopySelection.disabled = !showCopy;
-    }
-    if (el.ctxToggleRuntime) {
-      el.ctxToggleRuntime.textContent = state.ui.runtimePanelHidden ? t('toggleRuntimeShow') : t('toggleRuntimeHide');
-    }
-    if (el.ctxToggleSidebar) {
-      el.ctxToggleSidebar.textContent = state.ui.sidebarHidden ? t('toggleSidebarShow') : t('toggleSidebarHide');
-    }
-    el.chatContextMenu.classList.remove('hidden');
-    el.chatContextMenu.style.left = '0px';
-    el.chatContextMenu.style.top = '0px';
-    const rect = el.chatContextMenu.getBoundingClientRect();
-    const margin = 8;
-    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
-    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
-    const left = Math.max(margin, Math.min(x, maxLeft));
-    const top = Math.max(margin, Math.min(y, maxTop));
-    el.chatContextMenu.style.left = `${left}px`;
-    el.chatContextMenu.style.top = `${top}px`;
-  };
-
   const switchConversationIfNeeded = async (conversationId) => {
     const targetId = String(conversationId || '').trim();
     if (!targetId || targetId === state.activeConversationId) {
@@ -369,13 +239,18 @@ async function init() {
     renderAll({ stickChatToBottom: true });
   };
 
-  el.conversationList.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    const row = getEventElementTarget(event)?.closest('.conversation-item');
-    const id = row ? String(row.getAttribute('data-id') || '').trim() : '';
-    hideChatContextMenu();
-    showConversationContextMenu(event.clientX, event.clientY, id);
+  const contextMenus = createContextMenuController({
+    applySnapshot,
+    renderAll,
+    switchConversationIfNeeded,
   });
+  const {
+    hideChatContextMenu,
+    hideConversationContextMenu,
+    showChatContextMenu,
+    showConversationContextMenu,
+  } = contextMenus;
+  contextMenus.bind();
 
   if (el.chatView) {
     el.chatView.addEventListener('click', (event) => {
@@ -434,229 +309,14 @@ async function init() {
       setMessageMarkdownEnabled(state.activeConversationId, index, nextEnabled);
       renderChat(false);
     });
-
-    el.chatView.addEventListener('contextmenu', (event) => {
-      const target = getEventElementTarget(event);
-      if (target?.closest('button')) {
-        return;
-      }
-      const clickedMessage = target?.closest('.msg-block');
-      if (!hasSelectionText() && clickedMessage) {
-        return;
-      }
-      event.preventDefault();
-      hideConversationContextMenu();
-      showChatContextMenu(event.clientX, event.clientY);
-    });
   }
 
   bindQueuePopover();
 
-  if (el.runtimePanel) {
-    el.runtimePanel.addEventListener('contextmenu', (event) => {
-      if (getEventElementTarget(event)?.closest('button')) {
-        return;
-      }
-      event.preventDefault();
-      hideConversationContextMenu();
-      showChatContextMenu(event.clientX, event.clientY);
-    });
-  }
-
-  if (el.focusRow) {
-    el.focusRow.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      hideConversationContextMenu();
-      showChatContextMenu(event.clientX, event.clientY);
-    });
-  }
-
-  if (el.sendRow) {
-    el.sendRow.addEventListener('contextmenu', (event) => {
-      if (getEventElementTarget(event)?.closest('button')) {
-        return;
-      }
-      event.preventDefault();
-      hideConversationContextMenu();
-      showChatContextMenu(event.clientX, event.clientY);
-    });
-  }
-
-  if (el.ctxNewConv) {
-    el.ctxNewConv.addEventListener('click', async () => {
-      hideConversationContextMenu();
-      el.btnNewConv.click();
-    });
-  }
-  if (el.ctxImportConv) {
-    el.ctxImportConv.addEventListener('click', () => {
-      hideConversationContextMenu();
-      el.btnImportSession.click();
-    });
-  }
-  if (el.ctxExportConv) {
-    el.ctxExportConv.addEventListener('click', async () => {
-      const id = contextMenuConversationId;
-      hideConversationContextMenu();
-      await switchConversationIfNeeded(id);
-      if (!id) {
-        return;
-      }
-      el.btnExportSession.click();
-    });
-  }
-  if (el.ctxRenameConv) {
-    el.ctxRenameConv.addEventListener('click', async () => {
-      const id = contextMenuConversationId;
-      hideConversationContextMenu();
-      await switchConversationIfNeeded(id);
-      el.btnRenameConv.click();
-    });
-  }
-  if (el.ctxPinConv) {
-    el.ctxPinConv.addEventListener('click', async () => {
-      const id = contextMenuConversationId;
-      hideConversationContextMenu();
-      if (!id) {
-        return;
-      }
-      const next = await codexdesk.toggleConversationPin(id);
-      if (next?.error) {
-        window.alert(localizeKnownText(next.error));
-        return;
-      }
-      applySnapshot(next?.snapshot || next);
-      renderAll();
-    });
-  }
-  if (el.ctxCloseConv) {
-    el.ctxCloseConv.addEventListener('click', async () => {
-      const id = contextMenuConversationId;
-      hideConversationContextMenu();
-      await switchConversationIfNeeded(id);
-      el.btnCloseConv.click();
-    });
-  }
-  if (el.ctxToggleRuntime) {
-    el.ctxToggleRuntime.addEventListener('click', () => {
-      hideChatContextMenu();
-      el.btnToggleRuntime.click();
-    });
-  }
-  if (el.ctxCopySelection) {
-    el.ctxCopySelection.addEventListener('click', async () => {
-      const text = chatContextSelectionText;
-      hideChatContextMenu();
-      if (!text) {
-        return;
-      }
-      await copyPlainText(text).catch(() => {});
-    });
-  }
-  if (el.ctxToggleSidebar) {
-    el.ctxToggleSidebar.addEventListener('click', () => {
-      hideChatContextMenu();
-      el.btnToggleSidebar.click();
-    });
-  }
-
-  const quickSettingsPaneTitleKey = {
-    conversation: 'menuConversation',
-    runtime: 'menuRuntime',
-    integration: 'menuNotification',
-    'integration-security': 'securityPaneTitle',
-    'integration-telegram': 'providerTelegram',
-    view: 'menuInterface',
-    window: 'menuWindow',
-    help: 'menuHelp',
-    'help-telegram-logs': 'helpTelegramLogs',
-  };
-  const resolveQuickSettingsParentPane = (paneName) => {
-    const normalized = String(paneName || '').trim();
-    if (!normalized || normalized === 'root' || !normalized.includes('-')) {
-      return 'root';
-    }
-    return String(normalized.split('-')[0] || 'root').trim() || 'root';
-  };
-  let quickSettingsPane = 'root';
-  const setQuickSettingsPane = (paneName) => {
-    if (!el.quickSettingsMenu) {
-      return;
-    }
-    const root = el.quickSettingsRoot;
-    const detail = el.quickSettingsDetail;
-    const detailTitle = el.qsDetailTitle;
-    const categoryButtons = Array.from(el.quickSettingsMenu.querySelectorAll<HTMLElement>('.quick-settings-category[data-pane]'));
-    const panes = Array.from(el.quickSettingsMenu.querySelectorAll<HTMLElement>('.quick-settings-pane[data-pane]'));
-    if (!panes.length) {
-      return;
-    }
-
-    const candidate = String(paneName || '').trim() || 'root';
-    const validPane = panes.some((pane) => pane.getAttribute('data-pane') === candidate);
-    const target = candidate === 'root'
-      ? 'root'
-      : (validPane ? candidate : String(panes[0].getAttribute('data-pane') || 'conversation'));
-    quickSettingsPane = target;
-
-    if (root) {
-      root.classList.toggle('hidden', target !== 'root');
-    }
-    if (detail) {
-      detail.classList.toggle('hidden', target === 'root');
-    }
-
-    categoryButtons.forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-pane') === target);
-    });
-    panes.forEach((pane) => {
-      const active = pane.getAttribute('data-pane') === target;
-      pane.classList.toggle('active', active);
-    });
-
-    if (detailTitle && target !== 'root') {
-      const key = quickSettingsPaneTitleKey[target] || 'quickSettings';
-      detailTitle.setAttribute('data-i18n-key', key);
-      detailTitle.textContent = t(key);
-    }
-    const telegramLogsSnapshot = integrationSettings.getTelegramLogsSnapshot();
-    if (target === 'help-telegram-logs' && !telegramLogsSnapshot.loaded && !telegramLogsSnapshot.loading) {
-      integrationSettings.refreshTelegramLogs().catch(() => {});
-    }
-  };
-
-  const hideQuickSettingsMenu = () => {
-    if (!el.quickSettingsMenu || !el.btnQuickSettings) {
-      return;
-    }
-    el.quickSettingsMenu.classList.add('hidden');
-    if (el.quickSettingsScrim) {
-      el.quickSettingsScrim.classList.add('hidden');
-    }
-    el.btnQuickSettings.setAttribute('aria-expanded', 'false');
-    document.body.classList.remove('quick-settings-open');
-  };
-
-  const showQuickSettingsMenu = () => {
-    if (!el.quickSettingsMenu || !el.btnQuickSettings) {
-      return;
-    }
-    setQuickSettingsPane('root');
-    el.quickSettingsMenu.classList.remove('hidden');
-    if (el.quickSettingsScrim) {
-      el.quickSettingsScrim.classList.remove('hidden');
-    }
-    el.btnQuickSettings.setAttribute('aria-expanded', 'true');
-    document.body.classList.add('quick-settings-open');
-  };
-
-  const toggleQuickSettingsMenu = () => {
-    if (!el.quickSettingsMenu || el.quickSettingsMenu.classList.contains('hidden')) {
-      showQuickSettingsMenu();
-      return;
-    }
-    hideQuickSettingsMenu();
-  };
+  const quickSettings = createQuickSettingsController(integrationSettings);
+  const setQuickSettingsPane = quickSettings.setPane;
+  const hideQuickSettingsMenu = quickSettings.hide;
+  const showQuickSettingsMenu = quickSettings.show;
 
   const hideAboutModal = () => {
     if (!el.aboutModal) {
@@ -988,58 +648,7 @@ async function init() {
     }
   };
 
-  if (el.btnQuickSettings) {
-    el.btnQuickSettings.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleQuickSettingsMenu();
-    });
-  }
-
-  if (el.quickSettingsScrim) {
-    el.quickSettingsScrim.addEventListener('click', () => {
-      hideQuickSettingsMenu();
-    });
-  }
-
-  if (el.quickSettingsMenu) {
-    el.quickSettingsMenu.addEventListener('click', (event) => {
-      const target = getEventElementTarget(event);
-      const category = target?.closest('.quick-settings-category[data-pane]');
-      if (category) {
-        event.preventDefault();
-        event.stopPropagation();
-        setQuickSettingsPane(category.getAttribute('data-pane'));
-        return;
-      }
-      const backBtn = target?.closest('#qs-back');
-      if (backBtn) {
-        event.preventDefault();
-        event.stopPropagation();
-        setQuickSettingsPane(resolveQuickSettingsParentPane(quickSettingsPane));
-        return;
-      }
-      const paneRoute = target?.closest<HTMLElement>('[data-pane-route]');
-      if (paneRoute) {
-        event.preventDefault();
-        event.stopPropagation();
-        setQuickSettingsPane(paneRoute.getAttribute('data-pane-route'));
-        return;
-      }
-      const button = target?.closest('button[data-action]');
-      if (!button) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      const action = String(button.getAttribute('data-action') || '');
-      const keepOpen = action.startsWith('ui:') || action.startsWith('view:');
-      dispatchAction(action).catch(() => {});
-      if (!keepOpen) {
-        hideQuickSettingsMenu();
-      }
-    });
-  }
+  quickSettings.bind(dispatchAction);
 
   document.addEventListener('click', (event) => {
     if (

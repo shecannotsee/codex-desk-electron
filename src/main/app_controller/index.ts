@@ -11,6 +11,7 @@ const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
 const { runtimePersistenceMethods } = require('./runtime_persistence');
 const { runtimeSecurityMethods } = require('./runtime_security');
+const { runtimeSessionFileMethods } = require('./runtime_session_files');
 const { runtimeSnapshotMethods } = require('./runtime_snapshot');
 const { chatStreamPreviewMethods } = require('./chat_stream_preview');
 
@@ -169,6 +170,7 @@ Object.assign(
   AppController.prototype,
   runtimePersistenceMethods,
   runtimeSecurityMethods,
+  runtimeSessionFileMethods,
   runtimeSnapshotMethods,
   runtimeMethods,
   remoteControlMethods,

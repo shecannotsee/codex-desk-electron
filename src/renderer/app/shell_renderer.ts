@@ -17,26 +17,7 @@ import {
 } from './conversation_runtime.js';
 import { renderQueuePopover } from './runtime_renderer.js';
 import { renderComposerWorkdir } from './composer_renderer.js';
-
-function renderCurrentTimeDisplay() {
-  const now = new Date();
-  const padClockPart = (value: number): string => String(value).padStart(2, '0');
-  const offsetMinutes = -now.getTimezoneOffset();
-  const offsetSign = offsetMinutes >= 0 ? '+' : '-';
-  const offsetAbs = Math.abs(offsetMinutes);
-  const offsetHours = Math.floor(offsetAbs / 60);
-  const offsetRemainMinutes = offsetAbs % 60;
-  const tzOffsetLabel = `UTC${offsetSign}${padClockPart(offsetHours)}:${padClockPart(offsetRemainMinutes)}`;
-  const clockLabel = `${now.getFullYear()}-${padClockPart(now.getMonth() + 1)}-${padClockPart(now.getDate())} ${padClockPart(now.getHours())}:${padClockPart(now.getMinutes())}:${padClockPart(now.getSeconds())} ${tzOffsetLabel}`;
-  const timeZoneName = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-
-  if (el.currentTimeValue) {
-    el.currentTimeValue.textContent = clockLabel;
-  }
-  if (el.currentTimeChip) {
-    el.currentTimeChip.title = timeZoneName ? `${timeZoneName} ${tzOffsetLabel}` : tzOffsetLabel;
-  }
-}
+import { renderCurrentTimeDisplay } from './time_display.js';
 
 function renderHeader() {
   renderCurrentTimeDisplay();

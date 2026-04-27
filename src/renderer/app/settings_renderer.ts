@@ -3,11 +3,11 @@ import {
   clampAppZoom,
   currentLang,
   el,
-  resolvePermissionSummary,
   state,
   t,
 } from './state_i18n.js';
 import { ensureMeta } from './conversation_runtime.js';
+import { resolvePermissionSummary } from './permission_summary.js';
 
 function renderSecretVisibilityToggle(button: HTMLButtonElement | null | undefined, input: HTMLInputElement | null | undefined) {
   if (!button || !input) {

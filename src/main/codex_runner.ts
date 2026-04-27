@@ -1,6 +1,5 @@
 const { EventEmitter } = require('node:events');
 const { spawn, spawnSync } = require('node:child_process');
-const os = require('node:os');
 const readline = require('node:readline');
 
 const { getCodexChildEnv } = require('./shell_env');
@@ -10,16 +9,22 @@ const {
   parseUsagePayload,
   resolveUsageTokenFields,
 } = require('./codex_cli_gateway');
-
-const HEADER_FIELD_RE = /^([\w ]+):\s*(.+)$/;
-
-function normalizeAssistantCompareText(text) {
-  return String(text || '')
-    .replace(/\r\n/g, '\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+const { normalizeBaseOptions } = require('./codex_runner_command');
+const {
+  looksLikeResumeError,
+  looksLikeServerOverload,
+} = require('./codex_runner_errors');
+const {
+  extractEventTexts,
+  extractItemMessageText,
+  extractJsonText,
+  extractResponseMessageText,
+  normalizeAssistantCompareText,
+  normalizePlanStatus,
+  parseHeaderMeta,
+  summarizeCommand,
+  trimForStep,
+} = require('./codex_runner_output');
 
 class CodexRunner extends EventEmitter {
   constructor({ commandText, prompt, attachments = [], workdir, sessionId = '', useNativeMemory = true }) {
@@ -72,6 +77,7 @@ class CodexRunner extends EventEmitter {
       const cmd = this._buildCommand(baseCmd, false);
       this.emit('status', '正在启动 Codex...');
       this.emit('event', 'hint', `执行命令: ${cmd.slice(0, -1).join(' ')} '<PROMPT>'`);
+      // Mirror the outbound request into raw logs so UI-side replay/debug does not depend on shell history.
       this._emitRawRequest(cmd);
       this._emitCodexVersion(cmd);
       this._emitModelFromCommand(cmd);
@@ -80,8 +86,8 @@ class CodexRunner extends EventEmitter {
       let cleanOutput = rawLines.join('\n').trim();
 
       if (exitCode !== 0 && this.useNativeMemory && this.sessionId) {
-        const resumeError = this._looksLikeResumeError(cleanOutput);
-        const overloaded = this._looksLikeServerOverload(cleanOutput);
+        const resumeError = looksLikeResumeError(cleanOutput);
+        const overloaded = looksLikeServerOverload(cleanOutput);
         if (resumeError || overloaded) {
           sessionResetSuggested = true;
           this.detectedSessionId = '';
@@ -97,7 +103,8 @@ class CodexRunner extends EventEmitter {
 
       let assistantText = assistantChunks.join('').trim();
       if (!assistantText) {
-        assistantText = this._extractJsonText(cleanOutput);
+        // Fallback for non-streaming CLI output; it must run after subprocess exit so all raw JSON lines are available.
+        assistantText = extractJsonText(cleanOutput);
       }
 
       const durationSeconds = Math.max(0, (Date.now() - startMs) / 1000);
@@ -189,7 +196,7 @@ class CodexRunner extends EventEmitter {
   }
 
   _buildCommand(baseCmd, forceNewSession = false) {
-    const [normalized, isCodexExec] = this._normalizeBaseOptions(baseCmd);
+    const [normalized, isCodexExec] = normalizeBaseOptions(baseCmd);
     if (!isCodexExec) {
       this.emit('event', 'warn', '当前命令不是 `codex exec`，已退化为单次执行模式。');
       if (this.attachments.length) {
@@ -217,79 +224,6 @@ class CodexRunner extends EventEmitter {
     }
 
     return [codexBin, 'exec', ...execOpts, ...imageArgs, '--', this.prompt];
-  }
-
-  _normalizeBaseOptions(baseCmd): [string[], boolean] {
-    if (baseCmd.length >= 2 && baseCmd[0] === 'codex' && baseCmd[1] === 'exec') {
-      const args = baseCmd.slice(2);
-      const opts = [];
-      let hasAddDir = false;
-      let hasPermissionMode = false;
-      const optionsWithValueKeep = new Set([
-        '--config', '-c', '--model', '-m', '--profile', '-p', '--sandbox', '-s',
-        '--cd', '-C', '--add-dir', '--output-schema', '--enable', '--disable',
-      ]);
-
-      for (let i = 0; i < args.length; i += 1) {
-        const token = args[i];
-
-        if (token === 'resume') {
-          if (i + 1 < args.length && !String(args[i + 1]).startsWith('-')) {
-            i += 1;
-          }
-          continue;
-        }
-
-        if (token === '--json' || token === '--last' || token === '--all') {
-          continue;
-        }
-
-        if (token === '--color' || token === '--output-last-message' || token === '-o') {
-          if (i + 1 < args.length) {
-            i += 1;
-          }
-          continue;
-        }
-
-        if (token === '--add-dir' || String(token).startsWith('--add-dir=')) {
-          hasAddDir = true;
-        }
-
-        if (
-          token === '--dangerously-bypass-approvals-and-sandbox'
-          || token === '--full-auto'
-          || token === '--sandbox'
-          || token === '-s'
-          || String(token).startsWith('--sandbox=')
-        ) {
-          hasPermissionMode = true;
-        }
-
-        if (optionsWithValueKeep.has(token) && i + 1 < args.length) {
-          opts.push(token, args[i + 1]);
-          i += 1;
-          continue;
-        }
-
-        opts.push(token);
-      }
-
-      if (!hasAddDir) {
-        const homeDir = String(os.homedir() || '').trim();
-        if (homeDir) {
-          opts.push('--add-dir', homeDir);
-        }
-      }
-
-      if (!hasPermissionMode) {
-        opts.push('--dangerously-bypass-approvals-and-sandbox');
-      }
-
-      opts.push('--json');
-      return [['codex', 'exec', ...opts], true];
-    }
-
-    return [[...baseCmd], false];
   }
 
   _emitCodexVersion(cmd) {
@@ -334,39 +268,6 @@ class CodexRunner extends EventEmitter {
     }
   }
 
-  _trimForStep(text, limit = 320) {
-    const value = String(text || '').trim().replace(/\r\n/g, '\n');
-    if (!value) {
-      return '';
-    }
-    if (value.length <= limit) {
-      return value;
-    }
-    return `${value.slice(0, limit).trimEnd()}...`;
-  }
-
-  _summarizeCommand(command, limit = 160) {
-    const value = String(command || '').trim();
-    if (!value) {
-      return '';
-    }
-    if (value.length <= limit) {
-      return value;
-    }
-    return `${value.slice(0, limit).trimEnd()}...`;
-  }
-
-  _normalizePlanStatus(status = '') {
-    const text = String(status || '').trim().toLowerCase();
-    if (text === 'completed' || text === 'done' || text === 'success') {
-      return 'completed';
-    }
-    if (text === 'in_progress' || text === 'inprogress' || text === 'running' || text === 'active') {
-      return 'in_progress';
-    }
-    return 'pending';
-  }
-
   _emitPlanUpdateFromItem(eventType, item) {
     const itemType = String(item?.type || '').trim().toLowerCase();
     if (itemType !== 'todo_list') {
@@ -408,7 +309,7 @@ class CodexRunner extends EventEmitter {
       explanation: '',
       plan: plan.map((entry) => ({
         step: String(entry?.step || '').trim(),
-        status: this._normalizePlanStatus(entry?.status),
+        status: normalizePlanStatus(entry?.status),
       })),
     });
     return true;
@@ -419,7 +320,7 @@ class CodexRunner extends EventEmitter {
     const itemText = String(item.text || '').trim();
 
     if (itemType === 'reasoning' && itemText) {
-      this.emit('step', `思考: ${this._trimForStep(itemText)}`);
+      this.emit('step', `思考: ${trimForStep(itemText)}`);
       return;
     }
 
@@ -434,9 +335,9 @@ class CodexRunner extends EventEmitter {
 
     if (itemType !== 'command_execution') {
       const itemLabel = itemType || 'unknown_item';
-      const detail = this._extractItemMessageText(item)
+      const detail = extractItemMessageText(item)
         || String(item.title || item.name || item.label || item.command || '').trim();
-      const detailPreview = this._trimForStep(detail, 220);
+      const detailPreview = trimForStep(detail, 220);
       if (eventType === 'item.started') {
         this.emit('step', detailPreview ? `开始处理 ${itemLabel}: ${detailPreview}` : `开始处理 ${itemLabel}`);
       } else if (eventType === 'item.completed') {
@@ -447,7 +348,7 @@ class CodexRunner extends EventEmitter {
 
     const command = String(item.command || '').trim();
     if (eventType === 'item.started') {
-      const summarized = this._summarizeCommand(command);
+      const summarized = summarizeCommand(command);
       if (summarized) {
         this.emit('step', `执行命令: \`${summarized}\``);
       } else {
@@ -462,7 +363,7 @@ class CodexRunner extends EventEmitter {
         ? '命令执行完成'
         : `命令执行完成（退出码 ${exitCode}）`;
 
-      const summarized = this._summarizeCommand(command);
+      const summarized = summarizeCommand(command);
       if (summarized) {
         text += `: \`${summarized}\``;
       }
@@ -474,45 +375,6 @@ class CodexRunner extends EventEmitter {
 
       this.emit('step', text);
     }
-  }
-
-  _extractItemMessageText(item) {
-    if (!item || typeof item !== 'object') {
-      return '';
-    }
-
-    const directText = String(item.text || item.message || item.output_text || item.outputText || '').trim();
-    if (directText) {
-      return directText;
-    }
-
-    const content = Array.isArray(item.content) ? item.content : [];
-    const blocks = [];
-    for (const block of content) {
-      if (!block || typeof block !== 'object') {
-        continue;
-      }
-      const blockType = String(block.type || '').toLowerCase();
-      if (blockType === 'output_text' || blockType === 'text') {
-        const text = String(
-          block.text
-          || block.output_text
-          || block.outputText
-          || block.input_text
-          || block.inputText
-          || '',
-        ).trim();
-        if (text) {
-          blocks.push(text);
-        }
-      }
-    }
-    if (blocks.length) {
-      return blocks.join('\n').trim();
-    }
-
-    const fallback = this._extractEventTexts({ item }).join('\n').trim();
-    return fallback;
   }
 
   _emitAssistantUpdate(eventType, item) {
@@ -531,7 +393,7 @@ class CodexRunner extends EventEmitter {
       return;
     }
 
-    const text = this._extractItemMessageText(item);
+    const text = extractItemMessageText(item);
     const normalizedText = normalizeAssistantCompareText(text);
     if (!normalizedText || normalizedText === this.lastAssistantUpdateText) {
       return;
@@ -556,19 +418,9 @@ class CodexRunner extends EventEmitter {
       return;
     }
 
-    const matched = HEADER_FIELD_RE.exec(line);
-    if (matched) {
-      const key = matched[1].trim().toLowerCase();
-      const value = matched[2].trim();
-      const aliasMap = {
-        model: '模型',
-        workdir: '工作目录',
-        'session id': '会话ID',
-        'reasoning effort': '推理强度',
-      };
-      if (aliasMap[key]) {
-        this.emit('meta', aliasMap[key], value);
-      }
+    const headerMeta = parseHeaderMeta(line);
+    if (headerMeta) {
+      this.emit('meta', headerMeta.label, headerMeta.value);
     }
 
     const lower = line.toLowerCase();
@@ -651,13 +503,13 @@ class CodexRunner extends EventEmitter {
           this.emit('meta', '模型', model);
         }
 
-        const usage = this._extractUsagePayload(event.response);
+        const usage = parseUsagePayload(event.response);
         if (usage && typeof usage === 'object') {
           this._emitUsageMeta(usage);
         }
 
         if (!this.gotStreamDelta) {
-          const fallback = this._extractResponseMessageText(event.response);
+          const fallback = extractResponseMessageText(event.response);
           this._appendAssistantText(assistantChunks, fallback, true);
         }
       }
@@ -665,7 +517,7 @@ class CodexRunner extends EventEmitter {
     }
 
     if (eventType === 'turn.completed') {
-      const usage = this._extractUsagePayload(event);
+      const usage = parseUsagePayload(event);
       if (usage && typeof usage === 'object') {
         this._emitUsageMeta(usage);
       }
@@ -701,7 +553,7 @@ class CodexRunner extends EventEmitter {
     }
 
     if (!eventType.toLowerCase().includes('error')) {
-      const texts = this._extractEventTexts(event);
+      const texts = extractEventTexts(event);
       for (const text of texts) {
         this.gotStreamDelta = true;
         this._appendAssistantText(assistantChunks, text, true);
@@ -734,193 +586,6 @@ class CodexRunner extends EventEmitter {
     }
   }
 
-  _extractUsagePayload(payload) {
-    return parseUsagePayload(payload);
-  }
-
-  _extractResponseMessageText(response) {
-    if (!response || typeof response !== 'object') {
-      return '';
-    }
-    const outputItems = Array.isArray(response.output) ? response.output : [];
-    const chunks = [];
-    for (const item of outputItems) {
-      if (!item || typeof item !== 'object') {
-        continue;
-      }
-      if (item.type !== 'message') {
-        continue;
-      }
-      const role = String(item.role || 'assistant').toLowerCase();
-      if (role && role !== 'assistant') {
-        continue;
-      }
-      const content = Array.isArray(item.content) ? item.content : [];
-      for (const block of content) {
-        if (!block || typeof block !== 'object') {
-          continue;
-        }
-        const blockType = String(block.type || '').toLowerCase();
-        if (blockType === 'output_text' || blockType === 'text') {
-          const text = String(block.text || '');
-          if (text) {
-            chunks.push(text);
-          }
-        }
-      }
-    }
-    return chunks.join('').trim();
-  }
-
-  _extractEventTexts(event) {
-    if (!event || typeof event !== 'object') {
-      return [];
-    }
-    const eventType = String(event.type || '').toLowerCase();
-    if (
-      eventType.includes('error')
-      || eventType.includes('thread.started')
-      || eventType.includes('turn.started')
-      || eventType.includes('turn.completed')
-      || eventType.includes('turn.failed')
-    ) {
-      return [];
-    }
-
-    const candidates = [];
-
-    const walk = (node, assistantScope = false) => {
-      if (Array.isArray(node)) {
-        for (const item of node) {
-          walk(item, assistantScope);
-        }
-        return;
-      }
-
-      if (!node || typeof node !== 'object') {
-        return;
-      }
-
-      const nodeType = String(node.type || '').toLowerCase();
-      const role = String(node.role || '').toLowerCase();
-      const scoped = assistantScope
-        || role === 'assistant'
-        || ['output_text', 'text', 'message', 'agent_message', 'assistant_message', 'assistant'].includes(nodeType);
-
-      if (nodeType === 'output_text' || nodeType === 'text') {
-        const text = String(node.text || '').trim();
-        if (text) {
-          candidates.push(text);
-        }
-      }
-
-      if (nodeType.includes('output_text')) {
-        const delta = String(node.delta || '').trim();
-        if (delta) {
-          candidates.push(delta);
-        }
-      }
-
-      for (const [key, value] of Object.entries(node)) {
-        if (key === 'error' || key === 'stack' || key === 'trace' || key === 'debug') {
-          continue;
-        }
-        if (key === 'delta' && typeof value === 'string') {
-          if (scoped && value.trim()) {
-            candidates.push(value.trim());
-          }
-          continue;
-        }
-        if (key === 'text' && typeof value === 'string') {
-          if (scoped && value.trim()) {
-            candidates.push(value.trim());
-          }
-          continue;
-        }
-        walk(value, scoped);
-      }
-    };
-
-    walk(event, false);
-
-    const deduped = [];
-    const seen = new Set();
-    for (const text of candidates) {
-      const normalized = String(text || '').trim();
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      deduped.push(normalized);
-    }
-    return deduped;
-  }
-
-  _extractJsonText(mixedText) {
-    const chunks = [];
-    const lines = String(mixedText || '').split(/\r?\n/);
-    for (const line of lines) {
-      const text = String(line || '').trim();
-      if (!text.startsWith('{')) {
-        continue;
-      }
-
-      let event = null;
-      try {
-        event = JSON.parse(text);
-      } catch {
-        continue;
-      }
-
-      const eventType = String(event.type || '').toLowerCase();
-      if (eventType === 'response.output_text.delta') {
-        const delta = String(event.delta || '');
-        if (delta) {
-          chunks.push(delta);
-        }
-        continue;
-      }
-
-      if (eventType === 'response.completed') {
-        const responseText = this._extractResponseMessageText(event.response || {});
-        if (responseText) {
-          chunks.push(responseText);
-        }
-        continue;
-      }
-
-      for (const item of this._extractEventTexts(event)) {
-        chunks.push(item);
-      }
-    }
-
-    if (!chunks.length) {
-      return '';
-    }
-
-    return chunks.join('\n').trim();
-  }
-
-  _looksLikeResumeError(output) {
-    const lower = String(output || '').toLowerCase();
-    const keywords = [
-      'resume', 'session', 'thread', 'not found', 'no recorded session', 'invalid session', 'turn.failed',
-    ];
-    return (lower.includes('resume') || lower.includes('session'))
-      && keywords.some((item) => lower.includes(item));
-  }
-
-  _looksLikeServerOverload(output) {
-    const lower = String(output || '').toLowerCase();
-    const markers = [
-      '503 service unavailable',
-      'unexpected status 503',
-      'status 503',
-      'system memory overloaded',
-      'server overloaded',
-    ];
-    return markers.some((item) => lower.includes(item));
-  }
 }
 
 module.exports = {

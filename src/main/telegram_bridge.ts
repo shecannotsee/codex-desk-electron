@@ -31,8 +31,7 @@ const {
   sendTelegramMessage,
   testTelegramConnection,
 } = require('./telegram_sender');
-
-const TELEGRAM_NOTIFICATION_RETENTION_MS = 12 * 60 * 60 * 1000;
+const { TelegramNotificationRegistry } = require('./telegram_notification_registry');
 
 class TelegramBotModule {
   [key: string]: any;
@@ -40,7 +39,7 @@ class TelegramBotModule {
   constructor(options: any = {}) {
     this.settings = normalizeTelegramSettings(options.settings);
     this.deviceIdentity = normalizeIdentity(options.deviceIdentity || '');
-    this.notificationItems = new Map();
+    this.notificationRegistry = new TelegramNotificationRegistry();
     this.updateSubscription = null;
     this.subscriptionKey = '';
     this._syncUpdateSubscription();
@@ -109,66 +108,6 @@ class TelegramBotModule {
     });
   }
 
-  _pruneNotificationItems() {
-    const now = Date.now();
-    for (const [key, value] of this.notificationItems.entries()) {
-      const createdAt = Math.max(0, Number(value?.createdAt || 0) || 0);
-      if (!createdAt || now - createdAt > TELEGRAM_NOTIFICATION_RETENTION_MS) {
-        this.notificationItems.delete(key);
-      }
-    }
-    while (this.notificationItems.size > 120) {
-      const oldestKey = this.notificationItems.keys().next().value;
-      if (!oldestKey) {
-        break;
-      }
-      this.notificationItems.delete(oldestKey);
-    }
-  }
-
-  _createNotificationId() {
-    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  }
-
-  _buildNotificationReplyMarkup(notificationId = '', mode = 'summary', page = 1, totalPages = 1) {
-    const safeId = String(notificationId || '').trim();
-    if (!safeId) {
-      return null;
-    }
-    if (mode === 'summary') {
-      return {
-        inline_keyboard: [[{
-          text: '展开全文',
-          callback_data: `${TELEGRAM_NOTIFICATION_CALLBACK_PREFIX}:${safeId}:page:1`,
-        }]],
-      };
-    }
-    const navRow = [];
-    if (page > 1) {
-      navRow.push({
-        text: '‹ 上一页',
-        callback_data: `${TELEGRAM_NOTIFICATION_CALLBACK_PREFIX}:${safeId}:page:${page - 1}`,
-      });
-    }
-    if (page < totalPages) {
-      navRow.push({
-        text: '下一页 ›',
-        callback_data: `${TELEGRAM_NOTIFICATION_CALLBACK_PREFIX}:${safeId}:page:${page + 1}`,
-      });
-    }
-    const rows = [];
-    if (navRow.length) {
-      rows.push(navRow);
-    }
-    rows.push([{
-      text: '收起摘要',
-      callback_data: `${TELEGRAM_NOTIFICATION_CALLBACK_PREFIX}:${safeId}:summary`,
-    }]);
-    return {
-      inline_keyboard: rows,
-    };
-  }
-
   async _handleTelegramUpdate(update: any = {}) {
     const callbackQuery = update?.callback_query;
     if (!callbackQuery || typeof callbackQuery !== 'object') {
@@ -178,7 +117,7 @@ class TelegramBotModule {
   }
 
   async _handleNotificationCallback(callbackQuery: any = {}) {
-    this._pruneNotificationItems();
+    this.notificationRegistry.prune();
     const callbackQueryId = String(callbackQuery?.id || '').trim();
     const data = String(callbackQuery?.data || '').trim();
     if (!data.startsWith(`${TELEGRAM_NOTIFICATION_CALLBACK_PREFIX}:`)) {
@@ -188,7 +127,7 @@ class TelegramBotModule {
     const chatId = String(callbackQuery?.message?.chat?.id || callbackQuery?.from?.id || '').trim();
     const messageId = Math.max(0, Number(callbackQuery?.message?.message_id || 0) || 0);
     const [, notificationId = '', action = '', pageRaw = '1'] = data.split(':');
-    const entry = this.notificationItems.get(notificationId);
+    const entry = this.notificationRegistry.get(notificationId);
     if (!callbackQueryId || !chatId || !messageId || !entry) {
       await answerTelegramCallbackQuery(settings, callbackQueryId, '这条通知已过期', {
         logLabel: 'Telegram 通知',
@@ -208,7 +147,7 @@ class TelegramBotModule {
     if (action === 'summary') {
       await editTelegramMessage(settings, chatId, messageId, entry.summaryText, {
         parseMode: 'HTML',
-        replyMarkup: this._buildNotificationReplyMarkup(notificationId, 'summary'),
+        replyMarkup: this.notificationRegistry.buildReplyMarkup(notificationId, 'summary'),
         logLabel: 'Telegram 通知',
       });
       await answerTelegramCallbackQuery(settings, callbackQueryId, '已收起为摘要', {
@@ -220,7 +159,7 @@ class TelegramBotModule {
       const page = Math.max(1, Math.min(entry.pages.length, Number(pageRaw || 1) || 1));
       await editTelegramMessage(settings, chatId, messageId, entry.pages[page - 1], {
         parseMode: 'HTML',
-        replyMarkup: this._buildNotificationReplyMarkup(notificationId, 'page', page, entry.pages.length),
+        replyMarkup: this.notificationRegistry.buildReplyMarkup(notificationId, 'page', page, entry.pages.length),
         logLabel: 'Telegram 通知',
       });
       await answerTelegramCallbackQuery(settings, callbackQueryId, entry.pages.length > 1
@@ -255,9 +194,9 @@ class TelegramBotModule {
       ...normalizedPayload,
       expandable: hasExpandableDetail,
     });
-    const notificationId = hasExpandableDetail ? this._createNotificationId() : '';
+    const notificationId = hasExpandableDetail ? this.notificationRegistry.createId() : '';
     const replyMarkup = hasExpandableDetail
-      ? this._buildNotificationReplyMarkup(notificationId, 'summary')
+      ? this.notificationRegistry.buildReplyMarkup(notificationId, 'summary')
       : null;
     const result = await sendTelegramMessage(settings, summaryText, {
       logLabel: 'Telegram 通知',
@@ -267,13 +206,11 @@ class TelegramBotModule {
     if (!result?.ok || !notificationId) {
       return result;
     }
-    this._pruneNotificationItems();
-    this.notificationItems.set(notificationId, {
+    this.notificationRegistry.remember(notificationId, {
       chatId: String(settings.chatId || '').trim(),
       messageId: Math.max(0, Number(result?.result?.result?.message_id || 0) || 0),
       summaryText,
       pages: detailPages,
-      createdAt: Date.now(),
     });
     return result;
   }

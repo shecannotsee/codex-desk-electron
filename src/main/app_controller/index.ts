@@ -6,6 +6,7 @@ const { RemoteControlCenter } = require('../remote_control_bridge');
 const { defaultCredentialVault } = require('../state_store');
 
 const { runtimeMethods } = require('./methods_runtime');
+const { remoteControlMethods } = require('./methods_remote_control');
 const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
 
@@ -163,6 +164,7 @@ class AppController {
 Object.assign(
   AppController.prototype,
   runtimeMethods,
+  remoteControlMethods,
   metaMethods,
   chatMethods,
 );

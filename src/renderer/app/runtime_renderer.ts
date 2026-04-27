@@ -27,7 +27,14 @@ function runningStepMarkdown(conversationId: string): string {
     return localizeKnownText(t('phaseRunning'));
   }
   const runtime = ensureRuntime(conversationId);
+  const currentRoundIndex = latestWorkflowRoundIndex(runtime);
+  const inCurrentRound = (item: WorkflowItem | null | undefined) => (
+    currentRoundIndex <= 0 || Number(item?.roundIndex || 0) === currentRoundIndex
+  );
   const planItem = findLatestWorkflowItem(runtime, (item) => {
+    if (!inCurrentRound(item)) {
+      return false;
+    }
     if (item.type !== 'plan') {
       return false;
     }
@@ -41,7 +48,11 @@ function runningStepMarkdown(conversationId: string): string {
     return formatWorkflowItemMarkdown(planItem);
   }
 
-  const assistantItem = findLatestWorkflowItem(runtime, (item) => item.type === 'assistant' && item.status === 'running');
+  const assistantItem = findLatestWorkflowItem(runtime, (item) => (
+    inCurrentRound(item)
+    && item.type === 'assistant'
+    && String(item.status || '').trim() === 'running'
+  ));
   if (assistantItem) {
     const body = String(localizeKnownText(assistantItem.body || '')).trim();
     if (body) {
@@ -49,9 +60,17 @@ function runningStepMarkdown(conversationId: string): string {
     }
   }
 
-  const stepItem = findLatestCurrentStepItem(runtime);
+  const stepItem = findLatestCurrentStepItem(runtime, currentRoundIndex);
   if (stepItem) {
     return formatWorkflowItemMarkdown(stepItem);
+  }
+
+  const requestItem = findLatestWorkflowItem(
+    runtime,
+    (item) => inCurrentRound(item) && item.type === 'round',
+  );
+  if (requestItem) {
+    return formatWorkflowItemMarkdown(requestItem);
   }
 
   const phaseText = String(localizeKnownText(runtime.phase || '')).trim();
@@ -102,13 +121,25 @@ function findLatestWorkflowItem(
   return null;
 }
 
-function findLatestCurrentStepItem(runtime: RuntimeState | null | undefined): WorkflowItem | null {
+function latestWorkflowRoundIndex(runtime: RuntimeState | null | undefined): number {
+  const items = Array.isArray(runtime?.workflow) ? runtime.workflow : [];
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const roundIndex = Number(items[index]?.roundIndex || 0) || 0;
+    if (roundIndex > 0) {
+      return roundIndex;
+    }
+  }
+  return 0;
+}
+
+function findLatestCurrentStepItem(runtime: RuntimeState | null | undefined, roundIndex = 0): WorkflowItem | null {
+  const inRound = (item: WorkflowItem) => roundIndex <= 0 || Number(item.roundIndex || 0) === roundIndex;
   return findLatestWorkflowItem(
     runtime,
-    (item) => isWorkflowProgressItem(item) && item.type !== 'assistant' && item.type !== 'round',
+    (item) => inRound(item) && isWorkflowProgressItem(item) && item.type !== 'assistant' && item.type !== 'round',
   ) || findLatestWorkflowItem(
     runtime,
-    (item) => isWorkflowProgressItem(item) && item.type !== 'assistant',
+    (item) => inRound(item) && isWorkflowProgressItem(item) && item.type !== 'assistant',
   );
 }
 

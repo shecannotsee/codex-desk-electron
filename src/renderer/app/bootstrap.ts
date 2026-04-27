@@ -14,7 +14,6 @@ import {
   applyTheme,
   clampAppZoom,
   currentLang,
-  draftStorageKey,
   el,
   increaseChatVisibleCount,
   loadDraftPrefs,
@@ -22,7 +21,6 @@ import {
   localizeKnownText,
   saveUiPrefs,
   setChatFontSize,
-  setConversationDraft,
   setRenderHooks,
   setTheme,
   state,
@@ -63,10 +61,7 @@ import {
   showZoomHud,
 } from './app_zoom_controller.js';
 import { bindResizablePanels } from './resize_bindings.js';
-import {
-  bindQueuePopover,
-  hideQueuePopover,
-} from './queue_popover_controller.js';
+import { bindQueuePopover } from './queue_popover_controller.js';
 import { createContextMenuController } from './context_menu_controller.js';
 import { createQuickSettingsController } from './quick_settings_controller.js';
 import { runDocsCaptureSequence } from './docs_capture_sequence.js';
@@ -76,22 +71,16 @@ import {
   applyConversationSwitchPayload as applyConversationSwitchPayloadToState,
   applySnapshot as applySnapshotToState,
 } from './app_state_sync.js';
-import {
-  resolveCloseGuardAction,
-  showCloseGuardModal,
-} from './app_dialogs.js';
+import { showCloseGuardModal } from './app_dialogs.js';
 import { setAttachmentMenuOpen } from './composer_attachments.js';
 import { applyEvent } from './app_event_handler.js';
 import { bindConversationActions } from './conversation_actions_controller.js';
 import { bindComposerController } from './composer_controller.js';
 import { bindIntegrationSettingsBindings } from './integration_settings_bindings.js';
+import { bindGlobalEventHandlers } from './global_event_bindings.js';
 
 function getEventElementTarget(event: Event): Element | null {
   return event.target instanceof Element ? event.target : null;
-}
-
-function getEventNodeTarget(event: Event): Node | null {
-  return event.target instanceof Node ? event.target : null;
 }
 
 const integrationSettings = createIntegrationSettingsController({
@@ -375,128 +364,16 @@ async function init() {
 
   quickSettings.bind(dispatchAction);
 
-  document.addEventListener('click', (event) => {
-    if (
-      el.aboutModal
-      && !el.aboutModal.classList.contains('hidden')
-      && event.target === el.aboutModal
-    ) {
-      hideAboutModal();
-      return;
-    }
-    if (
-      el.closeGuardModal
-      && !el.closeGuardModal.classList.contains('hidden')
-      && event.target === el.closeGuardModal
-    ) {
-      resolveCloseGuardAction('cancel');
-      return;
-    }
-    const targetNode = getEventNodeTarget(event);
-    if (el.chatContextMenu && !el.chatContextMenu.classList.contains('hidden') && (!targetNode || !el.chatContextMenu.contains(targetNode))) {
-      hideChatContextMenu();
-    }
-    if (el.contextMenu && !el.contextMenu.classList.contains('hidden') && (!targetNode || !el.contextMenu.contains(targetNode))) {
-      hideConversationContextMenu();
-    }
-    if (
-      el.queuePopover
-      && !el.queuePopover.classList.contains('hidden')
-      && (!targetNode || (!el.queuePopover.contains(targetNode) && !el.queueChip.contains(targetNode)))
-    ) {
-      hideQueuePopover();
-    }
-    if (!el.quickSettingsMenu || el.quickSettingsMenu.classList.contains('hidden')) {
-      return;
-    }
-    if (targetNode && el.quickSettingsMenu.contains(targetNode)) {
-      return;
-    }
-    if (targetNode && el.btnQuickSettings && el.btnQuickSettings.contains(targetNode)) {
-      return;
-    }
+  bindGlobalEventHandlers({
+    dispatchAction,
+    hideAboutModal,
+    hideChatContextMenu,
+    hideConversationContextMenu,
+    hideQuickSettingsMenu,
+    shouldKeepQuickSettingsOpen,
   });
-
-  window.addEventListener('blur', () => {
-    hideChatContextMenu();
-    hideConversationContextMenu();
-    hideQueuePopover();
-  });
-  window.addEventListener('beforeunload', () => {
-    setConversationDraft(state.activeConversationId, el.inputBox?.value || '');
-  });
-  window.addEventListener('resize', () => {
-    hideChatContextMenu();
-    hideConversationContextMenu();
-    hideQueuePopover();
-    if (!shouldKeepQuickSettingsOpen()) {
-      hideQuickSettingsMenu();
-    }
-    hideAboutModal();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.altKey && !event.ctrlKey && !event.metaKey) {
-      if (event.code === 'Equal') {
-        event.preventDefault();
-        dispatchAction('view:zoom-in').catch(() => {});
-        return;
-      }
-      if (!event.shiftKey && event.code === 'Minus') {
-        event.preventDefault();
-        dispatchAction('view:zoom-out').catch(() => {});
-        return;
-      }
-      if (!event.shiftKey && event.code === 'Digit0') {
-        event.preventDefault();
-        dispatchAction('view:zoom-reset').catch(() => {});
-        return;
-      }
-    }
-    if (event.key === 'Escape') {
-      if (el.closeGuardModal && !el.closeGuardModal.classList.contains('hidden')) {
-        resolveCloseGuardAction('cancel');
-        return;
-      }
-      hideQueuePopover();
-      hideChatContextMenu();
-      hideConversationContextMenu();
-      hideQuickSettingsMenu();
-      hideAboutModal();
-    }
-  });
-
-  if (el.aboutClose) {
-    el.aboutClose.addEventListener('click', () => {
-      hideAboutModal();
-    });
-  }
-  if (el.closeGuardCancel) {
-    el.closeGuardCancel.addEventListener('click', () => {
-      resolveCloseGuardAction('cancel');
-    });
-  }
-  if (el.closeGuardStop) {
-    el.closeGuardStop.addEventListener('click', () => {
-      resolveCloseGuardAction('stop-and-close');
-    });
-  }
-  if (el.closeGuardForce) {
-    el.closeGuardForce.addEventListener('click', () => {
-      resolveCloseGuardAction('force-close');
-    });
-  }
 
   bindResizablePanels();
-
-  if (typeof codexdesk.onMenuAction === 'function') {
-    codexdesk.onMenuAction((payload) => {
-      const action = String(payload?.action || '').trim();
-      if (!action) {
-        return;
-      }
-      dispatchAction(action).catch(() => {});
-    });
-  }
 
   bindConversationActions({
     applySnapshot,

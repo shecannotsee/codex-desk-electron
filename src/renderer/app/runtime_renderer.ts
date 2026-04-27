@@ -5,10 +5,10 @@ import {
   escapeHtml,
   increaseRuntimeVisibleCount,
   localizeKnownText,
-  renderMarkdownLike,
   state,
   t,
 } from './state_i18n.js';
+import { renderMarkdownLike } from './markdown_renderer.js';
 import {
   cleanupWorkflowCollapsed,
   ensureRuntime,

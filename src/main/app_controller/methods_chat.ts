@@ -4,16 +4,14 @@ const { nowTs, getConversation, sortedConversations } = require('../conversation
 const { CodexRunner } = require('../codex_runner');
 const { CodexAppServerRunner } = require('../codex_app_server_runner');
 const { normalizePreview } = require('./shared');
+const { bindChatRunnerEvents } = require('./chat_runner_events');
 const {
   ASSISTANT_STREAM_PREVIEW_MIN_GROWTH,
   ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS,
   REQUEST_WAIT_NOTICE_INTERVAL_MS,
-  USAGE_META_KEYS,
   appendAttachmentPreview,
   normalizeAssistantRuntimeText,
   normalizeAttachments,
-  normalizeMessageUsage,
-  normalizeMessageUsageFromMeta,
   supportsAppServer,
 } = require('./chat_helpers');
 
@@ -485,243 +483,12 @@ const chatMethods = {
     this.roundIndexByRunner.set(runner, roundIndex);
     this._startRequestWaitNotice(targetId, runner);
 
-    runner.on('status', (phase) => {
-      this._setPhase(targetId, phase);
+    bindChatRunnerEvents(this, {
+      targetId,
+      runner,
+      userText,
+      enableStreamPreview,
     });
-
-    runner.on('event', (level, message) => {
-      this._appendStructuredEvent(targetId, level, message, {
-        kind: this._inferStructuredEventKind(level, message),
-      });
-    });
-
-    runner.on('raw_line', (line) => {
-      this._markRequestWaitNoticeResponded(runner);
-      this._appendRawJsonLine(targetId, line);
-    });
-
-    runner.on('meta', (key, value) => {
-      this._markRequestWaitNoticeResponded(runner);
-      const meta = this._ensureMeta(targetId);
-      meta[key] = value;
-
-      if (key === '会话ID') {
-        const targetConv = getConversation(this.conversations, targetId);
-        if (targetConv) {
-          targetConv.sessionId = value;
-          if (targetConv.sessionContinuationMode === 'fork' && value && value !== '-') {
-            targetConv.sessionContinuationMode = 'resume';
-          }
-          targetConv.updatedAt = nowTs();
-          this._syncConversationUpdated(targetConv);
-        }
-      }
-
-      this._emit({ type: 'meta-updated', conversationId: targetId, key, value });
-      if (!USAGE_META_KEYS.has(key)) {
-        this._appendStructuredEvent(targetId, 'hint', `${key}: ${value}`, {
-          kind: this._inferStructuredEventKind('hint', `${key}: ${value}`, key),
-        });
-      }
-    });
-
-    runner.on('assistant_delta', (delta) => {
-      this._markRequestWaitNoticeResponded(runner);
-      const current = this.assistantBufferByRunner.get(runner) || '';
-      const next = current + String(delta || '');
-      this.assistantBufferByRunner.set(runner, next);
-      if (enableStreamPreview) {
-        this._maybeEmitStreamingAssistantUpdate(targetId, runner, delta, { text: next });
-      }
-    });
-
-    runner.on('assistant_update', (payload) => {
-      this._markRequestWaitNoticeResponded(runner);
-      const text = normalizeAssistantRuntimeText(payload?.text || '');
-      if (!text) {
-        return;
-      }
-      const bufferedText = normalizeAssistantRuntimeText(this.assistantBufferByRunner.get(runner) || '');
-      const previewText = bufferedText.length >= text.length ? bufferedText : text;
-      if (previewText.length > bufferedText.length) {
-        this.assistantBufferByRunner.set(runner, previewText);
-      }
-      if (enableStreamPreview) {
-        this._maybeEmitStreamingAssistantUpdate(targetId, runner, '', { text: previewText, force: true });
-      }
-      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
-      const segmentIndex = this._resolveAssistantProgressSegmentIndex(targetId, currentRound);
-      this._appendStructuredAssistantProgress(targetId, previewText, { roundIndex: currentRound, segmentIndex });
-      this._appendWorkflowAssistantProgress(targetId, currentRound, previewText, { segmentIndex });
-    });
-
-    runner.on('plan_update', (payload) => {
-      this._markRequestWaitNoticeResponded(runner);
-      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
-      this._sealAssistantProgressSegments(targetId, currentRound);
-      this._upsertWorkflowPlan(targetId, currentRound, payload);
-    });
-
-    runner.on('step', (step) => {
-      this._markRequestWaitNoticeResponded(runner);
-      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
-      const stepIndex = (this.stepIndexByRunner.get(runner) || 0) + 1;
-      this.stepIndexByRunner.set(runner, stepIndex);
-      this._sealAssistantProgressSegments(targetId, currentRound);
-
-      const rawStep = String(step || '').trim();
-      const commandPurpose = /执行命令:|命令执行完成/.test(rawStep)
-        ? this._resolveLatestWorkflowPurpose(targetId, currentRound)
-        : '';
-      const textStep = `R${currentRound}-S${stepIndex}. ${rawStep}`;
-      this._appendWorkflowStep(targetId, textStep, { purpose: commandPurpose });
-
-      let summary = rawStep.replace(/\s+/g, ' ').trim();
-      if (commandPurpose && /执行命令:|命令执行完成/.test(rawStep)) {
-        summary = `${summary} | 目的: ${commandPurpose}`;
-      }
-      if (summary.length > 160) {
-        summary = `${summary.slice(0, 160).trimEnd()}...`;
-      }
-      const latestRawItem = this._latestRawItem(
-        targetId,
-        (item) => String(item?.direction || '').trim().toLowerCase() === 'received',
-      );
-      this._appendStructuredEvent(
-        targetId,
-        'info',
-        `R${currentRound}-S${stepIndex}: ${summary}`,
-        {
-          kind: 'step-summary',
-          body: rawStep,
-          ...(latestRawItem?.id ? { rawRefId: String(latestRawItem.id) } : {}),
-          rawRefLabel: '查看原文',
-        },
-      );
-    });
-
-    runner.on('finished', (result) => {
-      const targetConv = getConversation(this.conversations, targetId);
-      const runtimeState = this.runtimeStore.ensure(targetId);
-      const currentRound = Math.max(1, this.roundIndexByRunner.get(runner) || 1);
-      const userMessageState = this.userMessageByRunner.get(runner);
-      const completedUserText = String(userMessageState?.message?.text || userText || '').trim();
-
-      if (targetConv) {
-        if (result.sessionId) {
-          targetConv.sessionId = result.sessionId;
-        } else if (result.sessionResetSuggested) {
-          targetConv.sessionId = '';
-          this._appendStructuredEvent(targetId, 'warn', '已清空失效会话ID，下一次将自动创建新会话');
-        }
-      }
-
-      const finalText = (this.assistantBufferByRunner.get(runner) || '').trim() || String(result.assistantText || '').trim();
-      this._sealAssistantProgressSegments(targetId, currentRound);
-      while (this._removeLastStructuredEventIf(
-        targetId,
-        (item) => item?.kind === 'assistant-update',
-      )) {}
-      while (this._removeLastWorkflowItemIf(
-        targetId,
-        (item) => item.type === 'assistant'
-          && item.status === 'running'
-          && Number(item.roundIndex || 0) === currentRound,
-      )) {}
-      if (finalText && targetConv) {
-        this._appendWorkflowAssistantReply(targetId, currentRound, finalText);
-        const metaModel = String(this._ensureMeta(targetId)?.['模型'] || '').trim();
-        const messageUsage = normalizeMessageUsage(
-          result?.usage,
-          String(result?.model || '').trim() || metaModel,
-        ) || normalizeMessageUsageFromMeta(this._ensureMeta(targetId));
-        targetConv.messages.push({
-          role: 'assistant',
-          text: finalText,
-          ...(messageUsage ? { usage: messageUsage } : {}),
-          createdAt: nowTs(),
-        });
-      } else if (!finalText && targetConv && result.exitCode === 0) {
-        this._appendStructuredEvent(targetId, 'warn', 'Codex 未返回可解析内容（请查看右侧运行步骤/事件原文）');
-      }
-
-      if (result.exitCode === 0) {
-        runtimeState.phase = '已完成';
-        this._appendStructuredEvent(targetId, 'success', '任务完成');
-      } else {
-        runtimeState.phase = '失败';
-        this._appendStructuredEvent(
-          targetId,
-          'error',
-          `任务失败，退出码 ${result.exitCode}`,
-        );
-      }
-
-      if (targetConv) {
-        targetConv.updatedAt = nowTs();
-        this._syncConversationUpdated(targetConv);
-      }
-
-      runtimeState.startedAt = null;
-      this._emit({ type: 'runtime-started-at', conversationId: targetId, startedAt: null });
-      this._setPhase(targetId, runtimeState.phase || '空闲');
-      this._releaseRunner(targetId, runner);
-      this._persist();
-      const normalizedExitCode = Number(result.exitCode || 0);
-      const notificationFailureText = normalizedExitCode === 0
-        ? ''
-        : this._resolveNotificationFailureReason(targetId, {
-          fallback: finalText || `任务失败，退出码 ${normalizedExitCode}`,
-          exitCode: normalizedExitCode,
-        });
-      this.notifyConversationResult(targetId, normalizedExitCode === 0
-        ? {
-          status: 'completed',
-          userText: completedUserText,
-          assistantText: finalText,
-        }
-        : {
-          status: 'failed',
-          userText: completedUserText,
-          assistantText: finalText,
-          errorText: notificationFailureText,
-          exitCode: normalizedExitCode,
-        }).then((notifyResult) => {
-        if (!notifyResult || notifyResult.skipped) {
-          return;
-        }
-        if (notifyResult.ok) {
-          this._appendStructuredEvent(targetId, 'hint', '通知已发送');
-        } else {
-          this._appendStructuredEvent(
-            targetId,
-            'warn',
-            `通知发送失败: ${String(notifyResult.error || 'unknown error')}`,
-          );
-        }
-        this._persist();
-      }).catch((error) => {
-        this._appendStructuredEvent(
-          targetId,
-          'warn',
-          `通知发送失败: ${error?.message || String(error)}`,
-        );
-        this._persist();
-      });
-      if (normalizedExitCode === 0) {
-        this._startNextQueuedMessage(targetId);
-        return;
-      }
-      const pendingQueueSize = this._pendingQueueSize(targetId);
-      if (pendingQueueSize > 0) {
-        this._appendStructuredEvent(
-          targetId,
-          'warn',
-          `当前任务非正常结束，剩余 ${pendingQueueSize} 条排队消息已停止自动执行`,
-        );
-      }
-    });
-
     runner.run();
     return { snapshot: this.snapshot() };
   },

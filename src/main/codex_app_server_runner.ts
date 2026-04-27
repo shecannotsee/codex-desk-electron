@@ -10,33 +10,14 @@ const {
   parseUsagePayload,
   resolveUsageTokenFields,
 } = require('./codex_cli_gateway');
-
-function toSnakeCase(value) {
-  return String(value || '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase()
-    .trim();
-}
-
-function normalizeAssistantCompareText(text) {
-  return String(text || '')
-    .replace(/\r\n/g, '\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function normalizePlanStatus(status = '') {
-  const text = toSnakeCase(status || '');
-  if (text === 'completed' || text === 'done' || text === 'success') {
-    return 'completed';
-  }
-  if (text === 'in_progress' || text === 'running' || text === 'active') {
-    return 'in_progress';
-  }
-  return 'pending';
-}
+const {
+  extractItemMessageText,
+  normalizeAssistantCompareText,
+  normalizePlanStatus,
+  summarizeCommand,
+  toSnakeCase,
+  trimForStep,
+} = require('./codex_runner_output');
 
 class CodexAppServerRunner extends EventEmitter {
   constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
@@ -94,7 +75,7 @@ class CodexAppServerRunner extends EventEmitter {
     if (!this.threadId || !this.activeTurnId) {
       throw new Error('当前没有可插入的进行中任务');
     }
-    this.emit('event', 'hint', `已插入新指令: ${this._trimForStep(body, 160)}`);
+    this.emit('event', 'hint', `已插入新指令: ${trimForStep(body, 160)}`);
     const result = await this._sendRequest('turn/steer', {
       threadId: this.threadId,
       input: [{ type: 'text', text: body }],
@@ -612,62 +593,6 @@ class CodexAppServerRunner extends EventEmitter {
     return [settings.codexBin, 'app-server', ...settings.rootArgs];
   }
 
-  _trimForStep(text, limit = 320) {
-    const value = String(text || '').trim().replace(/\r\n/g, '\n');
-    if (!value) {
-      return '';
-    }
-    if (value.length <= limit) {
-      return value;
-    }
-    return `${value.slice(0, limit).trimEnd()}...`;
-  }
-
-  _summarizeCommand(command, limit = 160) {
-    const value = String(command || '').trim();
-    if (!value) {
-      return '';
-    }
-    if (value.length <= limit) {
-      return value;
-    }
-    return `${value.slice(0, limit).trimEnd()}...`;
-  }
-
-  _extractItemMessageText(item) {
-    if (!item || typeof item !== 'object') {
-      return '';
-    }
-
-    const directText = String(item.text || item.message || item.output_text || item.outputText || '').trim();
-    if (directText) {
-      return directText;
-    }
-
-    const content = Array.isArray(item.content) ? item.content : [];
-    const blocks = [];
-    for (const block of content) {
-      if (!block || typeof block !== 'object') {
-        continue;
-      }
-      const blockType = toSnakeCase(block.type || '');
-      if (blockType === 'output_text' || blockType === 'text') {
-        const text = String(
-          block.text
-          || block.output_text
-          || block.outputText
-          || block.input_text
-          || block.inputText
-          || '',
-        ).trim();
-        if (text) {
-          blocks.push(text);
-        }
-      }
-    }
-    return blocks.join('\n').trim();
-  }
-
   _emitItemStep(eventType, rawItem) {
     const item = rawItem || {};
     const itemType = toSnakeCase(item.type || '');
@@ -679,7 +604,7 @@ class CodexAppServerRunner extends EventEmitter {
       || (itemType === 'message' && role === 'assistant');
 
     if (itemType === 'reasoning' && itemText) {
-      this.emit('step', `思考: ${this._trimForStep(itemText)}`);
+      this.emit('step', `思考: ${trimForStep(itemText)}`);
       return;
     }
 
@@ -689,9 +614,9 @@ class CodexAppServerRunner extends EventEmitter {
 
     if (itemType !== 'command_execution') {
       const itemLabel = itemType || 'unknown_item';
-      const detail = this._extractItemMessageText(item)
+      const detail = extractItemMessageText(item)
         || String(item.title || item.name || item.label || item.command || '').trim();
-      const detailPreview = this._trimForStep(detail, 220);
+      const detailPreview = trimForStep(detail, 220);
       if (eventType === 'item.started') {
         this.emit('step', detailPreview ? `开始处理 ${itemLabel}: ${detailPreview}` : `开始处理 ${itemLabel}`);
       } else if (eventType === 'item.completed') {
@@ -702,14 +627,14 @@ class CodexAppServerRunner extends EventEmitter {
 
     const command = String(item.command || '').trim();
     if (eventType === 'item.started') {
-      const summarized = this._summarizeCommand(command);
+      const summarized = summarizeCommand(command);
       this.emit('step', summarized ? `执行命令: \`${summarized}\`` : '开始执行命令');
       return;
     }
 
     const exitCode = Number.isInteger(item.exitCode) ? item.exitCode : null;
     let text = exitCode === null ? '命令执行完成' : `命令执行完成（退出码 ${exitCode}）`;
-    const summarized = this._summarizeCommand(command);
+    const summarized = summarizeCommand(command);
     if (summarized) {
       text += `: \`${summarized}\``;
     }
@@ -735,7 +660,7 @@ class CodexAppServerRunner extends EventEmitter {
       return;
     }
 
-    const text = this._extractItemMessageText(rawItem);
+    const text = extractItemMessageText(rawItem);
     const normalizedText = normalizeAssistantCompareText(text);
     if (!normalizedText || normalizedText === this.lastAssistantUpdateText) {
       return;

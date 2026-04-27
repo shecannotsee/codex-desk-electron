@@ -1,5 +1,13 @@
 const HEADER_FIELD_RE = /^([\w ]+):\s*(.+)$/;
 
+function toSnakeCase(value) {
+  return String(value || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase()
+    .trim();
+}
+
 function normalizeAssistantCompareText(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
@@ -31,7 +39,7 @@ function summarizeCommand(command, limit = 160) {
 }
 
 function normalizePlanStatus(status = '') {
-  const text = String(status || '').trim().toLowerCase();
+  const text = toSnakeCase(status || '');
   if (text === 'completed' || text === 'done' || text === 'success') {
     return 'completed';
   }
@@ -57,7 +65,7 @@ function extractItemMessageText(item) {
     if (!block || typeof block !== 'object') {
       continue;
     }
-    const blockType = String(block.type || '').toLowerCase();
+    const blockType = toSnakeCase(block.type || '');
     if (blockType === 'output_text' || blockType === 'text') {
       const text = String(
         block.text
@@ -270,5 +278,6 @@ module.exports = {
   normalizePlanStatus,
   parseHeaderMeta,
   summarizeCommand,
+  toSnakeCase,
   trimForStep,
 };

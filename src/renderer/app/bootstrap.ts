@@ -3,11 +3,8 @@ import { codexdesk } from './codexdesk.js';
 import type {
   AppSnapshot,
   ConversationSwitchPayload,
-  ZoomOptions,
 } from './types.js';
 import {
-  APP_ZOOM_DEFAULT,
-  APP_ZOOM_STEP,
   CHAT_FONT_SIZE_DEFAULT,
   CHAT_FONT_SIZE_MAX,
   CHAT_FONT_SIZE_MIN,
@@ -29,8 +26,6 @@ import {
   setChatFontSize,
   setConversationDraft,
   setRenderHooks,
-  setRuntimePanelWidth,
-  setSidebarWidth,
   setTheme,
   state,
   syncMenuLanguage,
@@ -63,9 +58,20 @@ import {
   renderSettings,
   renderTabs,
   updateConversationListActiveState,
-  renderQueuePopover,
   setRendererCallbacks,
 } from './renderers.js';
+import {
+  bindZoomControls,
+  runZoomAction,
+  setAppZoomFactor,
+  shouldKeepQuickSettingsOpen,
+  showZoomHud,
+} from './app_zoom_controller.js';
+import { bindResizablePanels } from './resize_bindings.js';
+import {
+  bindQueuePopover,
+  hideQueuePopover,
+} from './queue_popover_controller.js';
 import { createIntegrationSettingsController } from './integration_settings.js';
 import { showAppNotice } from './app_notice.js';
 import {
@@ -163,85 +169,6 @@ function insertTextIntoInputBox(text: string) {
   lastInputBoxSelectionEnd = caret;
   setConversationDraft(state.activeConversationId, nextValue);
   state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
-}
-
-function composerHeightBounds() {
-  if (!el.inputBox) {
-    return { min: 100, max: 420 };
-  }
-  const styles = window.getComputedStyle(el.inputBox);
-  const min = Math.max(72, parseFloat(styles.minHeight) || el.inputBox.clientHeight || 100);
-  const max = Math.max(min, parseFloat(styles.maxHeight) || Math.max(min, 420));
-  return { min, max };
-}
-
-function clampComposerHeight(input: number) {
-  const { min, max } = composerHeightBounds();
-  const value = Number(input) || min;
-  return Math.min(max, Math.max(min, value));
-}
-
-async function setAppZoomFactor(input: number | string, options: ZoomOptions = {}) {
-  const persist = options.persist !== false;
-  const rerenderControls = options.rerenderControls !== false;
-  const next = clampAppZoom(input, state.ui.zoomFactor);
-  if (!codexdesk || typeof codexdesk.setZoomFactor !== 'function') {
-    return next;
-  }
-  const result = await codexdesk.setZoomFactor(next);
-  if (result?.error) {
-    throw new Error(result.error);
-  }
-  state.ui.zoomFactor = clampAppZoom(result?.zoomFactor, next);
-  if (persist) {
-    saveUiPrefs();
-  }
-  if (rerenderControls) {
-    renderSettings();
-  }
-  return state.ui.zoomFactor;
-}
-
-function currentAppZoomPercent() {
-  return Math.round(clampAppZoom(state.ui.zoomFactor, APP_ZOOM_DEFAULT) * 100);
-}
-
-function syncZoomControls(percent) {
-  const nextPercent = Math.round(Number(percent) || currentAppZoomPercent());
-  if (el.zoomFactorRange) {
-    el.zoomFactorRange.value = String(nextPercent);
-  }
-  if (el.zoomFactorValue) {
-    el.zoomFactorValue.value = String(nextPercent);
-  }
-}
-
-let quickSettingsAutoHideLockUntil = 0;
-let zoomHudHideTimer = 0;
-
-function showZoomHud(percent) {
-  if (!el.zoomHud) {
-    return;
-  }
-  const nextPercent = Math.round(Number(percent) || currentAppZoomPercent());
-  el.zoomHud.textContent = `${nextPercent}%`;
-  window.clearTimeout(zoomHudHideTimer);
-  if (!el.zoomHud.classList.contains('zoom-hud-visible')) {
-    window.requestAnimationFrame(() => {
-      el.zoomHud.classList.add('zoom-hud-visible');
-    });
-  }
-  zoomHudHideTimer = window.setTimeout(() => {
-    el.zoomHud.classList.remove('zoom-hud-visible');
-  }, 760);
-}
-
-function lockQuickSettingsAutoHide(durationMs = 260) {
-  quickSettingsAutoHideLockUntil = Date.now() + Math.max(0, Number(durationMs) || 0);
-}
-
-function shouldKeepQuickSettingsOpen() {
-  return Date.now() < quickSettingsAutoHideLockUntil;
 }
 
 async function init() {
@@ -432,38 +359,6 @@ async function init() {
     el.chatContextMenu.style.top = `${top}px`;
   };
 
-  const hideQueuePopover = () => {
-    if (!el.queuePopover || !el.queueChip) {
-      return;
-    }
-    el.queuePopover.classList.add('hidden');
-    el.queueChip.setAttribute('aria-expanded', 'false');
-  };
-
-  const showQueuePopover = () => {
-    if (!el.queuePopover || !el.queueChip) {
-      return;
-    }
-    if (Number(state.queuedCountByConversation[state.activeConversationId] || 0) <= 0) {
-      hideQueuePopover();
-      return;
-    }
-    renderQueuePopover(state.activeConversationId);
-    el.queuePopover.classList.remove('hidden');
-    el.queueChip.setAttribute('aria-expanded', 'true');
-  };
-
-  const toggleQueuePopover = () => {
-    if (!el.queuePopover || el.queueChip.classList.contains('hidden')) {
-      return;
-    }
-    if (el.queuePopover.classList.contains('hidden')) {
-      showQueuePopover();
-      return;
-    }
-    hideQueuePopover();
-  };
-
   const switchConversationIfNeeded = async (conversationId) => {
     const targetId = String(conversationId || '').trim();
     if (!targetId || targetId === state.activeConversationId) {
@@ -555,71 +450,7 @@ async function init() {
     });
   }
 
-  if (el.queueChip) {
-    el.queueChip.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleQueuePopover();
-    });
-  }
-  if (el.queuePopoverClose) {
-    el.queuePopoverClose.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      hideQueuePopover();
-    });
-  }
-  if (el.queuePopoverClear) {
-    el.queuePopoverClear.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const conversationId = state.activeConversationId;
-      if (!conversationId) {
-        return;
-      }
-      el.queuePopoverClear.disabled = true;
-      codexdesk.cancelAllQueuedMessages(conversationId).then((result) => {
-        if (result?.error) {
-          showAppNotice(localizeKnownText(String(result.error || '')), 'error');
-          el.queuePopoverClear.disabled = false;
-          return;
-        }
-        showAppNotice(t('queuedUndoAll'), 'info');
-      }).catch((error) => {
-        el.queuePopoverClear.disabled = false;
-        showAppNotice(localizeKnownText(error?.message || String(error)), 'error');
-      });
-    });
-  }
-  if (el.queuePopoverBody) {
-    el.queuePopoverBody.addEventListener('click', (event) => {
-      const target = getEventElementTarget(event);
-      const button = target?.closest<HTMLButtonElement>('.queued-preview-item-remove');
-      if (!button) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      const conversationId = state.activeConversationId;
-      if (!conversationId) {
-        return;
-      }
-      const queuedMessageId = String(button.getAttribute('data-queued-message-id') || '').trim();
-      const queuedIndex = Number(button.getAttribute('data-queued-index') || '0');
-      button.disabled = true;
-      codexdesk.cancelQueuedMessage(conversationId, queuedMessageId, queuedIndex).then((result) => {
-        if (result?.error) {
-          showAppNotice(localizeKnownText(String(result.error || '')), 'error');
-          button.disabled = false;
-          return;
-        }
-        showAppNotice(t('queuedUndo'), 'info');
-      }).catch((error) => {
-        button.disabled = false;
-        showAppNotice(localizeKnownText(error?.message || String(error)), 'error');
-      });
-    });
-  }
+  bindQueuePopover();
 
   if (el.runtimePanel) {
     el.runtimePanel.addEventListener('contextmenu', (event) => {
@@ -918,28 +749,7 @@ async function init() {
       showAboutModal();
       return;
     }
-    if (action === 'view:zoom-reset') {
-      lockQuickSettingsAutoHide(360);
-      const applied = await setAppZoomFactor(APP_ZOOM_DEFAULT, { rerenderControls: false });
-      const percent = Math.round(applied * 100);
-      syncZoomControls(percent);
-      showZoomHud(percent);
-      return;
-    }
-    if (action === 'view:zoom-in') {
-      lockQuickSettingsAutoHide(360);
-      const applied = await setAppZoomFactor(state.ui.zoomFactor + APP_ZOOM_STEP, { rerenderControls: false });
-      const percent = Math.round(applied * 100);
-      syncZoomControls(percent);
-      showZoomHud(percent);
-      return;
-    }
-    if (action === 'view:zoom-out') {
-      lockQuickSettingsAutoHide(360);
-      const applied = await setAppZoomFactor(state.ui.zoomFactor - APP_ZOOM_STEP, { rerenderControls: false });
-      const percent = Math.round(applied * 100);
-      syncZoomControls(percent);
-      showZoomHud(percent);
+    if (await runZoomAction(action)) {
       return;
     }
 
@@ -1342,136 +1152,7 @@ async function init() {
     });
   }
 
-  let resizingSidebar = false;
-  let sidebarResizeStartX = 0;
-  let sidebarResizeStartWidth = state.ui.sidebarWidth;
-  const onSidebarPointerMove = (event) => {
-    if (!resizingSidebar || state.ui.sidebarHidden) {
-      return;
-    }
-    const delta = Number(event.clientX || 0) - sidebarResizeStartX;
-    setSidebarWidth(sidebarResizeStartWidth + delta, { persist: false });
-  };
-  const stopSidebarResize = () => {
-    if (!resizingSidebar) {
-      return;
-    }
-    resizingSidebar = false;
-    document.body.classList.remove('sidebar-resizing');
-    saveUiPrefs();
-    window.removeEventListener('pointermove', onSidebarPointerMove);
-    window.removeEventListener('pointerup', stopSidebarResize);
-    window.removeEventListener('pointercancel', stopSidebarResize);
-  };
-  if (el.sidebarResizer) {
-    el.sidebarResizer.addEventListener('pointerdown', (event) => {
-      if (state.ui.sidebarHidden) {
-        return;
-      }
-      event.preventDefault();
-      resizingSidebar = true;
-      sidebarResizeStartX = Number(event.clientX || 0);
-      sidebarResizeStartWidth = state.ui.sidebarWidth;
-      document.body.classList.add('sidebar-resizing');
-      if (typeof el.sidebarResizer.setPointerCapture === 'function') {
-        try {
-          el.sidebarResizer.setPointerCapture(event.pointerId);
-        } catch {
-          // ignore capture failures
-        }
-      }
-      window.addEventListener('pointermove', onSidebarPointerMove);
-      window.addEventListener('pointerup', stopSidebarResize);
-      window.addEventListener('pointercancel', stopSidebarResize);
-    });
-  }
-
-  let resizingRuntimePanel = false;
-  let runtimeResizeStartX = 0;
-  let runtimeResizeStartWidth = state.ui.runtimePanelWidth;
-  const onRuntimePanelPointerMove = (event) => {
-    if (!resizingRuntimePanel || state.ui.runtimePanelHidden) {
-      return;
-    }
-    const delta = Number(event.clientX || 0) - runtimeResizeStartX;
-    setRuntimePanelWidth(runtimeResizeStartWidth - delta, { persist: false });
-  };
-  const stopRuntimePanelResize = () => {
-    if (!resizingRuntimePanel) {
-      return;
-    }
-    resizingRuntimePanel = false;
-    document.body.classList.remove('sidebar-resizing');
-    saveUiPrefs();
-    window.removeEventListener('pointermove', onRuntimePanelPointerMove);
-    window.removeEventListener('pointerup', stopRuntimePanelResize);
-    window.removeEventListener('pointercancel', stopRuntimePanelResize);
-  };
-  if (el.runtimeResizer) {
-    el.runtimeResizer.addEventListener('pointerdown', (event) => {
-      if (state.ui.runtimePanelHidden || window.innerWidth <= 1200) {
-        return;
-      }
-      event.preventDefault();
-      resizingRuntimePanel = true;
-      runtimeResizeStartX = Number(event.clientX || 0);
-      runtimeResizeStartWidth = state.ui.runtimePanelWidth;
-      document.body.classList.add('sidebar-resizing');
-      if (typeof el.runtimeResizer.setPointerCapture === 'function') {
-        try {
-          el.runtimeResizer.setPointerCapture(event.pointerId);
-        } catch {
-          // ignore capture failures
-        }
-      }
-      window.addEventListener('pointermove', onRuntimePanelPointerMove);
-      window.addEventListener('pointerup', stopRuntimePanelResize);
-      window.addEventListener('pointercancel', stopRuntimePanelResize);
-    });
-  }
-
-  let resizingComposer = false;
-  let composerResizeStartY = 0;
-  let composerResizeStartHeight = 0;
-  const onComposerPointerMove = (event) => {
-    if (!resizingComposer || !el.inputBox || el.inputBox.disabled) {
-      return;
-    }
-    const delta = Number(event.clientY || 0) - composerResizeStartY;
-    el.inputBox.style.height = `${clampComposerHeight(composerResizeStartHeight - delta)}px`;
-  };
-  const stopComposerResize = () => {
-    if (!resizingComposer) {
-      return;
-    }
-    resizingComposer = false;
-    document.body.classList.remove('composer-resizing');
-    window.removeEventListener('pointermove', onComposerPointerMove);
-    window.removeEventListener('pointerup', stopComposerResize);
-    window.removeEventListener('pointercancel', stopComposerResize);
-  };
-  if (el.composerResizeHandle) {
-    el.composerResizeHandle.addEventListener('pointerdown', (event) => {
-      if (!el.inputBox || el.inputBox.disabled) {
-        return;
-      }
-      event.preventDefault();
-      resizingComposer = true;
-      composerResizeStartY = Number(event.clientY || 0);
-      composerResizeStartHeight = el.inputBox.getBoundingClientRect().height;
-      document.body.classList.add('composer-resizing');
-      if (typeof el.composerResizeHandle?.setPointerCapture === 'function') {
-        try {
-          el.composerResizeHandle.setPointerCapture(event.pointerId);
-        } catch {
-          // ignore capture failures
-        }
-      }
-      window.addEventListener('pointermove', onComposerPointerMove);
-      window.addEventListener('pointerup', stopComposerResize);
-      window.addEventListener('pointercancel', stopComposerResize);
-    });
-  }
+  bindResizablePanels();
 
   if (typeof codexdesk.onMenuAction === 'function') {
     codexdesk.onMenuAction((payload) => {
@@ -2115,72 +1796,7 @@ async function init() {
     syncMenuLanguage();
   });
 
-  if (el.zoomFactorRange) {
-    el.zoomFactorRange.addEventListener('input', () => {
-      const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
-      syncZoomControls(nextPercent);
-      lockQuickSettingsAutoHide();
-      showZoomHud(nextPercent);
-    });
-
-    el.zoomFactorRange.addEventListener('change', () => {
-      const nextPercent = Math.round(Number(el.zoomFactorRange.value || currentAppZoomPercent()));
-      lockQuickSettingsAutoHide(360);
-      setAppZoomFactor(nextPercent / 100, { rerenderControls: false }).then((applied) => {
-        const appliedPercent = Math.round(applied * 100);
-        syncZoomControls(appliedPercent);
-        showZoomHud(appliedPercent);
-      }).catch(() => {
-        syncZoomControls(currentAppZoomPercent());
-      });
-    });
-  }
-
-  const commitZoomInput = () => {
-    const raw = String(el.zoomFactorValue.value || '').trim();
-    if (!raw) {
-      syncZoomControls(currentAppZoomPercent());
-      return;
-    }
-    const value = Number(raw);
-    if (!Number.isFinite(value)) {
-      syncZoomControls(currentAppZoomPercent());
-      return;
-    }
-    lockQuickSettingsAutoHide(360);
-    setAppZoomFactor(value / 100, { rerenderControls: false }).then((applied) => {
-      const appliedPercent = Math.round(applied * 100);
-      syncZoomControls(appliedPercent);
-      showZoomHud(appliedPercent);
-    }).catch(() => {
-      syncZoomControls(currentAppZoomPercent());
-    });
-  };
-
-  el.zoomFactorValue.addEventListener('focus', () => {
-    el.zoomFactorValue.select();
-  });
-  el.zoomFactorValue.addEventListener('input', () => {
-    const raw = String(el.zoomFactorValue.value || '').trim();
-    if (!raw) {
-      return;
-    }
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value < 50 || value > 250) {
-      return;
-    }
-    syncZoomControls(value);
-    lockQuickSettingsAutoHide();
-    showZoomHud(value);
-  });
-  el.zoomFactorValue.addEventListener('change', commitZoomInput);
-  el.zoomFactorValue.addEventListener('blur', commitZoomInput);
-  el.zoomFactorValue.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitZoomInput();
-    }
-  });
+  bindZoomControls();
 
   el.fontSizeRange.addEventListener('input', () => {
     setChatFontSize(el.fontSizeRange.value);

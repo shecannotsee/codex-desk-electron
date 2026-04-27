@@ -1,4 +1,4 @@
-const { nowTs, newConversation, getConversation, sortedConversations } = require('../conversation_service');
+const { nowTs, newConversation, getConversation } = require('../conversation_service');
 const { importSessionJsonl } = require('../session_importer');
 const { buildExportFileName, exportConversationJsonl } = require('../session_exporter');
 const {
@@ -7,16 +7,12 @@ const {
   normalizeRemoteControlSettings,
   normalizeWorkdir,
 } = require('../state_store');
-const { NotificationCenter } = require('../notification_bridge');
-const { appendTelegramLog } = require('../telegram_log_store');
-const { normalizePreview, tsLabel } = require('./shared');
+const { tsLabel } = require('./shared');
 const {
   MAX_RUNTIME_RAW,
-  TELEGRAM_VAULT_LOCKED_ERROR,
   inferStructuredEventKind,
   isCompletedPhase,
   pushBounded,
-  securitySnapshot,
 } = require('./runtime_helpers');
 const { runtimeQueueMethods } = require('./methods_runtime_queue');
 const { runtimeWorkflowMethods } = require('./methods_runtime_workflow');
@@ -25,123 +21,6 @@ const fs = require('node:fs');
 const runtimeMethods = {
   _inferStructuredEventKind(level = '', message = '', metaKey = '') {
     return inferStructuredEventKind(level, message, metaKey);
-  },
-
-  _emit(event) {
-    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
-      return;
-    }
-    this.mainWindow.webContents.send('app:event', event);
-  },
-
-  _persist() {
-    if (this.persistTimer) {
-      clearTimeout(this.persistTimer);
-      this.persistTimer = null;
-    }
-    this._syncNotificationCenter();
-    this._syncRemoteControlCenter();
-    this.stateStorage.saveState({
-      commandText: this.commandText,
-      workdir: this.workdir,
-      useNativeMemory: this.useNativeMemory,
-      deviceIdentity: this.deviceIdentity,
-      notifications: this.notifications,
-      remoteControl: this.remoteControl,
-      activeConversationId: this.activeConversationId,
-      conversations: this.conversations,
-      metaByConversation: this.metaByConversation,
-    }, {
-      vault: this.vault,
-      vaultKey: this.vaultKey,
-    });
-  },
-
-  _schedulePersist(delay = 180) {
-    const wait = Math.max(0, Number(delay) || 0);
-    if (this.persistTimer) {
-      clearTimeout(this.persistTimer);
-    }
-    this.persistTimer = setTimeout(() => {
-      this.persistTimer = null;
-      this._persist();
-    }, wait);
-  },
-
-  _defaultWorkdir() {
-    return normalizeWorkdir('');
-  },
-
-  _resolveConversationWorkdir(conversationId) {
-    const conv = getConversation(this.conversations, conversationId);
-    return normalizeWorkdir(conv?.workdir || this._defaultWorkdir());
-  },
-
-  _syncNotificationCenter() {
-    const normalizedIdentity = normalizeIdentity(this.deviceIdentity || '');
-    const normalizedNotifications = normalizeNotificationSettings(this.notifications);
-    this.deviceIdentity = normalizedIdentity;
-    this.notifications = normalizedNotifications;
-    if (!this.notificationCenter) {
-      this.notificationCenter = new NotificationCenter({
-        settings: normalizedNotifications,
-        deviceIdentity: normalizedIdentity,
-      });
-      return this.notificationCenter;
-    }
-    this.notificationCenter.updateConfig({
-      settings: normalizedNotifications,
-      deviceIdentity: normalizedIdentity,
-    });
-    return this.notificationCenter;
-  },
-
-  _hasLockedCredentialVault() {
-    return Boolean(this.security?.hasMasterPassword) && !Boolean(this.security?.unlocked);
-  },
-
-  _lockedCredentialError(logLabel = 'Telegram') {
-    appendTelegramLog('warn', `${logLabel} 未执行: ${TELEGRAM_VAULT_LOCKED_ERROR}`);
-    return TELEGRAM_VAULT_LOCKED_ERROR;
-  },
-
-  _clearCredentialSecrets() {
-    const nextNotifications = normalizeNotificationSettings(this.notifications);
-    nextNotifications.telegram = {
-      ...nextNotifications.telegram,
-      botToken: '',
-    };
-    this.notifications = nextNotifications;
-
-    const nextRemoteControl = normalizeRemoteControlSettings(this.remoteControl);
-    nextRemoteControl.telegram = {
-      ...nextRemoteControl.telegram,
-      botToken: '',
-    };
-    this.remoteControl = nextRemoteControl;
-  },
-
-  _applyUnlockedCredentialSecrets(secrets: any = {}) {
-    const notificationBotToken = String(secrets?.notifications?.telegram?.botToken || '').trim();
-    const remoteBotToken = String(secrets?.remoteControl?.telegram?.botToken || '').trim();
-    this.notifications = normalizeNotificationSettings({
-      ...(this.notifications && typeof this.notifications === 'object' ? this.notifications : {}),
-      telegram: {
-        ...((this.notifications?.telegram && typeof this.notifications.telegram === 'object')
-          ? this.notifications.telegram
-          : {}),
-        botToken: notificationBotToken,
-      },
-    });
-    this.remoteControl = normalizeRemoteControlSettings({
-      ...(this.remoteControl && typeof this.remoteControl === 'object' ? this.remoteControl : {}),
-      telegram: {
-        ...((this.remoteControl?.telegram && typeof this.remoteControl.telegram === 'object')
-          ? this.remoteControl.telegram
-          : {}),
-        botToken: remoteBotToken,
-      },
-    });
   },
 
   _ensureMeta(conversationId) {
@@ -179,38 +58,6 @@ const runtimeMethods = {
     const runtime = this.runtimeStore.ensure(conversationId);
     runtime.phase = phase;
     this._emit({ type: 'runtime-phase', conversationId, phase });
-  },
-
-  _conversationSwitchPayload(conversationId) {
-    const activeId = String(conversationId || this.activeConversationId || '').trim();
-    const conv = activeId ? getConversation(this.conversations, activeId) : null;
-    const runtime = activeId ? this.runtimeStore.ensure(activeId) : null;
-    const notificationCenter = this._syncNotificationCenter();
-    const remoteControlCenter = this._syncRemoteControlCenter();
-    return {
-      settings: {
-        commandText: this.commandText,
-        workdir: activeId ? this._resolveConversationWorkdir(activeId) : this._defaultWorkdir(),
-        defaultWorkdir: this._defaultWorkdir(),
-        deviceIdentity: notificationCenter.getDeviceIdentity(),
-        notifications: notificationCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
-        remoteControl: remoteControlCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
-        security: securitySnapshot(this),
-      },
-      activeConversationId: activeId,
-      conversation: conv || null,
-      runtime: runtime ? {
-        workflow: [...runtime.workflow],
-        events: [...runtime.events],
-        raw: [...runtime.raw],
-        phase: runtime.phase,
-        startedAt: runtime.startedAt,
-      } : null,
-      meta: activeId ? { ...this._ensureMeta(activeId) } : null,
-      runningConversationIds: Array.from(this.runners.keys()),
-      queuedCount: activeId ? this._pendingQueueSize(activeId) : 0,
-      queuedMessages: activeId ? this._queuedItemsForUi(activeId) : [],
-    };
   },
 
   ...runtimeWorkflowMethods,
@@ -322,33 +169,6 @@ const runtimeMethods = {
     return true;
   },
 
-  snapshot() {
-    const activeWorkdir = this.activeConversationId
-      ? this._resolveConversationWorkdir(this.activeConversationId)
-      : this._defaultWorkdir();
-    const notificationCenter = this._syncNotificationCenter();
-    const remoteControlCenter = this._syncRemoteControlCenter();
-    return {
-      settings: {
-        commandText: this.commandText,
-        workdir: activeWorkdir,
-        defaultWorkdir: this._defaultWorkdir(),
-        useNativeMemory: this.useNativeMemory,
-        deviceIdentity: notificationCenter.getDeviceIdentity(),
-        notifications: notificationCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
-        remoteControl: remoteControlCenter.snapshot({ includeSecrets: !this._hasLockedCredentialVault() }),
-        security: securitySnapshot(this),
-      },
-      activeConversationId: this.activeConversationId,
-      conversations: sortedConversations(this.conversations),
-      runtimeByConversation: this.runtimeStore.toObject(),
-      metaByConversation: this.metaByConversation,
-      runningConversationIds: Array.from(this.runners.keys()),
-      queuedCountByConversation: this._queuedCountSnapshot(),
-      queuedMessagesByConversation: this._queuedMessagesSnapshot(),
-    };
-  },
-
   runningConversationCount() {
     return this.runners.size;
   },
@@ -439,66 +259,6 @@ const runtimeMethods = {
     this._syncRemoteControlCenter();
     this._persist();
     return this.snapshot();
-  },
-
-  setMasterPassword(password) {
-    if (this.security?.hasMasterPassword && !this.security?.unlocked) {
-      return { ok: false, error: '请先解锁后再修改主密码', snapshot: this.snapshot() };
-    }
-    try {
-      const result = this.stateStorage.setVaultPassword(password);
-      this.vault = result?.vault || this.vault;
-      this.security = {
-        hasMasterPassword: true,
-        unlocked: true,
-      };
-      this.vaultKey = result?.key || null;
-      this._syncNotificationCenter();
-      this._syncRemoteControlCenter();
-      this._persist();
-      return { ok: true, snapshot: this.snapshot() };
-    } catch (error) {
-      return { ok: false, error: error?.message || String(error), snapshot: this.snapshot() };
-    }
-  },
-
-  unlockMasterPassword(password) {
-    if (!this.security?.hasMasterPassword) {
-      return { ok: false, error: '当前还没有设置主密码', snapshot: this.snapshot() };
-    }
-    try {
-      const result = this.stateStorage.unlockSecrets(password);
-      this.vaultKey = result?.key || null;
-      if (!this.vault?.passwordHash || !this.vault?.passwordSalt) {
-        this.vault = this.stateStorage.loadState().vault || this.vault;
-      }
-      this.security = {
-        hasMasterPassword: true,
-        unlocked: true,
-      };
-      this._applyUnlockedCredentialSecrets(result?.secrets || {});
-      this._syncNotificationCenter();
-      this._syncRemoteControlCenter();
-      return { ok: true, snapshot: this.snapshot() };
-    } catch (error) {
-      return { ok: false, error: error?.message || String(error), snapshot: this.snapshot() };
-    }
-  },
-
-  lockMasterPassword() {
-    if (!this.security?.hasMasterPassword) {
-      return { ok: true, snapshot: this.snapshot() };
-    }
-    this.vaultKey = null;
-    this.security = {
-      hasMasterPassword: true,
-      unlocked: false,
-    };
-    this._clearCredentialSecrets();
-    this._syncNotificationCenter();
-    this._syncRemoteControlCenter();
-    this._persist();
-    return { ok: true, snapshot: this.snapshot() };
   },
 
   switchConversation(conversationId) {

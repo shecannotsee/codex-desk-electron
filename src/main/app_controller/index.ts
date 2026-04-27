@@ -9,6 +9,9 @@ const { runtimeMethods } = require('./methods_runtime');
 const { remoteControlMethods } = require('./methods_remote_control');
 const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
+const { runtimePersistenceMethods } = require('./runtime_persistence');
+const { runtimeSecurityMethods } = require('./runtime_security');
+const { runtimeSnapshotMethods } = require('./runtime_snapshot');
 const { chatStreamPreviewMethods } = require('./chat_stream_preview');
 
 function usageFromMeta(meta) {
@@ -164,6 +167,9 @@ class AppController {
 
 Object.assign(
   AppController.prototype,
+  runtimePersistenceMethods,
+  runtimeSecurityMethods,
+  runtimeSnapshotMethods,
   runtimeMethods,
   remoteControlMethods,
   metaMethods,

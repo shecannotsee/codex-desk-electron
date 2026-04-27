@@ -9,6 +9,7 @@ const { runtimeMethods } = require('./methods_runtime');
 const { remoteControlMethods } = require('./methods_remote_control');
 const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
+const { chatStreamPreviewMethods } = require('./chat_stream_preview');
 
 function usageFromMeta(meta) {
   if (!meta || typeof meta !== 'object') {
@@ -166,6 +167,7 @@ Object.assign(
   runtimeMethods,
   remoteControlMethods,
   metaMethods,
+  chatStreamPreviewMethods,
   chatMethods,
 );
 

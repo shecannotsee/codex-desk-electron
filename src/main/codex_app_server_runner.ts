@@ -1,15 +1,17 @@
 const { EventEmitter } = require('node:events');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
-const os = require('node:os');
 
 const { getCodexChildEnv } = require('./shell_env');
 const {
-  splitShellArgs,
   stripAnsi,
   parseUsagePayload,
   resolveUsageTokenFields,
 } = require('./codex_cli_gateway');
+const {
+  buildAppServerCommand,
+  parseAppServerCommandSettings,
+} = require('./codex_app_server_command');
 const {
   extractItemMessageText,
   normalizeAssistantCompareText,
@@ -95,8 +97,8 @@ class CodexAppServerRunner extends EventEmitter {
     const startMs = Date.now();
 
     try {
-      const settings = this._parseCommandSettings();
-      const cmd = this._buildAppServerCommand(settings);
+      const settings = parseAppServerCommandSettings(this.commandText, this.workdir);
+      const cmd = buildAppServerCommand(settings);
       this.emit('status', '正在启动 Codex...');
       this.emit('event', 'hint', `启动 app-server: ${cmd.join(' ')}`);
 
@@ -461,136 +463,6 @@ class CodexAppServerRunner extends EventEmitter {
       this.pendingRequests.set(String(id), { resolve, reject });
       this._writeJson({ method, id, params });
     });
-  }
-
-  _parseCommandSettings() {
-    const parts = splitShellArgs(this.commandText);
-    if (parts.length < 2 || String(parts[1] || '') !== 'exec') {
-      throw new Error('当前命令不是 `codex exec`，无法使用 fork 导入模式');
-    }
-
-    const args = parts.slice(2);
-    const rootArgs = [];
-    const addDirs = new Set();
-    let model = '';
-    let approvalPolicy = '';
-    let sandboxMode = '';
-    let dangerousBypass = false;
-    let fullAuto = false;
-
-    const keepWithValue = new Set(['--config', '-c', '--enable', '--disable']);
-    for (let index = 0; index < args.length; index += 1) {
-      const token = String(args[index] || '');
-      if (keepWithValue.has(token) && index + 1 < args.length) {
-        rootArgs.push(token, String(args[index + 1] || ''));
-        index += 1;
-        continue;
-      }
-      if (token.startsWith('--config=')) {
-        rootArgs.push(token);
-        const match = /^--config=(.+)$/.exec(token);
-        const configValue = String(match?.[1] || '').trim();
-        const modelFromConfig = /^model\s*=\s*(.+)$/i.exec(configValue);
-        if (modelFromConfig?.[1]) {
-          model = String(modelFromConfig[1] || '').replace(/^['"]|['"]$/g, '').trim();
-        }
-        continue;
-      }
-      if ((token === '--model' || token === '-m') && index + 1 < args.length) {
-        model = String(args[index + 1] || '').trim();
-        index += 1;
-        continue;
-      }
-      if (token.startsWith('--model=')) {
-        model = token.split('=', 2)[1].trim();
-        continue;
-      }
-      if ((token === '--ask-for-approval' || token === '-a') && index + 1 < args.length) {
-        approvalPolicy = String(args[index + 1] || '').trim();
-        index += 1;
-        continue;
-      }
-      if (token.startsWith('--ask-for-approval=')) {
-        approvalPolicy = token.split('=', 2)[1].trim();
-        continue;
-      }
-      if ((token === '--sandbox' || token === '-s') && index + 1 < args.length) {
-        sandboxMode = String(args[index + 1] || '').trim();
-        index += 1;
-        continue;
-      }
-      if (token.startsWith('--sandbox=')) {
-        sandboxMode = token.split('=', 2)[1].trim();
-        continue;
-      }
-      if (token === '--add-dir' && index + 1 < args.length) {
-        addDirs.add(String(args[index + 1] || '').trim());
-        index += 1;
-        continue;
-      }
-      if (token.startsWith('--add-dir=')) {
-        addDirs.add(token.split('=', 2)[1].trim());
-        continue;
-      }
-      if (token === '--dangerously-bypass-approvals-and-sandbox') {
-        dangerousBypass = true;
-        continue;
-      }
-      if (token === '--full-auto') {
-        fullAuto = true;
-      }
-    }
-
-    const writableRoots = Array.from(new Set([
-      String(this.workdir || '').trim(),
-      String(os.homedir() || '').trim(),
-      ...Array.from(addDirs),
-    ].filter(Boolean)));
-
-    let resolvedApproval = approvalPolicy;
-    let resolvedSandbox = sandboxMode;
-    if (dangerousBypass) {
-      resolvedApproval = 'never';
-      resolvedSandbox = 'danger-full-access';
-    } else if (fullAuto) {
-      resolvedApproval = resolvedApproval || 'on-request';
-      resolvedSandbox = resolvedSandbox || 'workspace-write';
-    } else {
-      resolvedApproval = resolvedApproval || 'never';
-      resolvedSandbox = resolvedSandbox || 'danger-full-access';
-    }
-
-    let sandboxPolicy: any = { type: 'dangerFullAccess' };
-    if (resolvedSandbox === 'read-only') {
-      sandboxPolicy = { type: 'readOnly', networkAccess: false };
-    } else if (resolvedSandbox === 'workspace-write') {
-      sandboxPolicy = {
-        type: 'workspaceWrite',
-        writableRoots,
-        networkAccess: false,
-        excludeTmpdirEnvVar: false,
-        excludeSlashTmp: false,
-      };
-    }
-
-    const normalizedApproval = {
-      untrusted: 'untrusted',
-      'on-failure': 'on-failure',
-      'on-request': 'on-request',
-      never: 'never',
-    }[String(resolvedApproval || '').trim()] || 'never';
-
-    return {
-      codexBin: String(parts[0] || 'codex'),
-      rootArgs,
-      model,
-      approvalPolicy: normalizedApproval,
-      sandboxPolicy,
-    };
-  }
-
-  _buildAppServerCommand(settings) {
-    return [settings.codexBin, 'app-server', ...settings.rootArgs];
   }
 
   _emitItemStep(eventType, rawItem) {

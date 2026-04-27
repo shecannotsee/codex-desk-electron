@@ -14,6 +14,7 @@ const { runtimeEventMethods } = require('./runtime_events');
 const { runtimeRunnerLifecycleMethods } = require('./runtime_runner_lifecycle');
 const { runtimeSecurityMethods } = require('./runtime_security');
 const { runtimeSessionFileMethods } = require('./runtime_session_files');
+const { runtimeSettingsMethods } = require('./runtime_settings');
 const { runtimeSnapshotMethods } = require('./runtime_snapshot');
 const { chatStreamPreviewMethods } = require('./chat_stream_preview');
 
@@ -175,6 +176,7 @@ Object.assign(
   runtimeRunnerLifecycleMethods,
   runtimeSecurityMethods,
   runtimeSessionFileMethods,
+  runtimeSettingsMethods,
   runtimeSnapshotMethods,
   runtimeMethods,
   remoteControlMethods,

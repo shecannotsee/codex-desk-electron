@@ -1,5 +1,5 @@
 const { EventEmitter } = require('node:events');
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 
 const { getCodexChildEnv } = require('./shell_env');
@@ -14,6 +14,10 @@ const {
   looksLikeServerOverload,
 } = require('./codex_runner_errors');
 const { emitUsageMeta } = require('./codex_runner_usage');
+const {
+  emitCodexVersionMeta,
+  emitModelMetaFromCommand,
+} = require('./codex_runner_metadata');
 const {
   extractEventTexts,
   extractItemMessageText,
@@ -79,8 +83,8 @@ class CodexRunner extends EventEmitter {
       this.emit('event', 'hint', `执行命令: ${cmd.slice(0, -1).join(' ')} '<PROMPT>'`);
       // Mirror the outbound request into raw logs so UI-side replay/debug does not depend on shell history.
       this._emitRawRequest(cmd);
-      this._emitCodexVersion(cmd);
-      this._emitModelFromCommand(cmd);
+      emitCodexVersionMeta(this, cmd);
+      emitModelMetaFromCommand(this, cmd);
 
       let exitCode = await this._runSubprocess(cmd, rawLines, assistantChunks);
       let cleanOutput = rawLines.join('\n').trim();
@@ -224,48 +228,6 @@ class CodexRunner extends EventEmitter {
     }
 
     return [codexBin, 'exec', ...execOpts, ...imageArgs, '--', this.prompt];
-  }
-
-  _emitCodexVersion(cmd) {
-    if (!cmd.length) {
-      return;
-    }
-    const binName = cmd[0].toLowerCase();
-    if (!binName.includes('codex')) {
-      return;
-    }
-
-    try {
-      const result = spawnSync(cmd[0], ['--version'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf-8',
-        timeout: 6000,
-        env: this.childEnv,
-      });
-      const output = stripAnsi(String(result.stdout || result.stderr || '').trim());
-      const firstLine = output.split(/\r?\n/)[0]?.trim() || '';
-      if (firstLine) {
-        this.emit('meta', 'Codex版本', firstLine);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  _emitModelFromCommand(cmd) {
-    let model = '';
-    for (let i = 0; i < cmd.length; i += 1) {
-      const token = cmd[i];
-      if ((token === '--model' || token === '-m') && i + 1 < cmd.length) {
-        model = String(cmd[i + 1]).trim();
-      } else if (String(token).startsWith('--model=')) {
-        model = String(token).split('=', 2)[1].trim();
-      }
-    }
-    if (model) {
-      this.lastModel = model;
-      this.emit('meta', '模型', model);
-    }
   }
 
   _emitPlanUpdateFromItem(eventType, item) {

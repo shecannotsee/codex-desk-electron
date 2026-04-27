@@ -16,13 +16,11 @@ import {
   currentLang,
   draftStorageKey,
   el,
-  getComposerAttachments,
   increaseChatVisibleCount,
   loadDraftPrefs,
   loadUiPrefs,
   localizeKnownText,
   saveUiPrefs,
-  setComposerAttachments,
   setChatFontSize,
   setConversationDraft,
   setRenderHooks,
@@ -79,25 +77,13 @@ import {
   applySnapshot as applySnapshotToState,
 } from './app_state_sync.js';
 import {
-  askConfirmDialog,
-  askCreateConversationWorkdir,
-  askImportSessionMode,
-  askImportSessionWorkdirMode,
-  askRenameTitle,
   resolveCloseGuardAction,
-  resolvePreferredImportContinuationMode,
   showCloseGuardModal,
 } from './app_dialogs.js';
-import {
-  addComposerAttachments,
-  dragEventHasFiles,
-  extractDroppedPaths,
-  imageAttachmentsOnly,
-  normalizeAttachmentFiles,
-  removeComposerAttachment,
-  setAttachmentMenuOpen,
-} from './composer_attachments.js';
+import { setAttachmentMenuOpen } from './composer_attachments.js';
 import { applyEvent } from './app_event_handler.js';
+import { bindConversationActions } from './conversation_actions_controller.js';
+import { bindComposerController } from './composer_controller.js';
 
 function getEventElementTarget(event: Event): Element | null {
   return event.target instanceof Element ? event.target : null;
@@ -122,47 +108,6 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
   applyConversationSwitchPayloadToState(payload, () => {
     integrationSettings.refreshCredentialRuntimeLockNotice();
   });
-}
-
-let lastInputBoxSelectionStart = 0;
-let lastInputBoxSelectionEnd = 0;
-
-function rememberInputBoxSelection() {
-  if (!el.inputBox) {
-    return;
-  }
-  const start = Number(el.inputBox.selectionStart);
-  const end = Number(el.inputBox.selectionEnd);
-  if (!Number.isInteger(start) || !Number.isInteger(end)) {
-    return;
-  }
-  lastInputBoxSelectionStart = Math.max(0, start);
-  lastInputBoxSelectionEnd = Math.max(lastInputBoxSelectionStart, end);
-}
-
-function insertTextIntoInputBox(text: string) {
-  if (!el.inputBox || !text) {
-    return;
-  }
-  const input = el.inputBox;
-  const focusedStart = Number(input.selectionStart);
-  const focusedEnd = Number(input.selectionEnd);
-  const hasLiveSelection = Number.isInteger(focusedStart) && Number.isInteger(focusedEnd);
-  const start = hasLiveSelection
-    ? Math.max(0, focusedStart)
-    : Math.max(0, Math.min(input.value.length, lastInputBoxSelectionStart));
-  const end = hasLiveSelection
-    ? Math.max(start, focusedEnd)
-    : Math.max(start, Math.min(input.value.length, lastInputBoxSelectionEnd));
-  const nextValue = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
-  input.value = nextValue;
-  const caret = start + text.length;
-  input.focus();
-  input.setSelectionRange(caret, caret);
-  lastInputBoxSelectionStart = caret;
-  lastInputBoxSelectionEnd = caret;
-  setConversationDraft(state.activeConversationId, nextValue);
-  state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
 }
 
 async function init() {
@@ -552,111 +497,10 @@ async function init() {
     });
   }
 
-  const runCreateConversationFlow = async () => {
-    const workdir = await askCreateConversationWorkdir();
-    if (workdir === null) {
-      return;
-    }
-    const next = await codexdesk.createConversation({
-      workdir: String(workdir || '').trim(),
-    });
-    applySnapshot(next);
-    renderAll();
-  };
-
-  el.btnNewConv.addEventListener('click', async () => {
-    await runCreateConversationFlow();
+  bindConversationActions({
+    applySnapshot,
+    renderAll,
   });
-
-  el.btnImportSession.addEventListener('click', () => {
-    runImportSessionFlow().catch((error) => {
-      window.alert(localizeKnownText(`导入会话失败: ${error?.message || String(error)}`));
-    });
-  });
-
-  el.btnExportSession.addEventListener('click', async () => {
-    const result = await codexdesk.exportSession(state.activeConversationId);
-    if (result?.canceled) {
-      return;
-    }
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-      applySnapshot(result?.snapshot || {});
-      renderAll();
-      return;
-    }
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-    const exportedPath = String(result?.exported?.filePath || '').trim();
-    const exportedCount = Number(result?.exported?.messageCount || 0);
-    if (exportedPath) {
-      window.alert(localizeKnownText(`已导出会话到:\n${exportedPath}\n\n消息数: ${exportedCount}`));
-    }
-  });
-
-  el.btnRenameConv.addEventListener('click', async () => {
-    const conv = currentConversation();
-    const title = await askRenameTitle(conv?.title || '');
-    if (title === null) {
-      return;
-    }
-    if (!title.trim()) {
-      window.alert(t('alertConversationNameEmpty'));
-      return;
-    }
-    const next = await codexdesk.renameConversation(state.activeConversationId, title);
-    if (next?.error) {
-      window.alert(localizeKnownText(next.error));
-      return;
-    }
-    applySnapshot(next);
-    renderAll();
-  });
-
-  el.btnCloseConv.addEventListener('click', async () => {
-    const conv = currentConversation();
-    const title = String(conv?.title || t('chatTitlePrefix'));
-    const ok = await askConfirmDialog({
-      title: t('closeConversationTitle'),
-      message: t('confirmCloseConversation', { title }),
-    });
-    if (!ok) {
-      return;
-    }
-    const next = await codexdesk.closeCurrentConversation();
-    applySnapshot(next);
-    renderAll();
-  });
-
-  el.btnRefreshVersion.addEventListener('click', async () => {
-    const next = await codexdesk.refreshCodexVersion(state.activeConversationId);
-    if (next?.error) {
-      window.alert(localizeKnownText(next.error));
-      applySnapshot(next.snapshot || {});
-      renderAll();
-      return;
-    }
-    applySnapshot(next);
-    renderAll();
-  });
-
-  el.btnRefreshModel.addEventListener('click', async () => {
-    const next = await codexdesk.refreshModelInfo(state.activeConversationId);
-    if (next?.error) {
-      window.alert(localizeKnownText(next.error));
-      applySnapshot(next.snapshot || {});
-      renderAll();
-      return;
-    }
-    applySnapshot(next);
-    renderAll();
-  });
-
-  if (el.btnMetaModel) {
-    el.btnMetaModel.addEventListener('click', () => {
-      el.btnRefreshModel.click();
-    });
-  }
 
   if (el.qsTelegramSave) {
     el.qsTelegramSave.addEventListener('click', async () => {
@@ -871,217 +715,9 @@ async function init() {
     });
   }
 
-  const runImportSessionFlow = async () => {
-    const picked = await codexdesk.pickImportSession();
-    if (picked?.canceled) {
-      return;
-    }
-    if (picked?.error) {
-      window.alert(localizeKnownText(picked.error));
-      applySnapshot(picked?.snapshot || {});
-      renderAll();
-      return;
-    }
-
-    const preview = picked?.preview;
-    const filePath = String(preview?.filePath || '').trim();
-    if (!filePath) {
-      window.alert(localizeKnownText('导入会话失败: 未获取到导入文件信息'));
-      applySnapshot(picked?.snapshot || {});
-      renderAll();
-      return;
-    }
-
-    const workdirChoice = await askImportSessionWorkdirMode(preview);
-    if (!workdirChoice) {
-      return;
-    }
-
-    let continuationMode = 'resume';
-    if (String(preview?.sessionId || '').trim()) {
-      const selectedMode = await askImportSessionMode(
-        preview,
-        resolvePreferredImportContinuationMode(preview, workdirChoice),
-      );
-      if (!selectedMode) {
-        return;
-      }
-      continuationMode = selectedMode;
-    }
-
-    const result = await codexdesk.importSessionFromFile(filePath, continuationMode, workdirChoice);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-      applySnapshot(result?.snapshot || {});
-      renderAll();
-      return;
-    }
-
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  };
-
-  el.btnClearChat.addEventListener('click', async () => {
-    const result = await codexdesk.clearChat(state.activeConversationId);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-    }
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  });
-
-  el.btnClearRuntime.addEventListener('click', async () => {
-    const result = await codexdesk.clearRuntime(state.activeConversationId, false);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-    }
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  });
-
-  el.btnToggleRuntime.addEventListener('click', () => {
-    state.ui.runtimePanelHidden = !state.ui.runtimePanelHidden;
-    saveUiPrefs();
-    renderAll();
-  });
-
-  el.btnToggleSidebar.addEventListener('click', () => {
-    state.ui.sidebarHidden = !state.ui.sidebarHidden;
-    saveUiPrefs();
-    renderAll();
-  });
-
-  el.btnStop.addEventListener('click', async () => {
-    const next = await codexdesk.stopConversation(state.activeConversationId);
-    applySnapshot(next);
-    renderAll();
-  });
-
-  el.btnRetryLast.addEventListener('click', async () => {
-    const result = await codexdesk.retryLastMessage(state.activeConversationId);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-      applySnapshot(result?.snapshot || {});
-      renderAll();
-      return;
-    }
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  });
-
-  el.btnAddAttachment.addEventListener('click', () => {
-    if (el.attachmentInput.disabled) {
-      return;
-    }
-    const willOpen = el.attachmentKindMenu.classList.contains('hidden');
-    setAttachmentMenuOpen(willOpen);
-  });
-
-  el.btnAddImageAttachment.addEventListener('click', () => {
-    if (el.attachmentInput.disabled) {
-      return;
-    }
-    setAttachmentMenuOpen(false);
-    el.attachmentInput.click();
-  });
-
-  el.attachmentInput.addEventListener('change', () => {
-    const attachments = imageAttachmentsOnly(normalizeAttachmentFiles(Array.from(el.attachmentInput.files || [])));
-    if (attachments.length) {
-      addComposerAttachments(attachments);
-    }
-    el.attachmentInput.value = '';
-  });
-
-  el.btnSend.addEventListener('click', async () => {
-    const text = el.inputBox.value.trim();
-    const attachments = getComposerAttachments(state.activeConversationId);
-    if (!text) {
-      return;
-    }
-    const result = await codexdesk.sendMessage(state.activeConversationId, text, attachments);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-      return;
-    }
-    el.inputBox.value = '';
-    setConversationDraft(state.activeConversationId, '');
-    setComposerAttachments(state.activeConversationId, []);
-    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  });
-
-  el.btnInsertMessage.addEventListener('click', async () => {
-    const text = el.inputBox.value.trim();
-    if (!text) {
-      return;
-    }
-    const result = await codexdesk.insertMessage(state.activeConversationId, text);
-    if (result?.error) {
-      window.alert(localizeKnownText(result.error));
-      return;
-    }
-    el.inputBox.value = '';
-    setConversationDraft(state.activeConversationId, '');
-    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
-    applySnapshot(result?.snapshot || result);
-    renderAll();
-  });
-
-  el.inputBox.addEventListener('input', () => {
-    rememberInputBoxSelection();
-    setConversationDraft(state.activeConversationId, el.inputBox.value);
-    state.inputBindingConversationId = draftStorageKey(state.activeConversationId);
-  });
-
-  ['click', 'keyup', 'select', 'focus'].forEach((eventName) => {
-    el.inputBox.addEventListener(eventName, () => {
-      rememberInputBoxSelection();
-    });
-  });
-
-  el.inputBox.addEventListener('dragenter', (event) => {
-    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
-      return;
-    }
-    event.preventDefault();
-    rememberInputBoxSelection();
-    el.inputBox.classList.add('is-dragover');
-  });
-
-  el.inputBox.addEventListener('dragover', (event) => {
-    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
-      return;
-    }
-    event.preventDefault();
-    rememberInputBoxSelection();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'copy';
-    }
-    el.inputBox.classList.add('is-dragover');
-  });
-
-  el.inputBox.addEventListener('dragleave', (event) => {
-    const nextTarget = event.relatedTarget;
-    if (nextTarget instanceof Node && el.inputBox.contains(nextTarget)) {
-      return;
-    }
-    el.inputBox.classList.remove('is-dragover');
-  });
-
-  el.inputBox.addEventListener('drop', (event) => {
-    el.inputBox.classList.remove('is-dragover');
-    if (el.inputBox.disabled || !dragEventHasFiles(event)) {
-      return;
-    }
-    event.preventDefault();
-    const paths = extractDroppedPaths(event.dataTransfer);
-    if (!paths.length) {
-      return;
-    }
-    const text = paths.join('\n');
-    insertTextIntoInputBox(text);
+  bindComposerController({
+    applySnapshot,
+    renderAll,
   });
 
   el.sidebarSearchInput.addEventListener('input', () => {
@@ -1105,13 +741,6 @@ async function init() {
     el.btnNewConv.click();
   });
 
-  el.inputBox.addEventListener('keydown', async (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-      event.preventDefault();
-      el.btnSend.click();
-    }
-  });
-
   el.tabButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
       const nextTab = btn.getAttribute('data-tab');
@@ -1132,16 +761,6 @@ async function init() {
         }
       });
     });
-  });
-
-  el.composerAttachments.addEventListener('click', (event) => {
-    const target = getEventElementTarget(event);
-    const button = target?.closest('.composer-attachment-remove');
-    if (!button) {
-      return;
-    }
-    const index = Number(button.getAttribute('data-attachment-index') || '-1');
-    removeComposerAttachment(index);
   });
 
   document.addEventListener('click', (event) => {

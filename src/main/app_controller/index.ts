@@ -10,6 +10,7 @@ const { remoteControlMethods } = require('./methods_remote_control');
 const { metaMethods } = require('./methods_meta');
 const { chatMethods } = require('./methods_chat');
 const { runtimePersistenceMethods } = require('./runtime_persistence');
+const { runtimeEventMethods } = require('./runtime_events');
 const { runtimeRunnerLifecycleMethods } = require('./runtime_runner_lifecycle');
 const { runtimeSecurityMethods } = require('./runtime_security');
 const { runtimeSessionFileMethods } = require('./runtime_session_files');
@@ -170,6 +171,7 @@ class AppController {
 Object.assign(
   AppController.prototype,
   runtimePersistenceMethods,
+  runtimeEventMethods,
   runtimeRunnerLifecycleMethods,
   runtimeSecurityMethods,
   runtimeSessionFileMethods,

@@ -1,13 +1,12 @@
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 
 const { AppController } = require('./app_controller');
-const { DOCS_CAPTURE_MODE, registerDocsCaptureIpc } = require('./docs_capture_main');
-const { openLocalPath } = require('./local_path_opener');
+const { DOCS_CAPTURE_MODE } = require('./docs_capture_main');
 const { resolvePackageRoot, resolveRepoRoot } = require('./project_paths');
+const { registerAppIpc } = require('./ipc_registration');
 const {
   applyMenuLanguage: applyMenuLanguageToApp,
   applyWindowTheme: applyThemeToWindow,
@@ -19,11 +18,6 @@ const {
   openExternalUrl,
   templateText,
 } = require('./menu_window_actions');
-const {
-  TELEGRAM_LOG_PATH,
-  formatTelegramLogs,
-  listTelegramLogs,
-} = require('./telegram_log_store');
 
 app.setName('Codex Desk');
 
@@ -38,7 +32,9 @@ function applyMenuLanguage(language) {
 }
 
 function applyWindowTheme(theme) {
-  applyThemeToWindow(mainWindow, theme);
+  const normalized = normalizeTheme(theme);
+  applyThemeToWindow(mainWindow, normalized);
+  return normalized;
 }
 
 function invokeUiAction(rawAction) {
@@ -187,279 +183,25 @@ function createWindow() {
 }
 
 function registerIpc() {
-  ipcMain.handle('ui:set-menu-language', async (_, payload) => {
-    const language = normalizeLanguage(payload?.language);
-    applyMenuLanguage(language);
-    return { ok: true, language };
-  });
-
-  ipcMain.handle('ui:set-window-theme', async (_, payload) => {
-    const theme = normalizeTheme(payload?.theme);
-    applyWindowTheme(theme);
-    return { ok: true, theme };
-  });
-
-  ipcMain.handle('ui:get-zoom-factor', async () => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-    return { ok: true, zoomFactor: clampZoomFactor(mainWindow.webContents.getZoomFactor()) };
-  });
-
-  ipcMain.handle('ui:set-zoom-factor', async (_, payload) => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-    const zoomFactor = clampZoomFactor(payload?.zoomFactor);
-    mainWindow.webContents.setZoomFactor(zoomFactor);
-    return { ok: true, zoomFactor };
-  });
-
-  ipcMain.handle('ui:invoke-action', async (_, payload) => {
-    return invokeUiAction(payload?.action);
-  });
-
-  ipcMain.handle('app:get-snapshot', async () => controller.snapshot());
-
-  ipcMain.handle('app:get-info', async () => ({
-    ok: true,
-    name: app.getName(),
-    version: app.getVersion(),
-  }));
-  ipcMain.handle('app:get-telegram-logs', async () => {
-    const entries = listTelegramLogs(200);
-    return {
-      ok: true,
-      logCount: entries.length,
-      logPath: TELEGRAM_LOG_PATH,
-      logsText: formatTelegramLogs(entries),
-    };
-  });
-
-  ipcMain.handle('app:update-settings', async (_, payload) => controller.updateSettings(payload || {}));
-  ipcMain.handle('app:set-master-password', async (_, payload) => controller.setMasterPassword(payload?.password));
-  ipcMain.handle('app:unlock-master-password', async (_, payload) => controller.unlockMasterPassword(payload?.password));
-  ipcMain.handle('app:lock-master-password', async () => controller.lockMasterPassword());
-  ipcMain.handle('app:test-notification-provider', async () => controller.testNotificationProvider());
-  ipcMain.handle('app:test-remote-control-provider', async () => controller.testRemoteControlProvider());
-  ipcMain.handle('app:pick-workdir', async (_, payload) => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: menuLanguage === 'en-US' ? 'Choose Working Directory' : '选择工作目录',
-      defaultPath: String(payload?.defaultPath || controller?._defaultWorkdir?.() || '').trim() || undefined,
-      properties: ['openDirectory', 'createDirectory'],
-    });
-
-    if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
-      return { canceled: true, snapshot: controller.snapshot() };
-    }
-
-    return {
-      ok: true,
-      snapshot: controller.snapshot(),
-      directoryPath: result.filePaths[0],
-    };
-  });
-
-  ipcMain.handle('conversation:switch', async (_, payload) => {
-    const id = String(payload?.conversationId || '');
-    return controller.switchConversation(id);
-  });
-
-  ipcMain.handle('conversation:create', async (_, payload) => controller.createConversation(payload || {}));
-
-  ipcMain.handle('conversation:pick-import-session', async () => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: '导入 Codex 会话',
-      defaultPath: path.join(os.homedir(), '.codex', 'sessions'),
-      properties: ['openFile'],
-      filters: [
-        { name: 'Codex Session', extensions: ['jsonl'] },
-        { name: 'JSON', extensions: ['json', 'jsonl'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    });
-
-    if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
-      return { canceled: true, snapshot: controller.snapshot() };
-    }
-
-    try {
-      return {
-        snapshot: controller.snapshot(),
-        preview: controller.previewConversationImportFromSessionFile(result.filePaths[0]),
-      };
-    } catch (error) {
-      return {
-        error: `导入会话失败: ${error?.message || String(error)}`,
-        snapshot: controller.snapshot(),
-      };
-    }
-  });
-
-  ipcMain.handle('conversation:import-session-file', async (_, payload) => {
-    const filePath = String(payload?.filePath || '');
-    const continuationMode = String(payload?.continuationMode || 'resume');
-    const workdirChoice = {
-      mode: String(payload?.workdirChoice?.mode || 'default'),
-      workdir: String(payload?.workdirChoice?.workdir || ''),
-    };
-    try {
-      return controller.importConversationFromSessionFile(filePath, { continuationMode, workdirMode: workdirChoice.mode, workdir: workdirChoice.workdir });
-    } catch (error) {
-      return {
-        error: `导入会话失败: ${error?.message || String(error)}`,
-        snapshot: controller.snapshot(),
-      };
-    }
-  });
-
-  ipcMain.handle('conversation:export-session', async (_, payload) => {
-    const conversationId = String(payload?.conversationId || '');
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-
-    try {
-      const preview = controller.previewConversationExport(conversationId);
-      const defaultDir = path.join(os.homedir(), 'Downloads');
-      const result = await dialog.showSaveDialog(mainWindow, {
-        title: '导出当前会话',
-        defaultPath: path.join(defaultDir, preview.suggestedFileName),
-        filters: [
-          { name: 'Codex Session', extensions: ['jsonl'] },
-          { name: 'JSON', extensions: ['json', 'jsonl'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
-      });
-
-      if (result.canceled || !result.filePath) {
-        return { canceled: true, snapshot: controller.snapshot() };
-      }
-
-      return controller.exportConversationToSessionFile(preview.conversationId, result.filePath);
-    } catch (error) {
-      return {
-        error: `导出会话失败: ${error?.message || String(error)}`,
-        snapshot: controller.snapshot(),
-      };
-    }
-  });
-
-  ipcMain.handle('conversation:rename', async (_, payload) => {
-    const title = String(payload?.title || '');
-    const conversationId = String(payload?.conversationId || '');
-    return controller.renameConversation(conversationId, title);
-  });
-
-  ipcMain.handle('conversation:toggle-pin', async (_, payload) => {
-    const conversationId = String(payload?.conversationId || '');
-    return controller.toggleConversationPin(conversationId);
-  });
-
-  ipcMain.handle('conversation:close-current', async () => controller.closeCurrentConversation());
-
-  ipcMain.handle('meta:refresh-codex-version', async (_, payload) => {
-    const conversationId = String(payload?.conversationId || '');
-    return controller.refreshCodexVersion(conversationId);
-  });
-
-  ipcMain.handle('meta:refresh-model', async (_, payload) => {
-    const conversationId = String(payload?.conversationId || '');
-    return controller.refreshModelInfo(conversationId);
-  });
-
-  ipcMain.handle('conversation:clear-chat', async (_, payload) => {
-    return controller.clearChat(String(payload?.conversationId || ''));
-  });
-
-  ipcMain.handle('conversation:clear-runtime', async (_, payload) => {
-    return controller.clearRuntime(String(payload?.conversationId || ''), {
-      silent: Boolean(payload?.silent),
-    });
-  });
-
-  ipcMain.handle('conversation:stop', async (_, payload) => {
-    return controller.stopConversation(String(payload?.conversationId || ''));
-  });
-
-  ipcMain.handle('chat:send', async (_, payload) => {
-    return controller.sendMessage({
-      conversationId: String(payload?.conversationId || ''),
-      text: String(payload?.text || ''),
-      attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
-    });
-  });
-
-  ipcMain.handle('chat:insert', async (_, payload) => {
-    return controller.insertMessage({
-      conversationId: String(payload?.conversationId || ''),
-      text: String(payload?.text || ''),
-    });
-  });
-
-  ipcMain.handle('chat:retry-last', async (_, payload) => {
-    return controller.retryLastMessage(String(payload?.conversationId || ''));
-  });
-
-  ipcMain.handle('chat:cancel-queued-message', async (_, payload) => {
-    return controller.cancelQueuedMessage(
-      String(payload?.conversationId || ''),
-      String(payload?.queuedMessageId || ''),
-      Number(payload?.queuedIndex || 0),
-    );
-  });
-
-  ipcMain.handle('chat:cancel-all-queued-messages', async (_, payload) => {
-    return controller.cancelAllQueuedMessages(String(payload?.conversationId || ''));
-  });
-
-  ipcMain.handle('shell:open-path', async (_, payload) => {
-    return openLocalPath(payload?.path);
-  });
-
-  ipcMain.handle('app:resolve-close-guard', async (_, payload) => {
-    const action = String(payload?.action || '').trim();
-    if (!closeGuardPending) {
-      return { ok: false, ignored: true };
-    }
-    try {
-      if (action === 'cancel') {
-        return { ok: true, canceled: true };
-      }
-      if (action === 'stop-and-close') {
-        controller?.stopAllRunningConversations();
-        await waitForRunnersStop(3000);
-      } else if (action === 'force-close') {
-        controller?.stopAllRunningConversations();
-      } else {
-        return { ok: false, error: '无效动作' };
-      }
-
-      allowWindowClose = true;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.close();
-      }
-      return { ok: true };
-    } finally {
-      closeGuardPending = false;
-    }
-  });
-
-  registerDocsCaptureIpc({
+  registerAppIpc({
     app,
+    dialog,
     ipcMain,
     getMainWindow: () => mainWindow,
+    getController: () => controller,
+    getMenuLanguage: () => menuLanguage,
+    applyMenuLanguage,
+    applyWindowTheme,
+    clampZoomFactor,
+    invokeUiAction,
+    getCloseGuardPending: () => closeGuardPending,
+    setCloseGuardPending: (value) => {
+      closeGuardPending = Boolean(value);
+    },
     setAllowWindowClose: (value) => {
       allowWindowClose = Boolean(value);
     },
+    waitForRunnersStop,
   });
 }
 

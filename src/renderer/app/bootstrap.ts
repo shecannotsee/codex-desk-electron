@@ -1,15 +1,8 @@
 
 import { codexdesk } from './codexdesk.js';
 import type {
-  AppEvent,
   AppSnapshot,
   ConversationSwitchPayload,
-  RawEventEntry,
-  RenderJobs,
-  RuntimeEventItem,
-  RuntimeState,
-  ScheduleRenderOptions,
-  WorkflowItem,
   ZoomOptions,
 } from './types.js';
 import {
@@ -40,7 +33,6 @@ import {
   setSidebarWidth,
   setTheme,
   state,
-  syncChatVisibleCount,
   syncMenuLanguage,
   t,
 } from './state_i18n.js';
@@ -49,7 +41,6 @@ import {
   ensureMeta,
   ensureRuntime,
   findConversationById,
-  findConversationIndexById,
   hasActiveConversation,
   isConversationRunning,
   isMessageCollapsed,
@@ -61,26 +52,18 @@ import {
   setWorkflowStepCollapsed,
 } from './conversation_runtime.js';
 import {
-  isChatViewNearBottom,
   renderAll,
   renderChat,
   renderComposerDraft,
   renderCurrentTimeDisplay,
-  renderChatTransientPanels,
   renderHeader,
-  renderLayout,
-  renderLocaleTexts,
-  patchConversationListItem,
   renderConversationList,
-  renderRawTab,
   renderRunButtons,
   renderRuntime,
   renderSettings,
-  renderStructuredTab,
   renderTabs,
   updateConversationListActiveState,
   renderQueuePopover,
-  renderWorkflowTab,
   setRendererCallbacks,
 } from './renderers.js';
 import { createIntegrationSettingsController } from './integration_settings.js';
@@ -88,8 +71,6 @@ import { showAppNotice } from './app_notice.js';
 import {
   applyConversationSwitchPayload as applyConversationSwitchPayloadToState,
   applySnapshot as applySnapshotToState,
-  removeConversationRuntimeState,
-  trimRuntimeState,
 } from './app_state_sync.js';
 import {
   askConfirmDialog,
@@ -110,6 +91,7 @@ import {
   removeComposerAttachment,
   setAttachmentMenuOpen,
 } from './composer_attachments.js';
+import { applyEvent } from './app_event_handler.js';
 
 function sleepMs(ms: number) {
   return new Promise((resolve) => {
@@ -197,331 +179,6 @@ function clampComposerHeight(input: number) {
   const { min, max } = composerHeightBounds();
   const value = Number(input) || min;
   return Math.min(max, Math.max(min, value));
-}
-
-function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item: RuntimeEventItem | null | undefined) {
-  if (!runtime || !Array.isArray(runtime.events) || !item || typeof item !== 'object') {
-    return false;
-  }
-  if (item.id) {
-    return runtime.events.some((evt) => evt && evt.id === item.id);
-  }
-  const last = runtime.events[runtime.events.length - 1];
-  if (!last) {
-    return false;
-  }
-  return (
-    String(last.timestamp || '') === String(item.timestamp || '')
-    && String(last.level || '') === String(item.level || '')
-    && String(last.message || '') === String(item.message || '')
-  );
-}
-
-function createRenderJobs(): RenderJobs {
-  return {
-    full: false,
-    locale: false,
-    layout: false,
-    conversationList: false,
-    settings: false,
-    header: false,
-    chat: false,
-    chatTransient: false,
-    runtime: false,
-    runtimeStructured: false,
-    runtimeWorkflow: false,
-    runtimeRaw: false,
-    runButtons: false,
-    composer: false,
-    tabs: false,
-  };
-}
-
-let pendingRenderJobs = createRenderJobs();
-let renderFlushScheduled = false;
-let pendingStickChatToBottom = false;
-
-function mergeRenderJobs(target: RenderJobs, source?: Partial<RenderJobs>) {
-  if (!target || !source) {
-    return;
-  }
-  (Object.keys(target) as Array<keyof RenderJobs>).forEach((key) => {
-    if (source[key]) {
-      target[key] = true;
-    }
-  });
-}
-
-function flushScheduledRender() {
-  renderFlushScheduled = false;
-  const jobs = pendingRenderJobs;
-  const stickChatToBottom = pendingStickChatToBottom;
-  pendingRenderJobs = createRenderJobs();
-  pendingStickChatToBottom = false;
-
-  if (jobs.full) {
-    renderAll({ stickChatToBottom });
-    return;
-  }
-  if (jobs.locale) {
-    renderLocaleTexts();
-  }
-  if (jobs.layout) {
-    renderLayout();
-  }
-  if (jobs.conversationList) {
-    renderConversationList();
-  }
-  if (jobs.settings) {
-    renderSettings();
-  }
-  if (jobs.header) {
-    renderHeader();
-  }
-  if (jobs.chat) {
-    renderChat(stickChatToBottom);
-  } else if (jobs.chatTransient) {
-    renderChatTransientPanels({ stickToBottom: stickChatToBottom });
-  }
-  if (jobs.runtime) {
-    renderRuntime(stickChatToBottom);
-  } else {
-    if (!hasActiveConversation() && (jobs.runtimeStructured || jobs.runtimeWorkflow || jobs.runtimeRaw)) {
-      renderRuntime(stickChatToBottom);
-    } else {
-      const runtime = hasActiveConversation() ? ensureRuntime(state.activeConversationId) : null;
-      if (jobs.runtimeStructured && runtime && state.activeTab === 'structured') {
-        renderStructuredTab(runtime);
-      }
-      if (jobs.runtimeWorkflow && runtime && state.activeTab === 'workflow') {
-        renderWorkflowTab(runtime, stickChatToBottom);
-      }
-      if (jobs.runtimeRaw && runtime && state.activeTab === 'raw') {
-        renderRawTab(runtime);
-      }
-    }
-  }
-  if (jobs.runButtons) {
-    renderRunButtons();
-  }
-  if (jobs.composer) {
-    renderComposerDraft();
-  }
-  if (jobs.tabs) {
-    renderTabs();
-  }
-}
-
-function scheduleRender(jobs: Partial<RenderJobs>, options: ScheduleRenderOptions = {}) {
-  mergeRenderJobs(pendingRenderJobs, jobs);
-  if (options.stickChatToBottom) {
-    pendingStickChatToBottom = true;
-  }
-  if (renderFlushScheduled) {
-    return;
-  }
-  renderFlushScheduled = true;
-  window.requestAnimationFrame(flushScheduledRender);
-}
-
-function applyEvent(event: AppEvent | null | undefined) {
-  if (!event || typeof event !== 'object') {
-    return;
-  }
-  const stickChatToBottom = typeof isChatViewNearBottom === 'function'
-    ? isChatViewNearBottom()
-    : true;
-
-  const id = String(event.conversationId || '');
-  const isActiveConversation = Boolean(id) && id === state.activeConversationId;
-  let renderJobs = createRenderJobs();
-  switch (event.type) {
-    case 'runtime-event-append': {
-      const runtime = ensureRuntime(id);
-      const runtimeItem = (event.item || {}) as RuntimeEventItem;
-      if (!isDuplicateRuntimeEvent(runtime, runtimeItem)) {
-        runtime.events.push(runtimeItem);
-        trimRuntimeState(runtime);
-      }
-      if (isActiveConversation && state.activeTab === 'structured') {
-        renderJobs.runtimeStructured = true;
-      }
-      break;
-    }
-    case 'runtime-event-pop': {
-      const runtime = ensureRuntime(id);
-      const index = Number(event.index);
-      if (Number.isInteger(index) && index >= 0 && index < runtime.events.length) {
-        runtime.events.splice(index, 1);
-      } else if (runtime.events.length) {
-        runtime.events.pop();
-      }
-      if (isActiveConversation && state.activeTab === 'structured') {
-        renderJobs.runtimeStructured = true;
-      }
-      break;
-    }
-    case 'runtime-event-update': {
-      const runtime = ensureRuntime(id);
-      const index = Number(event.index);
-      if (Number.isInteger(index) && index >= 0 && index < runtime.events.length) {
-        runtime.events[index] = (event.item || {}) as RuntimeEventItem;
-      }
-      if (isActiveConversation && state.activeTab === 'structured') {
-        renderJobs.runtimeStructured = true;
-      }
-      break;
-    }
-    case 'runtime-workflow-append':
-      ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
-      trimRuntimeState(state.runtimeByConversation[id]);
-      if (isActiveConversation) {
-        renderJobs.chatTransient = true;
-        renderJobs.runtimeWorkflow = true;
-      }
-      break;
-    case 'runtime-workflow-update': {
-      const runtime = ensureRuntime(id);
-      const index = Number(event.index);
-      if (Number.isInteger(index) && index >= 0 && index < runtime.workflow.length) {
-        runtime.workflow[index] = (event.item || {}) as WorkflowItem;
-      }
-      if (isActiveConversation) {
-        renderJobs.chatTransient = true;
-        renderJobs.runtimeWorkflow = true;
-      }
-      break;
-    }
-    case 'runtime-workflow-pop': {
-      const runtime = ensureRuntime(id);
-      const index = Number(event.index);
-      if (Number.isInteger(index) && index >= 0 && index < runtime.workflow.length) {
-        runtime.workflow.splice(index, 1);
-      } else if (runtime.workflow.length) {
-        runtime.workflow.pop();
-      }
-      if (isActiveConversation) {
-        renderJobs.chatTransient = true;
-        renderJobs.runtimeWorkflow = true;
-      }
-      break;
-    }
-    case 'runtime-raw-append':
-      ensureRuntime(id).raw.push((event.line || '') as string | RawEventEntry);
-      trimRuntimeState(state.runtimeByConversation[id]);
-      if (isActiveConversation && state.activeTab === 'raw') {
-        renderJobs.runtimeRaw = true;
-      }
-      break;
-    case 'runtime-phase':
-      ensureRuntime(id).phase = String(event.phase || '');
-      if (!patchConversationListItem(id)) {
-        renderJobs.conversationList = true;
-      }
-      if (isActiveConversation) {
-        renderJobs.header = true;
-        renderJobs.runButtons = true;
-        renderJobs.chatTransient = true;
-        renderJobs.runtimeWorkflow = true;
-      }
-      break;
-    case 'runtime-started-at':
-      ensureRuntime(id).startedAt = typeof event.startedAt === 'number' ? event.startedAt : null;
-      if (isActiveConversation) {
-        renderJobs.header = true;
-      }
-      break;
-    case 'runtime-reset':
-      state.runtimeByConversation[id] = {
-        workflow: [],
-        events: [],
-        raw: [],
-        phase: '空闲',
-        startedAt: null,
-      };
-      if (!patchConversationListItem(id)) {
-        renderJobs.conversationList = true;
-      }
-      if (isActiveConversation) {
-        renderJobs.header = true;
-        renderJobs.runButtons = true;
-        renderJobs.runtime = true;
-        renderJobs.chatTransient = true;
-      }
-      break;
-    case 'conversation-updated': {
-      const conv = event.conversation;
-      if (!conv || !conv.id) {
-        break;
-      }
-      const idx = findConversationIndexById(conv.id);
-      const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
-        ? state.conversations[idx].messages.length
-        : 0;
-      if (idx >= 0) {
-        state.conversations[idx] = conv;
-      } else {
-        state.conversations.push(conv);
-      }
-      syncChatVisibleCount(conv.id, Array.isArray(conv.messages) ? conv.messages.length : 0, previousTotal);
-      renderJobs.conversationList = true;
-      if (conv.id === state.activeConversationId) {
-        renderJobs.header = true;
-        renderJobs.chat = true;
-        renderJobs.runButtons = true;
-      }
-      break;
-    }
-    case 'conversation-removed':
-      state.conversations = state.conversations.filter((item) => item.id !== id);
-      removeConversationRuntimeState(id);
-      renderJobs.full = true;
-      break;
-    case 'meta-updated':
-      ensureMeta(id)[String(event.key || '')] = String(event.value || '');
-      if (isActiveConversation) {
-        renderJobs.header = true;
-      }
-      break;
-    case 'runner-state':
-      if (event.running) {
-        state.runningConversationIds.add(id);
-      } else {
-        state.runningConversationIds.delete(id);
-      }
-      if (!patchConversationListItem(id)) {
-        renderJobs.conversationList = true;
-      }
-      if (isActiveConversation) {
-        renderJobs.header = true;
-        renderJobs.runButtons = true;
-        renderJobs.chatTransient = true;
-        renderJobs.runtimeWorkflow = true;
-      }
-      break;
-    case 'queue-updated':
-      state.queuedCountByConversation[id] = Number(event.count || 0);
-      if (Array.isArray(event.items)) {
-        state.queuedMessagesByConversation[id] = event.items;
-      } else if (Number(event.count || 0) <= 0) {
-        state.queuedMessagesByConversation[id] = [];
-      }
-      if (!patchConversationListItem(id)) {
-        renderJobs.conversationList = true;
-      }
-      if (isActiveConversation) {
-        renderJobs.header = true;
-        renderJobs.runButtons = true;
-        renderJobs.chatTransient = true;
-        if (state.activeTab === 'workflow') {
-          renderJobs.runtimeWorkflow = true;
-        }
-      }
-      break;
-    default:
-      break;
-  }
-  scheduleRender(renderJobs, { stickChatToBottom });
 }
 
 async function setAppZoomFactor(input: number | string, options: ZoomOptions = {}) {

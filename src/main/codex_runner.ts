@@ -7,13 +7,13 @@ const {
   stripAnsi,
   splitShellArgs,
   parseUsagePayload,
-  resolveUsageTokenFields,
 } = require('./codex_cli_gateway');
 const { normalizeBaseOptions } = require('./codex_runner_command');
 const {
   looksLikeResumeError,
   looksLikeServerOverload,
 } = require('./codex_runner_errors');
+const { emitUsageMeta } = require('./codex_runner_usage');
 const {
   extractEventTexts,
   extractItemMessageText,
@@ -505,7 +505,7 @@ class CodexRunner extends EventEmitter {
 
         const usage = parseUsagePayload(event.response);
         if (usage && typeof usage === 'object') {
-          this._emitUsageMeta(usage);
+          emitUsageMeta(this, usage);
         }
 
         if (!this.gotStreamDelta) {
@@ -519,7 +519,7 @@ class CodexRunner extends EventEmitter {
     if (eventType === 'turn.completed') {
       const usage = parseUsagePayload(event);
       if (usage && typeof usage === 'object') {
-        this._emitUsageMeta(usage);
+        emitUsageMeta(this, usage);
       }
       this.emit('status', '任务完成');
       this.emit('event', 'success', 'turn.completed');
@@ -562,28 +562,6 @@ class CodexRunner extends EventEmitter {
     }
 
     this.emit('event', 'muted', eventType);
-  }
-
-  _emitUsageMeta(usage) {
-    const {
-      inputTokensRaw,
-      cachedInputTokensRaw,
-      outputTokensRaw,
-      totalTokensRaw,
-    } = resolveUsageTokenFields(usage);
-    this.lastUsage = {
-      inputTokens: Number(inputTokensRaw ?? 0) || 0,
-      cachedInputTokens: Number(cachedInputTokensRaw ?? 0) || 0,
-      outputTokens: Number(outputTokensRaw ?? 0) || 0,
-      totalTokens: Number(totalTokensRaw ?? 0) || 0,
-    };
-
-    this.emit('meta', '输入Tokens', inputTokensRaw !== undefined ? String(inputTokensRaw) : '-');
-    this.emit('meta', '缓存输入Tokens', cachedInputTokensRaw !== undefined ? String(cachedInputTokensRaw) : '-');
-    this.emit('meta', '输出Tokens', outputTokensRaw !== undefined ? String(outputTokensRaw) : '-');
-    if (totalTokensRaw !== undefined) {
-      this.emit('meta', '总Tokens', String(totalTokensRaw));
-    }
   }
 
 }

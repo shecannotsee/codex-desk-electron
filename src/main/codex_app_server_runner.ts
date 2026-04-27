@@ -6,7 +6,6 @@ const { getCodexChildEnv } = require('./shell_env');
 const {
   stripAnsi,
   parseUsagePayload,
-  resolveUsageTokenFields,
 } = require('./codex_cli_gateway');
 const {
   buildAppServerCommand,
@@ -20,6 +19,7 @@ const {
   toSnakeCase,
   trimForStep,
 } = require('./codex_runner_output');
+const { emitUsageMeta } = require('./codex_runner_usage');
 
 class CodexAppServerRunner extends EventEmitter {
   constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
@@ -321,7 +321,7 @@ class CodexAppServerRunner extends EventEmitter {
     if (method === 'codex/event/token_count' || method === 'thread/tokenUsage/updated') {
       const usage = this._extractUsagePayload(params);
       if (usage) {
-        this._emitUsageMeta(usage);
+        emitUsageMeta(this, usage);
       }
       return;
     }
@@ -379,7 +379,7 @@ class CodexAppServerRunner extends EventEmitter {
       }
       const usage = this._extractUsagePayload(params);
       if (usage) {
-        this._emitUsageMeta(usage);
+        emitUsageMeta(this, usage);
       }
       if (!this.pendingTurn) {
         return;
@@ -419,28 +419,6 @@ class CodexAppServerRunner extends EventEmitter {
 
   _extractUsagePayload(payload) {
     return parseUsagePayload(payload);
-  }
-
-  _emitUsageMeta(usage) {
-    const {
-      inputTokensRaw,
-      cachedInputTokensRaw,
-      outputTokensRaw,
-      totalTokensRaw,
-    } = resolveUsageTokenFields(usage);
-    this.lastUsage = {
-      inputTokens: Number(inputTokensRaw ?? 0) || 0,
-      cachedInputTokens: Number(cachedInputTokensRaw ?? 0) || 0,
-      outputTokens: Number(outputTokensRaw ?? 0) || 0,
-      totalTokens: Number(totalTokensRaw ?? 0) || 0,
-    };
-
-    this.emit('meta', '输入Tokens', inputTokensRaw !== undefined ? String(inputTokensRaw) : '-');
-    this.emit('meta', '缓存输入Tokens', cachedInputTokensRaw !== undefined ? String(cachedInputTokensRaw) : '-');
-    this.emit('meta', '输出Tokens', outputTokensRaw !== undefined ? String(outputTokensRaw) : '-');
-    if (totalTokensRaw !== undefined) {
-      this.emit('meta', '总Tokens', String(totalTokensRaw));
-    }
   }
 
   _writeJson(message) {

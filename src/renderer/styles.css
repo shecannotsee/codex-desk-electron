@@ -1565,12 +1565,35 @@ body.composer-resizing .composer-resize-handle::before {
 }
 
 .composer-workdir-value {
+  appearance: none;
+  -webkit-appearance: none;
   min-width: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
   color: #27425a;
+  font: inherit;
+  line-height: inherit;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.composer-workdir-value:active {
+  background: transparent;
+}
+
+.composer-workdir-value:hover,
+.composer-workdir-value:focus-visible {
+  color: #0b70d7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  outline: none;
 }
 
 .msg-block {
@@ -4329,6 +4352,11 @@ html[data-theme='dark'] .composer-workdir-label {
 
 html[data-theme='dark'] .composer-workdir-value {
   color: #e2edf8;
+}
+
+html[data-theme='dark'] .composer-workdir-value:hover,
+html[data-theme='dark'] .composer-workdir-value:focus-visible {
+  color: #8ec5ff;
 }
 
 html[data-theme='dark'] .composer-resize-handle::before {

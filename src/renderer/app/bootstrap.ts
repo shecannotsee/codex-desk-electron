@@ -83,6 +83,31 @@ function getEventElementTarget(event: Event): Element | null {
   return event.target instanceof Element ? event.target : null;
 }
 
+async function copyTextToClipboard(text: string) {
+  const content = String(text || '');
+  if (!content) {
+    return;
+  }
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    await navigator.clipboard.writeText(content);
+    return;
+  }
+  const helper = document.createElement('textarea');
+  helper.value = content;
+  helper.setAttribute('readonly', 'readonly');
+  helper.style.position = 'fixed';
+  helper.style.opacity = '0';
+  helper.style.pointerEvents = 'none';
+  document.body.appendChild(helper);
+  helper.focus();
+  helper.select();
+  try {
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(helper);
+  }
+}
+
 const integrationSettings = createIntegrationSettingsController({
   applySnapshot,
   showNotice: showAppNotice,
@@ -423,6 +448,23 @@ async function init() {
     });
   }
 
+  if (el.composerWorkdirValue) {
+    el.composerWorkdirValue.addEventListener('contextmenu', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const workdir = String(el.composerWorkdirValue?.getAttribute('data-copy-text') || '').trim();
+      if (!workdir) {
+        return;
+      }
+      try {
+        await copyTextToClipboard(workdir);
+        showAppNotice(t('copySuccess'), 'success');
+      } catch {
+        showAppNotice(localizeKnownText('复制失败'), 'error');
+      }
+    });
+  }
+
   bindComposerController({
     applySnapshot,
     renderAll,
@@ -473,11 +515,11 @@ async function init() {
 
   document.addEventListener('click', (event) => {
     const target = getEventElementTarget(event);
-    const localLink = target?.closest<HTMLAnchorElement>('a[data-open-path]');
-    if (localLink) {
+    const localPathTrigger = target?.closest<HTMLElement>('[data-open-path]');
+    if (localPathTrigger) {
       event.preventDefault();
       event.stopPropagation();
-      const encodedPath = String(localLink.getAttribute('data-open-path') || '').trim();
+      const encodedPath = String(localPathTrigger.getAttribute('data-open-path') || '').trim();
       const targetPath = encodedPath ? decodeURIComponent(encodedPath) : '';
       if (!targetPath) {
         return;

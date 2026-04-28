@@ -21,6 +21,15 @@ function renderComposerWorkdir() {
   el.composerWorkdir.classList.toggle('hidden', !workdir);
   el.composerWorkdirValue.textContent = workdir || '-';
   el.composerWorkdirValue.title = workdir || '-';
+  if (workdir) {
+    el.composerWorkdirValue.setAttribute('data-open-path', encodeURIComponent(workdir));
+    el.composerWorkdirValue.setAttribute('data-copy-text', workdir);
+    el.composerWorkdirValue.setAttribute('aria-label', `${t('composerWorkdir')}: ${workdir}`);
+  } else {
+    el.composerWorkdirValue.removeAttribute('data-open-path');
+    el.composerWorkdirValue.removeAttribute('data-copy-text');
+    el.composerWorkdirValue.removeAttribute('aria-label');
+  }
 }
 
 function renderComposerAttachments() {

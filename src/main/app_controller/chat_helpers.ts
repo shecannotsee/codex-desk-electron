@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 
-const { splitShellArgs } = require('../codex_cli_gateway');
+const { splitShellArgs } = require('../codex');
 const { normalizePreview } = require('./shared');
 
 const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;

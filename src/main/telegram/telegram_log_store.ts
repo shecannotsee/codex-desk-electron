@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { APP_DATA_DIR } = require('./state_store');
+const { APP_DATA_DIR } = require('../state_store');
 
 const MAX_TELEGRAM_LOGS = 200;
 const TELEGRAM_LOG_PATH = path.join(APP_DATA_DIR, 'telegram.logs.json');

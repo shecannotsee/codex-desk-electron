@@ -2,7 +2,7 @@ const {
   normalizeNotificationSettings,
   normalizeRemoteControlSettings,
 } = require('../state_store');
-const { appendTelegramLog } = require('../telegram_log_store');
+const { appendTelegramLog } = require('../telegram');
 const { TELEGRAM_VAULT_LOCKED_ERROR } = require('./runtime_helpers');
 
 const runtimeSecurityMethods = {

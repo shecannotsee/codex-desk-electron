@@ -1,7 +1,7 @@
 const {
   hashSecret,
   toSecretFingerprint,
-} = require('./integration_secrets');
+} = require('./security');
 
 const DEFAULT_NOTIFICATION_PROVIDER = 'telegram';
 

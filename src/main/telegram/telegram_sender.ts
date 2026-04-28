@@ -1,4 +1,4 @@
-const { normalizeIdentity, normalizeTelegramSettings } = require('./state_store');
+const { normalizeIdentity, normalizeTelegramSettings } = require('../state_store');
 const { appendTelegramLog } = require('./telegram_log_store');
 const { postTelegram } = require('./telegram_api');
 const {

@@ -1,4 +1,4 @@
-const { normalizeTelegramSettings } = require('./state_store');
+const { normalizeTelegramSettings } = require('../state_store');
 const { postTelegram } = require('./telegram_api');
 
 const TELEGRAM_UPDATE_COORDINATORS = new Map();

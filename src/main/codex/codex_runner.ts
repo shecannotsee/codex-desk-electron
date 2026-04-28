@@ -2,7 +2,7 @@ const { EventEmitter } = require('node:events');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 
-const { getCodexChildEnv } = require('./shell_env');
+const { getCodexChildEnv } = require('../shell_env');
 const {
   stripAnsi,
   splitShellArgs,

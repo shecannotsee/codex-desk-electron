@@ -3,7 +3,7 @@ const {
   normalizeIdentity,
   normalizeTelegramSettings,
   toSecretFingerprint,
-} = require('./state_store');
+} = require('../state_store');
 const { appendTelegramLog } = require('./telegram_log_store');
 const {
   TELEGRAM_API_BASE,

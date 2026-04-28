@@ -7,7 +7,7 @@ const {
   splitShellArgs,
   stripAnsi,
   normalizeExecOptionsForProbe,
-} = require('../codex_cli_gateway');
+} = require('../codex');
 const { getConversation } = require('../conversation_service');
 const { getCodexChildEnv } = require('../shell_env');
 

@@ -3,7 +3,7 @@ const {
   normalizeNotificationProvider,
   normalizeNotificationSettings,
 } = require('./state_store');
-const { TelegramBotModule } = require('./telegram_bridge');
+const { TelegramBotModule } = require('./telegram');
 
 function createProvider(kind, settings, deviceIdentity) {
   if (kind === 'telegram') {

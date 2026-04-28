@@ -7,7 +7,7 @@ const {
   TELEGRAM_LOG_PATH,
   formatTelegramLogs,
   listTelegramLogs,
-} = require('./telegram_log_store');
+} = require('./telegram');
 
 function registerAppIpc({
   app,

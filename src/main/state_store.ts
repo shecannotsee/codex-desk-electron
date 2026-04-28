@@ -31,7 +31,7 @@ const {
   normalizeNotificationSecrets,
   toSecretFingerprint,
   verifyCredentialVaultPassword,
-} = require('./integration_secrets');
+} = require('./security');
 const { resolveRepoRoot } = require('./project_paths');
 const {
   DEFAULT_COMMAND_TEXT,

@@ -4,17 +4,15 @@ const {
 } = require('./state_store');
 const {
   appendTelegramLog,
-  formatTelegramLogs,
-  listTelegramLogs,
-} = require('./telegram_log_store');
-const {
   answerTelegramCallbackQuery,
   editTelegramMessage,
+  formatTelegramLogs,
+  listTelegramLogs,
   postTelegram,
   sendTelegramMessage,
   setTelegramCoordinatorOffset,
   subscribeTelegramUpdates,
-} = require('./telegram_bridge');
+} = require('./telegram');
 
 function normalizeIncomingText(text) {
   return String(text || '')

@@ -1,48 +1,20 @@
 # 开发 / 调试 / 打包指南
 
-## 1. 开发环境
+## 1. 环境
 
-- Node.js `18+`（建议）
+- Node.js 18+
 - npm
-- Electron `37.x`（以 `src/package.json` 为准）
-- TypeScript `6.x`
-- 可执行的 `codex` 命令
+- Electron 37.x（以 `src/package.json` 为准）
+- TypeScript 6.x
+- 可执行并已登录的 `codex` CLI
 
-平台现状：
+已验证平台：Ubuntu 22.04。
 
-- 已验证：`Ubuntu 22.04`
-- 未验证：`Windows`、`macOS`
-
-## 2. 安装与启动
-
-推荐根目录脚本：
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
-./start.sh
-```
-
-或手动方式：
+## 2. 常用命令
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm install
-npm run check
-npm start
-```
-
-## 3. 构建方式
-
-源码全部使用 TypeScript：
-
-- 主进程源码：`src/main/*.ts`
-- 渲染层源码：`src/renderer/**/*.ts`
-- 构建输出：`src/app/`
-
-常用命令：
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run check
 npm run build
 npm start
@@ -50,93 +22,92 @@ npm start
 
 说明：
 
-1. `npm run check` 会分别执行 `tsconfig.main.json` 和 `tsconfig.renderer.json` 的无输出类型检查。
-2. `npm run build` 会先清理 `src/app/`，再编译主进程、脚本和渲染层。
-3. 渲染层不再依赖按顺序注入的全局脚本，而是通过 ES Module 组织。
-4. `src/renderer/app/types.ts` 是 renderer 共享类型中心。
+- `npm run check`：主进程和渲染层 TypeScript no-emit 检查。
+- `npm run build`：清理并生成 `src/app/`。
+- `npm start`：构建、同步 logo、启动 Electron。
+- `npm run capture:docs`：打开独立截图窗口并刷新 `docs/assets/*.png`。
+- `npm run dist:deb`：生成 Ubuntu `.deb`。
 
-## 4. 调试建议
+## 3. 源码目录
 
-1. 用 `Ctrl+Shift+I` 打开 DevTools。
-2. 优先检查右侧“结构化事件 / 运行步骤 / 事件原文(JSON)”。
-3. 核查 `src/main/codex_runner.ts` 的输出解析是否匹配当前 CLI。
-4. 先看 `llm-readable/system-map.md` 和 `llm-readable/core-flows.md` 再下钻源码。
-
-## 5. 代码检查
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run check
+```text
+src/main/main.ts                 Electron app 和窗口生命周期
+src/main/ipc_registration.ts     IPC 注册
+src/main/preload.ts              Renderer API 暴露
+src/main/app_controller/         应用控制器 mixin
+src/main/codex/                  Codex CLI/app-server bridge
+src/main/telegram/               Telegram 通知和远程控制底层模块
+src/main/security/               凭据 vault 和加密模块
+src/renderer/index.html          DOM 骨架
+src/renderer/app/                Renderer TypeScript 模块
+src/renderer/styles.css          样式与主题
 ```
 
-如需验证编译输出：
+## 4. 调试入口
 
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run build
-```
+- 运行失败：先看 UI 右侧“结构化事件”和“事件原文”。
+- Codex 输出解析：看 `src/main/codex/codex_runner_output.ts`。
+- `codex exec` 子进程：看 `src/main/codex/codex_runner.ts`。
+- app-server：看 `src/main/codex/codex_app_server_runner.ts`。
+- 会话发送/完成：看 `src/main/app_controller/methods_chat.ts` 和 `chat_runner_events.ts`。
+- Telegram 通知：看 `src/main/telegram/telegram_bridge.ts` 和 `telegram_sender.ts`。
+- Telegram 远程控制：看 `src/main/remote_control_bridge.ts` 与 `methods_remote_control.ts`。
+- 凭据问题：看 `src/main/security/integration_secrets.ts` 和 `runtime_security.ts`。
+- Renderer 交互：看 `src/renderer/app/bootstrap.ts`、对应 controller 和 renderer 文件。
 
-## 6. 文档截图自动化
+## 5. 运行期目录
 
-用于批量更新 `docs/assets/*.png`：
+不要提交这些目录：
+
+- `src/app/`：编译产物。
+- `src/node_modules/`：依赖。
+- `src/build/icon.png`：构建同步产物。
+- `.codexdesk/`：本地状态、token 加密文件、Telegram 日志。
+- `codex-workspace/`：默认临时工作目录。
+
+## 6. 文档截图
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run capture:docs
 ```
 
-自动生成文件：
+该命令会：
 
-- `docs/assets/screenshot-main.png`
-- `docs/assets/screenshot-settings-menu.png`
-- `docs/assets/screenshot-settings-nested.png`
-- `docs/assets/screenshot-runtime-tabs.png`
-- `docs/assets/screenshot-conversation-context-menu.png`
-- `docs/assets/workflow-step-1-input.png`
-- `docs/assets/workflow-step-2-runtime.png`
-- `docs/assets/workflow-step-3-result.png`
+1. 构建应用。
+2. 以 `CODEX_DESK_DOC_CAPTURE=1 --docs-capture` 启动独立窗口。
+3. Renderer 写入模拟数据。
+4. Main 通过 `capturePage()` 保存 PNG 到 `docs/assets/`。
+5. 自动退出。
 
-说明：
+## 7. 提交前检查
 
-1. 截图由 Electron 内置 `capturePage` 实现，不依赖外部截图工具。
-2. 建议在已验证的平台 `Ubuntu 22.04` 上执行，确保字体、窗口装饰和主题表现与文档一致。
+至少执行：
 
-## 7. 打包说明（Ubuntu DEB）
+```bash
+cd src
+npm run check
+```
 
-- 配置文件：`src/electron-builder.yml`
-- 命令：`cd src && npm run dist:deb`
-- 产物：`src/dist/`
+涉及文档截图或打包时再执行：
 
-说明：
+```bash
+npm run build
+npm run capture:docs
+npm run dist:deb
+```
 
-1. `.deb` 会打包 Electron、应用代码和 Node 依赖。
-2. 系统共享库依赖由 APT 安装。
-3. `codex` CLI 是外部依赖，不内置进安装包。
-4. 打包前会自动编译 TS，并同步 `resource/logo.png` 到图标资源。
+## 8. 文档同步要求
 
-## 8. 发布流程（建议）
+影响用户行为时更新：
 
-每次发版前至少执行：
+- `README.md` / `README.zh-CN.md` / `README.en.md`
+- `docs/user-guide.md`
+- `docs/cli-vs-gui.md`
+- `docs/faq.md`
 
-1. `cd src && npm run check`
-2. `cd src && npm run build`
-3. `cd src && npm run dist:deb`
-4. 更新 `docs/cli-vs-gui.md`
-5. 更新 `CHANGELOG.md`
-6. 更新 `llm-readable/`（系统图、流程、热点）
-7. 回归关键流程：
-   - 新建会话 -> 发送 -> 查看运行日志
-   - 运行中排队发送 -> 查看待执行队列
-   - 运行中临时状态区 -> 最终回复后自动消失
-   - 设置多级菜单 + 主题切换
-   - 关闭窗口保护
+影响架构时更新：
 
-## 9. PR 要求
-
-PR 模板包含文档检查项：
-
-- `是否更新文档（README/docs/CHANGELOG）`
-
-模板文件：
-
-- `.github/pull_request_template.md`
+- `docs/architecture.md`
+- `llm-readable/*.md`
+- `src/README.md`

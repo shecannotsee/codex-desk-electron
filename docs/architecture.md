@@ -1,91 +1,89 @@
 # 技术架构
 
-## 1. 总体分层
+## 1. 总体边界
 
-1. Main 进程（`src/main/`）
-   - TypeScript 主进程源码
-   - 业务编排、状态管理、子进程调用、窗口生命周期、菜单动作分发
-2. Preload（`src/main/preload.ts`）
-   - 受控暴露 IPC API 给 Renderer
-3. Renderer（`src/renderer/`）
-   - TypeScript ES Module 界面渲染、交互状态、运行可视化
-4. Build Output（`src/app/`）
-   - `tsc` 编译后的 Electron 运行时代码
+Codex Desk 是一个 Electron 应用，但业务逻辑不直接堆在窗口代码里。当前主进程按领域组织：
 
-## 2. 目录说明
+- `src/main/main.ts`：Electron app 生命周期、BrowserWindow、菜单动作、关闭保护。
+- `src/main/ipc_registration.ts`：Renderer 到 Main 的 IPC 注册。
+- `src/main/preload.ts`：安全暴露 `window.codexdesk` API。
+- `src/main/app_controller/`：应用状态编排、会话、队列、运行态、设置和安全 mixin。
+- `src/main/codex/`：Codex CLI/app-server 对接层。
+- `src/main/telegram/`：Telegram 通知和远程控制底层能力。
+- `src/main/security/`：凭据保险箱、hash、加密/解密。
+- `src/renderer/app/`：Renderer 状态、渲染、事件绑定和交互控制。
 
-- `src/main/main.ts`：应用入口、IPC 注册、窗口关闭保护、隐藏系统菜单。
-- `src/main/app_controller.ts`：主进程组合入口与模块装配。
-- `src/main/app_controller/index.ts`：`AppController` 核心类型与入口。
-- `src/main/app_controller/methods_runtime.ts`：运行态、队列、会话快照。
-- `src/main/app_controller/methods_meta.ts`：Codex 版本/模型探测。
-- `src/main/app_controller/methods_chat.ts`：发送、重试、停止、清理、关闭。
-- `src/main/codex_runner.ts`：`codex` 子进程封装与事件解析。
-- `src/main/codex_app_server_runner.ts`：App Server 模式 runner 封装。
-- `src/main/conversation_service.ts`：会话操作与持久化协调。
-- `src/main/state_store.ts`：持久化状态读写与迁移。
-- `src/main/runtime_store.ts`：运行态内存结构。
-- `src/main/preload.ts`：Renderer <-> Main 桥接。
-- `src/renderer/index.html`：页面骨架（会话区/聊天区/运行区/设置菜单）。
-- `src/renderer/app/types.ts`：Renderer 共享类型中心（状态、事件、渲染选项、DOM 引用）。
-- `src/renderer/app/codexdesk.ts`：预加载桥接的 Renderer 侧类型封装。
-- `src/renderer/app/state_i18n.ts`：全局状态、I18N、UI 偏好。
-- `src/renderer/app/conversation_runtime.ts`：会话状态与折叠逻辑。
-- `src/renderer/app/renderers.ts`：各区域渲染器。
-- `src/renderer/app/bootstrap.ts`：事件绑定、动作路由、初始化。
-- `src/renderer/styles.css`：Telegram 风格 UI + 主题变量。
-- `src/app/`：编译产物，Electron 运行时实际加载这里的 JS。
-- `llm-readable/`：面向大模型的代码地图与链路索引。
+## 2. 主进程领域模块
 
-## 3. 关键数据结构
+### `src/main/codex/`
 
-### 会话
+- `codex_runner.ts`：`codex exec` 子进程 runner。
+- `codex_app_server_runner.ts`：app-server JSON-RPC runner。
+- `codex_app_server_command.ts`：从 `codex exec` 配置解析 app-server 启动策略。
+- `codex_cli_gateway.ts`：shell 参数、usage payload、探测参数规范化。
+- `codex_runner_output.ts`：事件文本、步骤、计划状态、最终文本抽取。
+- `codex_runner_metadata.ts`：Codex 版本与模型元数据探测。
+- `codex_runner_usage.ts`：usage token 元数据事件。
+- `index.ts`：领域入口，外部优先 `require('../codex')`。
 
-- `id`
-- `title`
-- `sessionId`
-- `messages[]`
-- `createdAt` / `updatedAt`
+### `src/main/telegram/`
 
-### 运行态
+- `telegram_bridge.ts`：通知 provider 主类。
+- `telegram_sender.ts`：发送消息、编辑消息、callback answer、连接测试。
+- `telegram_updates.ts`：Telegram update 轮询与 coordinator offset。
+- `telegram_notification_registry.ts`：通知展开/翻页状态缓存。
+- `telegram_message_format.ts`：通知正文、摘要、分页和 HTML 转义。
+- `telegram_log_store.ts`：Telegram 相关日志文件。
+- `index.ts`：领域入口，外部优先 `require('./telegram')`。
 
-- `workflow[]`
-- `events[]`
-- `raw[]`
-- `phase`
-- `startedAt`
+### `src/main/security/`
 
-### UI 偏好
+- `integration_secrets.ts`：主密码、vault、AES-GCM 加密、token 指纹。
+- `index.ts`：安全领域入口，外部优先 `require('./security')`。
 
-- `language`
-- `theme`
-- `zoomFactor`
-- `chatFontSize`
-- `sidebarWidth`
-- `runtimePanelHidden`
-- `settingsPanelHidden`
-- `sidebarHidden`
+### `src/main/app_controller/`
 
-### Renderer 共享类型
+AppController 使用 mixin 组合，避免单文件承担全部职责：
 
-- `AppState`
-- `AppSnapshot`
-- `AppEvent`
-- `RenderJobs`
-- `UiElementRefs`
-- `RendererCallbacks`
+- `methods_chat.ts`：发送、插入、重试、停止、清空聊天。
+- `chat_runner_events.ts`：runner 事件绑定和完成处理。
+- `chat_stream_preview.ts`：流式 assistant 预览节流。
+- `methods_runtime.ts`：核心会话操作：创建、切换、重命名、置顶。
+- `runtime_persistence.ts`：持久化、默认目录、通知中心同步。
+- `runtime_security.ts`：主密码锁定/解锁、凭据清理。
+- `runtime_session_files.ts`：session JSONL 导入/导出。
+- `runtime_runner_lifecycle.ts`：runner 释放、停止、运行数。
+- `runtime_events.ts`：runtime phase、raw JSON、startedAt 事件。
+- `runtime_settings.ts`：设置更新、通知结果、provider 测试。
+- `runtime_snapshot.ts`：全量快照和切会话 payload。
+- `methods_meta.ts`：Codex 版本/模型刷新。
+- `methods_remote_control.ts`：Telegram 远程控制回调到会话操作。
 
-## 4. IPC 通信模型
+## 3. Renderer 分层
 
-Renderer -> Main（示例）：
+- `index.html`：静态 DOM 骨架。
+- `state_i18n.ts`：全局状态、i18n、主题、缩放、UI 偏好。
+- `bootstrap.ts`：初始化、事件绑定、动作路由、菜单桥接。
+- `renderers.ts`：统一导出各区域渲染器。
+- `conversation_runtime.ts`：会话选择器、折叠状态、运行态选择器。
+- `chat_renderer.ts`、`runtime_renderer.ts`、`conversation_list_renderer.ts`、`composer_renderer.ts`、`settings_renderer.ts`：具体区域渲染。
+- `context_menu_controller.ts`：会话右键菜单、选区复制菜单。
+- `integration_settings.ts` 与 `integration_settings_bindings.ts`：通知/远程控制/安全设置。
+- `docs_capture_sequence.ts`：文档截图专用自动流程。
 
-- 会话：创建、切换、重命名、关闭、置顶
-- 对话：发送、重试、停止
-- 运行日志：清空
-- 元信息：刷新版本/模型
-- UI：菜单语言同步、窗口级动作调用、缩放控制
+## 4. IPC 模型
 
-Main -> Renderer 事件：
+Renderer 通过 preload 暴露的 `codexdesk` 调用 Main：
+
+- 应用：`app:get-snapshot`、`app:update-settings`、`app:test-notification-provider`。
+- 安全：`app:set-master-password`、`app:unlock-master-password`、`app:lock-master-password`。
+- 会话：创建、切换、重命名、置顶、关闭、导入、导出。
+- 对话：发送、插入、重试、停止、取消队列。
+- 元信息：刷新 Codex 版本和模型。
+- 系统：`shell:open-path` 打开文件/目录。
+- 文档：`docs:capture-*` 截图自动化。
+
+Main 通过 `app:event` 推送运行态更新：
 
 - `runtime-event-append`
 - `runtime-workflow-append`
@@ -96,40 +94,29 @@ Main -> Renderer 事件：
 - `runner-state`
 - `meta-updated`
 - `queue-updated`
-- `conversation-updated` / `conversation-removed`
+- `conversation-updated`
+- `conversation-removed`
 
-## 5. 主运行链路（输入到结果）
+## 5. 发送消息主链路
 
-1. Renderer 发送消息 -> `chat:send`
-2. Main `AppController.sendMessage`
-3. `CodexRunner` 解析 stdout/stderr/JSON
-4. 增量写入运行态并回推前端
-5. Renderer `bootstrap.ts` 消费事件并调度局部刷新
-6. `renderers.ts` 更新聊天区、运行区、队列提示
-7. 完成后写入 assistant 消息并持久化
+1. Renderer 调用 `chat:send`。
+2. `AppController.sendMessage` 校验会话、消息、工作目录和运行状态。
+3. 若当前会话运行中，消息进入会话队列。
+4. 根据配置选择 `CodexRunner` 或 `CodexAppServerRunner`。
+5. `chat_runner_events.ts` 绑定 status、event、raw、meta、delta、step、finished。
+6. 运行态事件实时推送给 Renderer。
+7. 完成后写入 assistant 消息、usage、workflow，释放 runner。
+8. 成功时启动同会话下一条排队消息。
 
-## 6. 关键交互链路
+## 6. 状态与文件
 
-1. 运行中再次发送：进入会话队列，串行执行。
-2. 运行步骤：默认折叠，按条展开。
-3. 左侧会话：右键菜单处理新建/重命名/关闭/置顶。
-4. 设置面板：Telegram 风格多级菜单分发动作。
-5. 关闭窗口：若有任务运行，弹出三选确认。
-6. 缩放与字体：界面缩放和对话字号分别持久化。
-7. 文本复制：聊天区和运行区通过自定义右键菜单复制选中文本。
-
-## 7. 状态持久化
-
-- 会话状态：`<repo>/.codexdesk/state.electron.json`
-- 兼容读取旧路径：`~/.codexdesk/state.electron.json`
+- 应用状态：`.codexdesk/state.electron.json`
+- Telegram 日志：`.codexdesk/telegram.logs.json`
 - UI 偏好：`localStorage['codexdesk.ui-prefs.v1']`
-- 草稿缓存：`localStorage['codexdesk.drafts.v1']`
-- 编译产物：`src/app/`
+- 草稿：`localStorage['codexdesk.drafts.v1']`
+- 编译产物：`src/app/`，不提交。
+- 临时工作目录：`codex-workspace/`，不提交。
 
-## 8. 大模型快速阅读
+## 7. 文档截图
 
-优先阅读：
-
-1. `llm-readable/system-map.md`
-2. `llm-readable/core-flows.md`
-3. `llm-readable/change-hotspots.md`
+`cd src && npm run capture:docs` 会启动独立 Electron 文档截图窗口。Renderer 准备模拟会话数据，Main 用 `capturePage()` 写入 `docs/assets/*.png`，完成后自动退出。

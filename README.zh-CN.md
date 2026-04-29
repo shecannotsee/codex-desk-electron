@@ -1,44 +1,58 @@
 # codex-desk-electron（中文）
 
-`codex-desk-electron` 是 Codex CLI 的 Electron 桌面端，提供多会话管理、运行可视化和 GUI 增强能力。
+`codex-desk-electron` 是 Codex CLI 的 Electron 桌面端。Electron 负责窗口、渲染、IPC、菜单和系统集成；主进程内部按领域拆分为 Codex 对接、Telegram 集成、凭据安全、应用控制器和渲染层模块。
+
+## 核心能力
+
+- 多会话工作台，每个会话可绑定独立工作目录。
+- 通过 `codex exec` 执行任务，支持原生会话 resume/fork；可用时支持 app-server 运行链路。
+- 三类运行可观测信息：运行步骤、结构化事件、事件原文 JSON。
+- 会话级排队：运行中继续发送会进入队列并串行执行。
+- 图片附件：兼容 `codex exec --image` 流程。
+- Codex session JSONL 导入/导出。
+- Telegram 通知和 Telegram 远程控制。
+- 主密码保护的凭据保险箱，用于 Telegram token。
+- 快捷设置：语言、主题、布局、缩放、左右面板、通知与远程控制。
+- 底部会话目录：左键用系统文件管理器打开，右键复制完整路径。
+- Markdown 本地文件链接走系统打开，外部 HTTP 链接走系统默认浏览器。
 
 ## 文档导航
 
 - 5 分钟上手: [docs/quick-start.md](./docs/quick-start.md)
-- 用户指南（按场景）: [docs/user-guide.md](./docs/user-guide.md)
-- CLI 与 GUI 对照（核心）: [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
+- 用户指南: [docs/user-guide.md](./docs/user-guide.md)
+- CLI 与 GUI 对照: [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
 - 技术架构: [docs/architecture.md](./docs/architecture.md)
-- 开发/调试/打包: [docs/dev-guide.md](./docs/dev-guide.md)
+- 开发指南: [docs/dev-guide.md](./docs/dev-guide.md)
 - Ubuntu DEB 部署: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - 卸载指南: [docs/uninstall.md](./docs/uninstall.md)
-- 常见问题: [docs/faq.md](./docs/faq.md)
+- FAQ: [docs/faq.md](./docs/faq.md)
+- LLM 快速代码地图: [llm-readable/README.md](./llm-readable/README.md)
 - 版本变更: [CHANGELOG.md](./CHANGELOG.md)
-- 大模型快速代码地图: [llm-readable/README.md](./llm-readable/README.md)
-
-## 当前验证状态
-
-- 已验证：`Ubuntu 22.04`
-- 未验证：`Windows`、`macOS`
 
 ## 目录结构
 
-- `src/main/`：TypeScript 主进程源码、状态编排、运行控制
-- `src/renderer/`：TypeScript 渲染进程源码与页面骨架
-- `src/app/`：`npm run build` 生成的编译产物
-- `llm-readable/`：面向任意大模型的快速阅读索引
-- `docs/`：项目文档
-- `start.sh`：一键启动脚本
+```text
+src/main/                Electron 主进程与领域模块
+src/main/codex/          Codex CLI/app-server 对接、输出解析、usage 元数据
+src/main/telegram/       Telegram API、发送、更新订阅、通知分页状态
+src/main/security/       凭据保险箱和加密辅助函数
+src/main/app_controller/ AppController mixin 与运行编排
+src/renderer/            HTML/CSS 和 Renderer TypeScript 模块
+docs/                    用户、架构、部署和开发文档
+llm-readable/            面向 LLM 的紧凑代码地图
+notes/                   项目本地备注
+```
+
+`src/app/`、`codex-workspace/`、`.codexdesk/`、`src/node_modules/` 是生成物或运行态目录，不应提交。
 
 ## 快速启动
-
-### 方式一：根目录脚本启动
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-### 方式二：手动开发启动
+手动开发启动：
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
@@ -47,40 +61,18 @@ npm run check
 npm start
 ```
 
-## Ubuntu DEB 打包
+## 校验与截图
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run dist:deb
-```
-
-## 文档截图自动生成
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run check
+npm run build
 npm run capture:docs
 ```
 
-## 文档维护约定
+`capture:docs` 会新开独立 Electron 截图窗口，不依赖当前正在使用的客户端窗口。
 
-- 每次发版前必须更新：
-  - `docs/cli-vs-gui.md`
-  - `CHANGELOG.md`
-- PR 必须勾选文档更新状态：
-  - `.github/pull_request_template.md`
+## 平台状态
 
-## 当前交互补充
-
-- 主进程与渲染层源码已迁移到 `TypeScript`，开发校验统一走 `cd src && npm run check`。
-- Renderer 不再依赖按顺序注入的全局脚本，改为 `ES Module` 方式加载。
-- `src/renderer/app/types.ts` 集中定义 Renderer 共享状态、事件和渲染选项类型。
-- 设置抽屉中的“界面缩放”已改为 `10%` 一档的滑杆。
-- 拖动缩放时会即时生效，并在设置中同步显示当前百分比。
-- 使用主键区快捷键缩放时，顶部会弹出百分比提示并自动消失。
-- 快捷键使用主键区：
-  - `Alt+=`：放大
-  - `Alt+-`：缩小
-  - `Alt+0`：恢复实际大小
-- 切换会话时会自动定位到该会话底部，直接看到最新消息。
-- 在聊天区和右侧运行面板选中文字后右键，可直接复制。
-- 回复中的外部链接会使用系统默认浏览器打开，不再在应用内部弹窗。
+- 已验证：Ubuntu 22.04
+- 未验证：Windows、macOS

@@ -1,44 +1,58 @@
 # codex-desk-electron (English)
 
-`codex-desk-electron` is an Electron desktop client for Codex CLI, with multi-conversation management and runtime observability.
+`codex-desk-electron` is an Electron desktop client for Codex CLI. Electron owns windows, rendering, IPC, menus, and system integration; main-process business code is organized into Codex, Telegram, security, app-controller, and renderer domains.
+
+## Features
+
+- Multi-conversation workspace with per-conversation working directories.
+- `codex exec` execution with native resume/fork support; app-server path when available.
+- Runtime observability: workflow steps, structured events, raw JSON, phase, elapsed time, and queued messages.
+- Per-conversation queued follow-up messages.
+- Image attachments for compatible Codex CLI flows.
+- Codex session JSONL import/export.
+- Telegram notifications and Telegram remote control.
+- Master-password credential vault for Telegram tokens.
+- Quick settings for language, theme, layout, zoom, side panels, notification, and remote control.
+- Bottom conversation directory: left-click opens the folder; right-click copies the path.
+- Local file links and external links are delegated to the system.
 
 ## Documentation
 
 - Quick Start: [docs/quick-start.md](./docs/quick-start.md)
-- User Guide (scenario-based): [docs/user-guide.md](./docs/user-guide.md)
-- CLI vs GUI (core): [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
+- User Guide: [docs/user-guide.md](./docs/user-guide.md)
+- CLI vs GUI: [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
 - Architecture: [docs/architecture.md](./docs/architecture.md)
 - Dev Guide: [docs/dev-guide.md](./docs/dev-guide.md)
 - Ubuntu DEB Deploy: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 - LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
-## Validation Status
+## Layout
 
-- Verified: `Ubuntu 22.04`
-- Not yet verified: `Windows`, `macOS`
+```text
+src/main/              Electron main process and domain modules
+src/main/codex/        Codex bridge, output parsing, usage metadata
+src/main/telegram/     Telegram API, sender, updates, notification state
+src/main/security/     Credential vault and encryption helpers
+src/main/app_controller/ AppController mixins and runtime orchestration
+src/renderer/          HTML/CSS and TypeScript renderer modules
+docs/                  User, architecture, deployment and development docs
+llm-readable/          Compact code map for LLM-assisted maintenance
+notes/                 Project-local notes only
+```
 
-## Project Layout
+Generated/runtime folders such as `src/app/`, `codex-workspace/`, `.codexdesk/`, and `src/node_modules/` are ignored.
 
-- `src/main/`: TypeScript main-process sources, orchestration, runtime control
-- `src/renderer/`: TypeScript renderer sources and HTML shell
-- `src/app/`: compiled output from `npm run build`
-- `llm-readable/`: model-first code map and flow index
-- `docs/`: project docs
-- `start.sh`: one-command launcher
-
-## Quick Start
-
-### Option A: launch from project root
+## Quick Run
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-### Option B: manual dev launch
+Manual development run:
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
@@ -47,40 +61,18 @@ npm run check
 npm start
 ```
 
-## Ubuntu DEB Build
+## Validation and Screenshots
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run dist:deb
-```
-
-## Docs Screenshot Capture
-
-```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm run check
+npm run build
 npm run capture:docs
 ```
 
-## Documentation Maintenance Rule
+`capture:docs` opens a dedicated Electron capture window and does not use the currently active client window.
 
-- Must update before each release:
-  - `docs/cli-vs-gui.md`
-  - `CHANGELOG.md`
-- PR should include doc update status:
-  - `.github/pull_request_template.md`
+## Platform Status
 
-## Current Interaction Notes
-
-- Main and renderer sources are now fully authored in `TypeScript`; local verification is `cd src && npm run check`.
-- The renderer no longer depends on ordered global scripts and is loaded as `ES modules`.
-- `src/renderer/app/types.ts` centralizes renderer-side state, event, and render option types.
-- App zoom in the settings drawer now uses a `10%` stepped slider.
-- Dragging the zoom slider applies zoom immediately and keeps the settings drawer open.
-- Keyboard zoom shortcuts show a temporary percentage HUD near the top of the window.
-- Main keyboard shortcuts:
-  - `Alt+=`: zoom in
-  - `Alt+-`: zoom out
-  - `Alt+0`: reset zoom
-- Switching conversations scrolls directly to the latest message.
-- Selected text in chat and runtime panels can be copied from the right-click menu.
-- External links in replies open in the system default browser.
+- Verified: Ubuntu 22.04
+- Not yet verified: Windows, macOS

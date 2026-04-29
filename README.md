@@ -1,54 +1,39 @@
 # codex-desk-electron
 
-Electron desktop client for Codex CLI, focused on multi-conversation workflow and runtime observability.
-
-Source is now authored in TypeScript end-to-end:
-
-- main process: `src/main/*.ts`
-- renderer modules: `src/renderer/app/*.ts`
-- compiled output: `src/app/`
+Electron desktop client for Codex CLI. It keeps Electron focused on windowing, rendering, IPC, menus, and desktop integration, while the main-process business code is organized by domain: Codex bridge, Telegram integration, credential security, app controller, and renderer modules.
 
 ## Logo
 
 <img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
 
-## Quick Workflow
+## Current Capabilities
 
-1. Create/switch conversation from the left sidebar.
-2. Input prompt and send (`Ctrl+Enter`).
-3. Watch runtime logs in `Structured / Workflow / Raw JSON` tabs.
-4. Queue follow-up questions while current response is running.
-5. Watch temporary running status in the chat area while Codex is working.
-6. Use quick settings for theme/language/layout adjustments and app zoom.
-7. Adjust app zoom in 10% steps from Settings, or use `Alt+=`, `Alt+-`, `Alt+0`.
-8. Select text in chat/runtime panels and copy it from the right-click menu.
-9. Open reply links in the system default browser instead of an in-app window.
+- Multi-conversation workspace with per-conversation working directories.
+- Codex execution through `codex exec`, with native session resume/fork support and app-server mode when available.
+- Runtime observability: workflow steps, structured events, raw JSON, phase, elapsed time, and queued messages.
+- Running-message queue: follow-up messages are queued per conversation and executed serially.
+- Image attachments for `codex exec --image` compatible flows.
+- Import/export Codex session JSONL files.
+- Telegram notifications and Telegram remote-control commands.
+- Credential vault with master-password lock/unlock for Telegram tokens.
+- Quick settings: language, theme, layout, zoom, runtime/sidebar visibility, notification/remote-control settings.
+- Bottom conversation directory: left-click opens it in the system file manager; right-click copies the path.
+- Local file links in Markdown open through the system, external HTTP links open in the default browser.
 
-## UI Preview
-
-Main workspace:
+## Screenshots
 
 ![Main workspace](./docs/assets/screenshot-main.png)
 
-Quick settings (Telegram-style nested menu):
+![Quick settings](./docs/assets/screenshot-settings-menu.png)
 
-![Quick settings menu](./docs/assets/screenshot-settings-menu.png)
+![Runtime workflow](./docs/assets/workflow-step-2-runtime.png)
 
-Workflow/runtime view:
-
-![Workflow runtime](./docs/assets/workflow-step-2-runtime.png)
-
-Selection copy menu:
-
-![Selection copy menu](./docs/assets/screenshot-chat-copy-menu.png)
-
-## Language
-
-- 中文文档: [README.zh-CN.md](./README.zh-CN.md)
-- English docs: [README.en.md](./README.en.md)
+![Copy menu](./docs/assets/screenshot-chat-copy-menu.png)
 
 ## Documentation
 
+- 中文入口: [README.zh-CN.md](./README.zh-CN.md)
+- English entry: [README.en.md](./README.en.md)
 - Quick Start: [docs/quick-start.md](./docs/quick-start.md)
 - User Guide: [docs/user-guide.md](./docs/user-guide.md)
 - CLI vs GUI: [docs/cli-vs-gui.md](./docs/cli-vs-gui.md)
@@ -57,13 +42,24 @@ Selection copy menu:
 - Ubuntu DEB Deploy: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 - LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
-## Current Validation Scope
+## Project Layout
 
-- Verified: `Ubuntu 22.04`
-- Not yet verified: `Windows`, `macOS`
+```text
+src/main/              Electron main process and domain modules
+src/main/codex/        Codex CLI/app-server bridge, output parsing, usage metadata
+src/main/telegram/     Telegram API, sender, updates, notification UI state
+src/main/security/     Credential vault and encryption helpers
+src/main/app_controller/ AppController mixins and runtime orchestration
+src/renderer/          HTML/CSS and TypeScript renderer modules
+docs/                  User, architecture, deployment and development docs
+llm-readable/          Compact code map for LLM-assisted maintenance
+notes/                 Project-local notes only
+```
+
+`src/app/`, `codex-workspace/`, `.codexdesk/`, and `src/node_modules/` are generated/runtime directories and are intentionally ignored.
 
 ## Quick Run
 
@@ -72,28 +68,44 @@ cd /home/shecannotsee/Desktop/projects/codex-desk-electron
 ./start.sh
 ```
 
-`start.sh` auto-installs missing dependencies and launches the app.
+Manual development run:
 
-For local development, the main verification command is:
+```bash
+cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+npm install
+npm run check
+npm start
+```
+
+## Validation
+
+Primary validation command:
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run check
 ```
 
-## Ubuntu DEB Build
+Full build:
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
-npm run dist:deb
+npm run build
 ```
 
 ## Docs Screenshot Capture
+
+Use the dedicated docs-capture mode. It opens a separate Electron window and exits automatically after writing screenshots.
 
 ```bash
 cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
 npm run capture:docs
 ```
+
+## Platform Status
+
+- Verified: Ubuntu 22.04
+- Not yet verified: Windows, macOS
 
 ## License
 

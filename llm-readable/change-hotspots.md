@@ -1,105 +1,105 @@
-# Change Hotspots (LLM)
+# Change Hotspots
 
-## Task -> Files Map
+## Add or change Codex output handling
 
-- Add/modify conversation behavior
-  - `src/main/app_controller/methods_chat.ts`
-  - `src/main/app_controller/methods_runtime.ts`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/renderer/app/renderers.ts`
+Start here:
 
-- Add/modify queue behavior
-  - `src/main/app_controller/methods_chat.ts`
-  - `src/main/app_controller/methods_runtime.ts`
-  - `src/renderer/app/conversation_runtime.ts`
-  - `src/renderer/app/renderers.ts`
+- `src/main/codex/codex_runner_output.ts`
+- `src/main/codex/codex_runner.ts`
+- `src/main/codex/codex_app_server_runner.ts`
+- `src/main/app_controller/chat_runner_events.ts`
 
-- Add/modify runtime step rendering/collapse
-  - `src/renderer/app/conversation_runtime.ts`
-  - `src/renderer/app/renderers.ts`
-  - `src/renderer/styles.css`
+Regression:
 
-- Add/modify settings menu tree/actions
-  - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/renderer/app/state_i18n.ts`
-  - `src/main/main.ts` (for main-process actions)
+```bash
+cd src && npm run check
+```
 
-- Add/modify menu language / i18n text
-  - `src/renderer/app/state_i18n.ts`
-  - `src/main/main.ts`
+If JSON event shape changes, update docs architecture and LLM flows.
 
-- Add/modify sidebar layout / drag resize / context menu
-  - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/renderer/styles.css`
+## Change send/queue behavior
 
-- Add/modify selection copy / external link behavior
-  - `src/main/main.ts`
-  - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/renderer/app/renderers.ts`
-  - `src/renderer/app/state_i18n.ts`
+Start here:
 
-- Add/modify zoom shortcut HUD / conversation switch scroll behavior
-  - `src/renderer/index.html`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/renderer/app/renderers.ts`
-  - `src/renderer/app/state_i18n.ts`
-  - `src/renderer/styles.css`
+- `src/main/app_controller/methods_chat.ts`
+- `src/main/app_controller/methods_runtime_queue.ts`
+- `src/main/app_controller/chat_runner_events.ts`
+- `src/renderer/app/queue_popover_controller.ts`
+- `src/renderer/app/runtime_renderer.ts`
 
-- Add/modify close-window behavior
-  - `src/main/main.ts`
-  - optionally `src/main/app_controller/methods_runtime.ts`
+Watch for:
 
-- Add/modify codex version/model detection
-  - `src/main/app_controller/methods_meta.ts`
-  - `src/renderer/app/renderers.ts` (display)
+- preserving per-conversation queue isolation
+- not auto-draining after failed runner unless explicitly intended
+- keeping user message interruption markers correct
 
-- Add/modify renderer shared typing / module boundaries
-  - `src/renderer/app/types.ts`
-  - `src/renderer/app/codexdesk.ts`
-  - `src/renderer/app/state_i18n.ts`
-  - `src/renderer/app/renderers.ts`
-  - `src/renderer/app/bootstrap.ts`
+## Change Telegram notification or remote control
 
-- Add/modify packaging / icon
-  - `src/scripts/sync-logo.ts`
-  - `src/scripts/postbuild-copy.ts`
-  - `src/electron-builder.yml`
-  - `resource/logo.png`
-  - `start.sh`
+Start here:
 
-- Add/modify docs screenshot automation
-  - `src/main/main.ts`
-  - `src/main/preload.ts`
-  - `src/renderer/app/bootstrap.ts`
-  - `src/package.json`
-  - `docs/assets/*`
+- `src/main/telegram/telegram_bridge.ts`
+- `src/main/telegram/telegram_sender.ts`
+- `src/main/telegram/telegram_updates.ts`
+- `src/main/remote_control_bridge.ts`
+- `src/main/app_controller/methods_remote_control.ts`
+- `src/renderer/app/integration_settings.ts`
 
-## Required Validation after code change
+Watch for:
 
-1. `cd src && npm run check`
-2. if source/build boundary changed, also run `cd src && npm run build`
-3. run app and verify manually:
-   - create/switch conversation
-   - send + queue send
-   - workflow default collapsed
-   - queued preview visible
-   - settings multi-level navigation
-   - light/dark switch affects runtime tabs and scrollbars
-   - zoom shortcut HUD appears and auto-hides
-   - conversation switch lands at latest message
-   - selected text can be copied via context menu in chat/runtime panels
-   - external links open in default browser
-   - sidebar width drag and hide/show
-   - close-window guard when running
+- locked credential vault behavior
+- chat id / allowed chat id separation
+- callback query ownership checks
 
-## Regression Risks
+## Change credential storage
 
-- IPC action name drift between renderer and main
-- type drift between preload contract and renderer assumptions
-- queue counter mismatch between snapshot and event updates
-- collapse-state memory leak after conversation removal
-- theme vars not applied to newly introduced nodes
-- compiled `src/app/` output stale relative to `.ts` sources
+Start here:
+
+- `src/main/security/integration_secrets.ts`
+- `src/main/state_store.ts`
+- `src/main/app_controller/runtime_security.ts`
+- `src/renderer/app/integration_settings.ts`
+
+Do not log raw tokens. Keep `.codexdesk/secrets.electron.json` out of Git.
+
+## Change bottom workdir behavior
+
+Start here:
+
+- `src/renderer/app/composer_renderer.ts`
+- `src/renderer/app/bootstrap.ts`
+- `src/main/local_path_opener.ts`
+- `src/renderer/styles.css`
+
+Existing contract:
+
+- left-click opens system path
+- right-click copies full path
+- UI remains visually text-like, no button frame
+
+## Change renderer layout/theme
+
+Start here:
+
+- `src/renderer/styles.css`
+- `src/renderer/app/state_i18n.ts`
+- `src/renderer/app/shell_renderer.ts`
+- `src/renderer/app/settings_renderer.ts`
+- `src/renderer/app/renderers.ts`
+
+Run screenshot capture if visual docs are affected.
+
+## Move files or domain boundaries
+
+Start here:
+
+- domain `index.ts` entry files
+- all `require('../codex')`, `require('./telegram')`, `require('./security')`
+- `docs/architecture.md`
+- `llm-readable/system-map.md`
+
+Run:
+
+```bash
+cd src && npm run build
+node -e "require('./app/main/codex'); require('./app/main/telegram'); require('./app/main/security')"
+```

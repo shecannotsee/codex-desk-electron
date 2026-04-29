@@ -4,8 +4,22 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- 会话目录支持左键系统打开、右键复制路径。
+- Telegram 通知、Telegram 远程控制、主密码凭据保护和 Codex session 导入/导出文档已补齐。
+- 新增“排队消息可视化”：在运行步骤标签展示待执行消息内容、顺序、入队时间。
+- 新增窗口关闭保护：检测运行中任务并提供三选确认（取消/停止并关闭/直接关闭）。
+- 新增快捷键缩放百分比提示：`Alt+= / Alt+- / Alt+0` 时顶部显示当前比例并自动消失。
+- 新增聊天区和运行面板选区右键复制入口。
+- 新增文档截图自动化：`cd src && npm run capture:docs` 可批量生成 `docs/assets/*.png`。
+- 新增 Ubuntu 22.04 DEB 打包配置（`src/electron-builder.yml`）。
+- 新增 DEB 安装后脚本（`src/scripts/deb/postinst`、`src/scripts/deb/postrm`）。
+- 新增部署文档（`docs/deploy-ubuntu.md`）与卸载文档（`docs/uninstall.md`）。
+
 ### Changed
 
+- 主进程按领域重组为 `src/main/codex/`、`src/main/telegram/`、`src/main/security/` 和 `src/main/app_controller/`。
 - 主界面升级为 Telegram 风格：聊天区、会话区与设置入口统一视觉语言。
 - 会话列表改为“圆形头像 + 会话名 + 状态标签”，并支持拖拽调整左侧宽度。
 - 左侧会话操作改为右键菜单（新建/重命名/关闭），减少常驻按钮噪音。
@@ -19,27 +33,13 @@ All notable changes to this project are documented in this file.
 - 聊天消息中的外部链接改为系统默认浏览器打开，不再在应用内部弹出额外窗口。
 - 切换会话后会自动滚动到最新消息，避免沿用上一个会话的滚动位置。
 
-### Added
-
-- 新增“排队消息可视化”：在运行步骤标签展示待执行消息内容、顺序、入队时间。
-- 新增窗口关闭保护：检测运行中任务并提供三选确认（取消/停止并关闭/直接关闭）。
-- 新增快捷键缩放百分比提示：`Alt+= / Alt+- / Alt+0` 时顶部显示当前比例并自动消失。
-- 新增聊天区和运行面板选区右键复制入口。
-- 新增文档截图自动化：`cd src && npm run capture:docs` 可批量生成 `docs/assets/*.png`。
-- 新增 Ubuntu 22.04 DEB 打包配置（`src/electron-builder.yml`）。
-- 新增 DEB 安装后脚本（`src/scripts/deb/postinst`、`src/scripts/deb/postrm`）。
-- 新增部署文档（`docs/deploy-ubuntu.md`）与卸载文档（`docs/uninstall.md`）。
-
 ### Docs
 
+- README、docs、llm-readable 更新到当前模块边界与功能状态。
+- `notes/` 清理为仅保留项目本地备注，移除无关外部 OpenCV 笔记。
 - 文档同步到当前 UI 结构：右键会话、多级设置、队列预览、默认折叠、主题与布局控制。
 - 补充外链默认浏览器、缩放 HUD、切会话自动到底部、选区右键复制的说明与截图。
-- `gpt-readable/` 重命名为 `llm-readable/`，并重写为大模型优先快速摄入结构：
-  - `llm-readable/system-map.md`
-  - `llm-readable/core-flows.md`
-  - `llm-readable/change-hotspots.md`
-  - `llm-readable/task-prompts.md`
-- README / 架构 / 开发指南 / CLI 对照 / FAQ 全量更新到最新功能行为。
+- `gpt-readable/` 重命名为 `llm-readable/`，并重写为大模型优先快速摄入结构。
 
 ## [0.1.0] - 2026-03-05
 

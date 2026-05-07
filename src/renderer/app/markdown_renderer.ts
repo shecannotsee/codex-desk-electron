@@ -439,7 +439,8 @@ function renderMarkdownFallback(text, context: MarkdownRenderContext = { referen
       continue;
     }
 
-    if (/^\d+\.\s+/.test(stripped)) {
+    const orderedListStart = /^(\d+)\.\s+/.exec(stripped);
+    if (orderedListStart) {
       const items = [];
       while (index < lines.length && /^\s*\d+\.\s+/.test(String(lines[index] || ''))) {
         const item = String(lines[index] || '').replace(/^\s*\d+\.\s+/, '').trim();
@@ -447,7 +448,8 @@ function renderMarkdownFallback(text, context: MarkdownRenderContext = { referen
         items.push(taskItem || `<li>${renderInline(item, context)}</li>`);
         index += 1;
       }
-      result.push(`<ol>${items.join('')}</ol>`);
+      const start = Math.max(1, Number(orderedListStart[1]) || 1);
+      result.push(`<ol start="${start}">${items.join('')}</ol>`);
       continue;
     }
 

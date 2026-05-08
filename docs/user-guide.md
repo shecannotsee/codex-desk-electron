@@ -4,7 +4,7 @@
 
 - 左侧列表展示所有会话。
 - 右键会话可重命名、置顶、关闭、导入或导出。
-- 新建会话时选择工作目录；每个会话保存自己的目录。
+- 新建会话时选择 CLI（Codex 或 Claude）和工作目录；每个会话保存自己的 CLI 与目录。
 - 底部“会话目录”显示当前会话目录：
   - 左键：用系统文件管理器打开目录。
   - 右键：复制完整路径。
@@ -12,15 +12,17 @@
 ## 2. 发送、插入、重试与停止
 
 - 输入框中 `Ctrl+Enter` 发送。
+- 会话 CLI 可使用 `codex exec ...` 或 `claude ...`；Conductor 会按会话自动选择 Codex runner 或 Claude runner。
 - 当前会话正在运行时，再发送会进入该会话队列。
-- app-server 可用且当前轮次支持 steer 时，“插入对话”会把新指令插入当前任务。
+- app-server 可用且当前轮次支持 steer 时，“插入对话”会把新指令插入当前任务；Claude Code print 模式没有 mid-turn steer 等价能力，会按普通发送/排队处理。
 - “重试上一条”会重新发送最近一条用户消息。
 - “停止”会请求停止当前 runner，并标记对应用户消息为中断。
 
 ## 3. 附件
 
 - 可添加图片附件。
-- 有图片附件时，GUI 会走兼容 `codex exec --image` 的执行路径。
+- 有图片附件时，Codex GUI 会走兼容 `codex exec --image` 的执行路径。
+- Claude Code CLI 没有 `codex exec --image` 等价参数，GUI 会把附件文件路径追加到提示词，由 Claude 按需读取。
 - app-server 当前不处理图片附件，检测到图片会回退到 exec 模式。
 
 ## 4. 运行面板

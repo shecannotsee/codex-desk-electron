@@ -117,6 +117,8 @@ const el: UiElementRefs = {
   createConversationWorkdirLabel: queryById<HTMLElement>('create-conversation-workdir-label'),
   createConversationWorkdirInput: queryById<HTMLInputElement>('create-conversation-workdir-input'),
   createConversationBrowse: queryById<HTMLButtonElement>('create-conversation-browse'),
+  createConversationProviderCodex: queryById<HTMLButtonElement>('create-conversation-provider-codex'),
+  createConversationProviderClaude: queryById<HTMLButtonElement>('create-conversation-provider-claude'),
   createConversationCancel: queryById<HTMLButtonElement>('create-conversation-cancel'),
   createConversationConfirm: queryById<HTMLButtonElement>('create-conversation-confirm'),
   importWorkdirModal: queryById<HTMLElement>('import-workdir-modal'),

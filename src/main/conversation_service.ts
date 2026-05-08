@@ -21,6 +21,8 @@ function newConversation(title = formatConversationTitle()) {
     id: crypto.randomUUID(),
     title,
     workdir: '',
+    provider: 'codex',
+    commandText: '',
     sessionId: '',
     sessionContinuationMode: '',
     messages: [],

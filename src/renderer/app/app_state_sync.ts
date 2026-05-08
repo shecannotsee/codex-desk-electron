@@ -105,6 +105,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined, onSecurityState
 
   state.settings = {
     commandText: snapshot.settings?.commandText || '',
+    provider: snapshot.settings?.provider === 'claude' ? 'claude' : 'codex',
     workdir: snapshot.settings?.workdir || '',
     defaultWorkdir: snapshot.settings?.defaultWorkdir || snapshot.settings?.workdir || '',
     deviceIdentity: String(snapshot.settings?.deviceIdentity || '').trim(),
@@ -166,6 +167,7 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
 
   state.settings = {
     commandText: payload.settings?.commandText || state.settings.commandText || '',
+    provider: payload.settings?.provider === 'claude' ? 'claude' : 'codex',
     workdir: payload.settings?.workdir || state.settings.workdir || '',
     defaultWorkdir: payload.settings?.defaultWorkdir || state.settings.defaultWorkdir || state.settings.workdir || '',
     deviceIdentity: String(payload.settings?.deviceIdentity || state.settings.deviceIdentity || '').trim(),

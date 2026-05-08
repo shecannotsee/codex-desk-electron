@@ -1,12 +1,14 @@
 # FAQ
 
-## 1. 为什么提示“未找到 codex 命令”？
+## 1. 为什么提示“未找到 codex/claude 命令”？
 
-系统 PATH 中没有可执行 `codex`。先在终端确认：
+系统 PATH 中没有可执行 `codex` 或 `claude`。先在终端确认：
 
 ```bash
 codex --version
 which codex
+claude --version
+which claude
 ```
 
 Conductor 会尽量导入登录 shell 环境，但如果桌面环境没有正确 PATH，仍可能失败。
@@ -26,7 +28,7 @@ Conductor 会尽量导入登录 shell 环境，但如果桌面环境没有正确
 
 ## 4. 模型显示未知怎么办？
 
-模型来源包括命令参数、Codex 配置、运行 JSON 和主动 probe。建议：
+模型来源包括命令参数、Codex/Claude 配置、运行 JSON 和主动 probe。建议：
 
 1. 在命令里显式加 `--model` 或 `-m`。
 2. 在设置/元信息里刷新模型。
@@ -42,7 +44,7 @@ Conductor 会尽量导入登录 shell 环境，但如果桌面环境没有正确
 
 ## 7. 图片附件走哪条链路？
 
-图片附件会使用兼容 `codex exec --image` 的路径。app-server 当前不承接图片附件。
+Codex 会使用兼容 `codex exec --image` 的路径。app-server 当前不承接图片附件。Claude Code CLI 没有同名图片参数，Conductor 会把附件文件路径追加到提示词，让 Claude 按需读取。
 
 ## 8. Telegram token 存在哪里？
 

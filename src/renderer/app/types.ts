@@ -49,6 +49,7 @@ export interface SecuritySettingsState {
 
 export interface SettingsState {
   commandText: string;
+  provider?: 'codex' | 'claude';
   workdir: string;
   defaultWorkdir: string;
   useNativeMemory?: boolean;
@@ -103,6 +104,8 @@ export interface ConversationSummary {
   id: string;
   title: string;
   workdir?: string;
+  provider?: 'codex' | 'claude';
+  commandText?: string;
   sessionId: string;
   sessionContinuationMode?: string;
   messages: ConversationMessage[];
@@ -324,7 +327,7 @@ export interface CodexDeskApi {
   testRemoteControlProvider(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
-  createConversation(payload?: { workdir?: string }): Promise<AppSnapshot>;
+  createConversation(payload?: { workdir?: string; provider?: 'codex' | 'claude' }): Promise<AppSnapshot>;
   pickImportSession(): Promise<GenericResult>;
   importSessionFromFile(filePath: string, continuationMode: string, workdirChoice?: ImportWorkdirChoice): Promise<GenericResult>;
   exportSession(conversationId: string): Promise<GenericResult>;
@@ -533,6 +536,8 @@ export interface UiElementRefs {
   createConversationWorkdirLabel: HTMLElement;
   createConversationWorkdirInput: HTMLInputElement;
   createConversationBrowse: HTMLButtonElement;
+  createConversationProviderCodex: HTMLButtonElement;
+  createConversationProviderClaude: HTMLButtonElement;
   createConversationCancel: HTMLButtonElement;
   createConversationConfirm: HTMLButtonElement;
   importWorkdirModal: HTMLElement;

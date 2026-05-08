@@ -10,7 +10,8 @@ const runtimeSnapshotMethods = {
     const remoteControlCenter = this._syncRemoteControlCenter();
     return {
       settings: {
-        commandText: this.commandText,
+        commandText: activeId ? this._resolveConversationCommandText(activeId) : this.commandText,
+        provider: activeId ? this._resolveConversationProvider(activeId) : 'codex',
         workdir: activeId ? this._resolveConversationWorkdir(activeId) : this._defaultWorkdir(),
         defaultWorkdir: this._defaultWorkdir(),
         deviceIdentity: notificationCenter.getDeviceIdentity(),
@@ -42,7 +43,8 @@ const runtimeSnapshotMethods = {
     const remoteControlCenter = this._syncRemoteControlCenter();
     return {
       settings: {
-        commandText: this.commandText,
+        commandText: this.activeConversationId ? this._resolveConversationCommandText(this.activeConversationId) : this.commandText,
+        provider: this.activeConversationId ? this._resolveConversationProvider(this.activeConversationId) : 'codex',
         workdir: activeWorkdir,
         defaultWorkdir: this._defaultWorkdir(),
         useNativeMemory: this.useNativeMemory,

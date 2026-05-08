@@ -2819,6 +2819,13 @@ body.composer-resizing .composer-resize-handle::before {
   gap: 8px;
 }
 
+.create-conversation-provider-group {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .create-conversation-input-group .about-value-input {
   min-width: 0;
 }

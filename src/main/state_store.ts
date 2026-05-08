@@ -34,8 +34,11 @@ const {
 } = require('./security');
 const { resolveRepoRoot } = require('./project_paths');
 const {
+  DEFAULT_CLAUDE_COMMAND_TEXT,
   DEFAULT_COMMAND_TEXT,
+  defaultCommandTextForProvider,
   fillMissingMessageCreatedAt,
+  normalizeCliProvider,
   normalizeCommandText,
   normalizeMeta,
   parseMessages,
@@ -203,6 +206,11 @@ class StateStore {
       conv.id = String(item.id || conv.id).trim() || conv.id;
       conv.title = String(item.title || '').trim() || conv.title;
       conv.sessionId = String(item.sessionId || item.session_id || '').trim();
+      conv.provider = normalizeCliProvider(item.provider || item.cliProvider || item.cli_provider, item.commandText || item.command_text || commandText);
+      const rawConversationCommand = String(item.commandText || item.command_text || '').trim();
+      conv.commandText = rawConversationCommand
+        ? normalizeCommandText(rawConversationCommand)
+        : defaultCommandTextForProvider(conv.provider);
       conv.sessionContinuationMode = String(
         item.sessionContinuationMode || item.session_continuation_mode || '',
       ).trim();
@@ -224,6 +232,8 @@ class StateStore {
         const conv = newConversation();
         conv.messages = fallbackMessages;
         conv.sessionId = fallbackSessionId;
+        conv.provider = normalizeCliProvider('', commandText);
+        conv.commandText = normalizeCommandText(commandText || defaultCommandTextForProvider(conv.provider));
         conv.workdir = workdir;
         fillMissingMessageCreatedAt(conv.messages, conv.createdAt, conv.updatedAt);
         conversations.push(conv);
@@ -319,6 +329,10 @@ class StateStore {
       conversations: conversations.map((item) => ({
         id: item.id,
         title: item.title,
+        provider: normalizeCliProvider(item.provider || item.cliProvider, item.commandText || state.commandText),
+        commandText: normalizeCommandText(item.commandText || defaultCommandTextForProvider(
+          normalizeCliProvider(item.provider || item.cliProvider, item.commandText || state.commandText),
+        )),
         sessionId: item.sessionId || '',
         sessionContinuationMode: item.sessionContinuationMode || '',
         workdir: normalizeWorkdir(item.workdir || state.workdir),
@@ -406,11 +420,15 @@ class StateStore {
 module.exports = {
   APP_ROOT,
   DEFAULT_WORKDIR,
+  DEFAULT_CLAUDE_COMMAND_TEXT,
+  DEFAULT_COMMAND_TEXT,
   APP_DATA_DIR,
   LEGACY_STATE_PATHS,
   DEFAULT_STATE_PATH,
   DEFAULT_SECRETS_PATH,
   DEFAULT_NOTIFICATION_PROVIDER,
+  defaultCommandTextForProvider,
+  normalizeCliProvider,
   normalizeWorkdir,
   normalizeIdentity,
   hashSecret,

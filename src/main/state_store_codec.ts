@@ -2,6 +2,25 @@ const { nowTs, sortedConversations } = require('./conversation_service');
 
 const LEGACY_DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check';
 const DEFAULT_COMMAND_TEXT = 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox';
+const DEFAULT_CLAUDE_COMMAND_TEXT = 'claude --permission-mode bypassPermissions';
+
+function normalizeCliProvider(rawProvider = '', commandText = '') {
+  const provider = String(rawProvider || '').trim().toLowerCase();
+  if (provider === 'claude' || provider === 'codex') {
+    return provider;
+  }
+  const command = String(commandText || '').trim().toLowerCase();
+  if (command.includes('claude')) {
+    return 'claude';
+  }
+  return 'codex';
+}
+
+function defaultCommandTextForProvider(provider = 'codex') {
+  return normalizeCliProvider(provider) === 'claude'
+    ? DEFAULT_CLAUDE_COMMAND_TEXT
+    : DEFAULT_COMMAND_TEXT;
+}
 
 function normalizeCommandText(raw) {
   const text = String(raw || '').trim();
@@ -19,6 +38,9 @@ function normalizeCommandText(raw) {
   const parts = normalized.split(/\s+/).filter(Boolean);
   const execBin = String(parts[0] || '').toLowerCase();
   if (parts.length < 2 || !execBin.includes('codex') || parts[1] !== 'exec') {
+    if (execBin.includes('claude')) {
+      return normalizeClaudeCommandText(normalized);
+    }
     return normalized;
   }
   if (
@@ -31,6 +53,25 @@ function normalizeCommandText(raw) {
     return normalized;
   }
   return `${normalized} --dangerously-bypass-approvals-and-sandbox`.trim();
+}
+
+function normalizeClaudeCommandText(commandText) {
+  const normalized = String(commandText || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return DEFAULT_CLAUDE_COMMAND_TEXT;
+  }
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  const hasPermissionMode = parts.some((token, index) => {
+    const text = String(token || '');
+    return text === '--dangerously-skip-permissions'
+      || text === '--allow-dangerously-skip-permissions'
+      || text.startsWith('--permission-mode=')
+      || (text === '--permission-mode' && index + 1 < parts.length);
+  });
+  if (hasPermissionMode) {
+    return normalized;
+  }
+  return `${normalized} --permission-mode bypassPermissions`;
 }
 
 function toNumber(value, fallback) {
@@ -122,6 +163,7 @@ function fillMissingMessageCreatedAt(messages, conversationCreatedAt, conversati
 function defaultMeta(sessionId = '') {
   return {
     'Codex版本': '-',
+    'Claude版本': '-',
     '模型': '-',
     '会话ID': String(sessionId || '').trim() || '-',
     '输入Tokens': '-',
@@ -161,7 +203,11 @@ function resolveActiveConversationId(conversations, requestedId = '') {
 
 module.exports = {
   DEFAULT_COMMAND_TEXT,
+  DEFAULT_CLAUDE_COMMAND_TEXT,
   LEGACY_DEFAULT_COMMAND_TEXT,
+  defaultCommandTextForProvider,
+  normalizeCliProvider,
+  normalizeClaudeCommandText,
   normalizeCommandText,
   parseMessages,
   fillMissingMessageCreatedAt,

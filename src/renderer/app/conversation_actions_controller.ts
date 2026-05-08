@@ -23,12 +23,13 @@ type ConversationActionsOptions = {
 
 export function bindConversationActions(options: ConversationActionsOptions) {
   const runCreateConversationFlow = async () => {
-    const workdir = await askCreateConversationWorkdir();
-    if (workdir === null) {
+    const selection = await askCreateConversationWorkdir();
+    if (selection === null) {
       return;
     }
     const next = await codexdesk.createConversation({
-      workdir: String(workdir || '').trim(),
+      workdir: String(selection.workdir || '').trim(),
+      provider: selection.provider,
     });
     options.applySnapshot(next);
     options.renderAll();

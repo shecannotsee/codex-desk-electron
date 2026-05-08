@@ -46,7 +46,7 @@ function securityStatusSummary(hasActiveMessagingUsage: boolean) {
 function renderSettings() {
   const meta = ensureMeta(state.activeConversationId);
   if (el.aboutCodexVersionInput) {
-    const version = String(meta['Codex版本'] || '-').trim() || '-';
+    const version = String(meta['Claude版本'] || meta['Codex版本'] || '-').trim() || '-';
     el.aboutCodexVersionInput.value = version;
     el.aboutCodexVersionInput.title = version;
   }

@@ -16,17 +16,42 @@ function splitCommandArgs(commandText: string): string[] {
 }
 
 function resolvePermissionSummary() {
-  const args = splitCommandArgs(state.settings.commandText || '');
+  const activeConversation = state.conversations.find((item) => item.id === state.activeConversationId) || null;
+  const args = splitCommandArgs(activeConversation?.commandText || state.settings.commandText || '');
   const workdir = String(state.settings.workdir || '').trim();
   const addDirs: string[] = [];
   let sandbox = '';
   let bypass = false;
   const looksCodexExec = args.length >= 2 && String(args[0] || '').includes('codex') && args[1] === 'exec';
+  const looksClaude = args.length >= 1 && String(args[0] || '').toLowerCase().includes('claude');
 
   for (let i = 0; i < args.length; i += 1) {
     const token = String(args[i] || '');
     if (token === '--dangerously-bypass-approvals-and-sandbox') {
       bypass = true;
+      continue;
+    }
+    if (token === '--dangerously-skip-permissions' || token === '--allow-dangerously-skip-permissions') {
+      bypass = true;
+      continue;
+    }
+    if (token === '--permission-mode' && i + 1 < args.length) {
+      const mode = String(args[i + 1] || '').trim();
+      if (mode === 'bypassPermissions') {
+        bypass = true;
+      } else if (mode === 'dontAsk' || mode === 'plan') {
+        sandbox = 'read-only';
+      }
+      i += 1;
+      continue;
+    }
+    if (token.startsWith('--permission-mode=')) {
+      const mode = token.split('=', 2)[1] || '';
+      if (mode === 'bypassPermissions') {
+        bypass = true;
+      } else if (mode === 'dontAsk' || mode === 'plan') {
+        sandbox = 'read-only';
+      }
       continue;
     }
     if ((token === '--sandbox' || token === '-s') && i + 1 < args.length) {
@@ -58,7 +83,7 @@ function resolvePermissionSummary() {
     sandbox = 'workspace-write';
   }
 
-  if (looksCodexExec && !addDirs.length) {
+  if ((looksCodexExec || looksClaude) && !addDirs.length) {
     const match = /^(\/home\/[^/]+|\/Users\/[^/]+)/.exec(workdir);
     if (match && match[1]) {
       addDirs.push(`${match[1]} (自动)`);

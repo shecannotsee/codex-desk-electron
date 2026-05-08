@@ -58,33 +58,47 @@ function askRenameTitle(initialValue = ''): Promise<string | null> {
   });
 }
 
-function askCreateConversationWorkdir(): Promise<string | null> {
+function askCreateConversationWorkdir(): Promise<{ workdir: string; provider: 'codex' | 'claude' } | null> {
   return new Promise((resolve) => {
     const modal = el.createConversationModal;
     const workdirInput = el.createConversationWorkdirInput;
     const browseBtn = el.createConversationBrowse;
+    const codexBtn = el.createConversationProviderCodex;
+    const claudeBtn = el.createConversationProviderClaude;
     const cancelBtn = el.createConversationCancel;
     const confirmBtn = el.createConversationConfirm;
-    if (!modal || !workdirInput || !browseBtn || !cancelBtn || !confirmBtn) {
-      resolve('');
+    if (!modal || !workdirInput || !browseBtn || !codexBtn || !claudeBtn || !cancelBtn || !confirmBtn) {
+      resolve({ workdir: '', provider: 'codex' });
       return;
     }
 
     const defaultWorkdir = String(state.settings.defaultWorkdir || state.settings.workdir || '').trim();
     let selectedWorkdir = defaultWorkdir;
+    let selectedProvider: 'codex' | 'claude' = state.settings.provider === 'claude' ? 'claude' : 'codex';
 
     const syncWorkdirInput = () => {
       workdirInput.value = selectedWorkdir;
       workdirInput.title = selectedWorkdir || '-';
     };
 
+    const syncProviderButtons = () => {
+      const codexActive = selectedProvider === 'codex';
+      codexBtn.classList.toggle('active', codexActive);
+      claudeBtn.classList.toggle('active', !codexActive);
+      codexBtn.setAttribute('aria-pressed', codexActive ? 'true' : 'false');
+      claudeBtn.setAttribute('aria-pressed', codexActive ? 'false' : 'true');
+    };
+
     syncWorkdirInput();
+    syncProviderButtons();
     modal.classList.remove('hidden');
-    browseBtn.focus();
+    codexBtn.focus();
 
     const cleanup = () => {
       modal.classList.add('hidden');
       browseBtn.removeEventListener('click', onBrowse);
+      codexBtn.removeEventListener('click', onProviderCodex);
+      claudeBtn.removeEventListener('click', onProviderClaude);
       cancelBtn.removeEventListener('click', onCancel);
       confirmBtn.removeEventListener('click', onConfirm);
       modal.removeEventListener('click', onBackdrop);
@@ -98,7 +112,17 @@ function askCreateConversationWorkdir(): Promise<string | null> {
 
     const onConfirm = () => {
       cleanup();
-      resolve(selectedWorkdir);
+      resolve({ workdir: selectedWorkdir, provider: selectedProvider });
+    };
+
+    const onProviderCodex = () => {
+      selectedProvider = 'codex';
+      syncProviderButtons();
+    };
+
+    const onProviderClaude = () => {
+      selectedProvider = 'claude';
+      syncProviderButtons();
     };
 
     const onBrowse = async () => {
@@ -135,6 +159,8 @@ function askCreateConversationWorkdir(): Promise<string | null> {
     };
 
     browseBtn.addEventListener('click', onBrowse);
+    codexBtn.addEventListener('click', onProviderCodex);
+    claudeBtn.addEventListener('click', onProviderClaude);
     cancelBtn.addEventListener('click', onCancel);
     confirmBtn.addEventListener('click', onConfirm);
     modal.addEventListener('click', onBackdrop);

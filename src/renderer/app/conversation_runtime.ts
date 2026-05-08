@@ -270,6 +270,7 @@ function ensureMeta(conversationId) {
   if (!state.metaByConversation[conversationId]) {
     state.metaByConversation[conversationId] = {
       Codex版本: '-',
+      Claude版本: '-',
       模型: '-',
       会话ID: '-',
       输入Tokens: '-',

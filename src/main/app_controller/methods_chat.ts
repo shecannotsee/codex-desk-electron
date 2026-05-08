@@ -2,6 +2,7 @@ const fs = require('node:fs');
 
 const { nowTs, getConversation, sortedConversations } = require('../conversation_service');
 const { CodexRunner, CodexAppServerRunner } = require('../codex');
+const { ClaudeRunner } = require('../claude');
 const { normalizePreview } = require('./shared');
 const { bindChatRunnerEvents } = require('./chat_runner_events');
 const {
@@ -9,6 +10,7 @@ const {
   appendAttachmentPreview,
   normalizeAttachments,
   supportsAppServer,
+  supportsClaudePrint,
 } = require('./chat_helpers');
 
 const chatMethods = {
@@ -306,13 +308,19 @@ const chatMethods = {
 
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;
+    const commandText = this._resolveConversationCommandText(targetId);
+    const useClaudeRunner = supportsClaudePrint(commandText);
     const useAppServerEnv = String(
       process.env.CONDUCTOR_ENABLE_APP_SERVER || process.env.CODEX_DESK_ENABLE_APP_SERVER || '',
     ).trim().toLowerCase();
     const preferAppServer = Boolean(this.preferAppServerByConversation?.[targetId]);
     const appServerDisabled = useAppServerEnv === '0' || useAppServerEnv === 'false';
     const allowAppServer = !appServerDisabled || preferAppServer;
-    const useAppServer = allowAppServer && this.useNativeMemory && supportsAppServer(this.commandText) && !hasAttachments;
+    const useAppServer = !useClaudeRunner
+      && allowAppServer
+      && this.useNativeMemory
+      && supportsAppServer(commandText)
+      && !hasAttachments;
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();
     const appServerMode = !useAppServer
@@ -329,20 +337,32 @@ const chatMethods = {
     if (hasAttachments) {
       this._appendStructuredEvent(targetId, 'hint', `本次请求附带 ${normalizedAttachments.length} 个图片附件`);
     }
-    if (hasAttachments && supportsAppServer(this.commandText)) {
+    if (hasAttachments && useClaudeRunner) {
+      this._appendStructuredEvent(targetId, 'warn', 'Claude Code CLI 没有 codex exec --image 等价参数，本次将把附件路径追加到提示词');
+    } else if (hasAttachments && supportsAppServer(commandText)) {
       this._appendStructuredEvent(targetId, 'hint', `检测到 ${normalizedAttachments.length} 个图片附件，已切换到 exec --image 模式`);
     }
 
-    const runner = useAppServer
+    const runner = useClaudeRunner
+      ? new ClaudeRunner({
+        commandText,
+        prompt,
+        attachments: normalizedAttachments,
+        workdir,
+        sessionId: conv.sessionId || '',
+        useNativeMemory: this.useNativeMemory,
+        continuationMode,
+      })
+      : useAppServer
       ? new CodexAppServerRunner({
-        commandText: this.commandText,
+        commandText,
         prompt,
         workdir,
         sessionId: conv.sessionId || '',
         mode: appServerMode || 'start',
       })
       : new CodexRunner({
-        commandText: this.commandText,
+        commandText,
         prompt,
         attachments: normalizedAttachments,
         workdir,

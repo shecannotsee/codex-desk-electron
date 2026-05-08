@@ -440,7 +440,7 @@
       </section>
 
       <section id="row-model-meta" class="setting-row hidden" hidden>
-        <button id="btn-refresh-version" class="btn-secondary menu-moved">获取Codex版本</button>
+        <button id="btn-refresh-version" class="btn-secondary menu-moved">获取 CLI 版本</button>
         <button id="btn-refresh-model" class="btn-secondary menu-moved">获取模型</button>
       </section>
 
@@ -583,7 +583,7 @@
           <input id="about-codex-version-input" class="about-value-input" type="text" readonly />
         </section>
         <section class="setting-row about-setting-row">
-          <label id="label-command" for="command-input">Codex命令:</label>
+          <label id="label-command" for="command-input">CLI 命令:</label>
           <input id="command-input" class="about-value-input" type="text" readonly />
         </section>
         <section class="setting-row about-setting-row">
@@ -606,6 +606,13 @@
       <div id="create-conversation-title" class="modal-title" data-i18n-key="chooseWorkdirTitle">新建对话</div>
       <div id="create-conversation-message" class="modal-message" data-i18n-key="chooseWorkdirMessage">请选择这次新建对话的工作目录。</div>
       <div class="create-conversation-body">
+        <section class="setting-row about-setting-row">
+          <label data-i18n-key="cliProvider">CLI</label>
+          <div class="create-conversation-provider-group" role="group" aria-label="CLI">
+            <button id="create-conversation-provider-codex" class="quick-settings-pill active" type="button">Codex</button>
+            <button id="create-conversation-provider-claude" class="quick-settings-pill" type="button">Claude</button>
+          </div>
+        </section>
         <section class="setting-row about-setting-row">
           <label id="create-conversation-workdir-label" for="create-conversation-workdir-input" data-i18n-key="workdir">工作目录</label>
           <div class="create-conversation-input-group">

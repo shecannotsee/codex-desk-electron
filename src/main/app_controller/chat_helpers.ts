@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 
 const { splitShellArgs } = require('../codex');
+const { isClaudeCommand } = require('../claude');
 const { normalizePreview } = require('./shared');
 
 const ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS = 240;
@@ -119,6 +120,11 @@ function supportsAppServer(commandText) {
     && String(parts[1] || '') === 'exec';
 }
 
+function supportsClaudePrint(commandText) {
+  const parts = splitShellArgs(commandText);
+  return isClaudeCommand(parts);
+}
+
 module.exports = {
   ASSISTANT_STREAM_PREVIEW_MIN_GROWTH,
   ASSISTANT_STREAM_PREVIEW_MIN_INTERVAL_MS,
@@ -130,4 +136,5 @@ module.exports = {
   normalizeMessageUsage,
   normalizeMessageUsageFromMeta,
   supportsAppServer,
+  supportsClaudePrint,
 };

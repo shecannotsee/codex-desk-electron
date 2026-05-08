@@ -1,5 +1,5 @@
 const { nowTs, newConversation, getConversation } = require('../conversation_service');
-const { normalizeWorkdir } = require('../state_store');
+const { defaultCommandTextForProvider, normalizeCliProvider, normalizeWorkdir } = require('../state_store');
 const {
   inferStructuredEventKind,
   isCompletedPhase,
@@ -16,6 +16,7 @@ const runtimeMethods = {
     if (!this.metaByConversation[conversationId]) {
       this.metaByConversation[conversationId] = {
         'Codex版本': '-',
+        'Claude版本': '-',
         '模型': '-',
         '会话ID': '-',
         '输入Tokens': '-',
@@ -58,16 +59,20 @@ const runtimeMethods = {
     return this._conversationSwitchPayload(target.id);
   },
 
-  createConversation(options: { workdir?: string } = {}) {
+  createConversation(options: any = {}) {
     const conv = newConversation(undefined, this.conversations);
     const selectedWorkdir = typeof options.workdir === 'string' ? options.workdir : '';
+    const provider = normalizeCliProvider(options.provider || options.cliProvider, '');
     conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
+    conv.provider = provider;
+    conv.commandText = defaultCommandTextForProvider(provider);
     this.conversations.push(conv);
     this.runtimeStore.ensure(conv.id);
     this._ensureMeta(conv.id);
 
     this.activeConversationId = conv.id;
     this._appendStructuredEvent(conv.id, 'success', `已新建对话: ${conv.title}`);
+    this._appendStructuredEvent(conv.id, 'hint', `CLI: ${provider === 'claude' ? 'Claude Code' : 'Codex CLI'}`);
     this._appendStructuredEvent(conv.id, 'hint', `工作目录: ${conv.workdir}`);
     this._persist();
     this._autoRefreshMetaForConversation(conv.id);

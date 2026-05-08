@@ -21,6 +21,7 @@ const state: AppState = {
   },
   settings: {
     commandText: '',
+    provider: 'codex',
     workdir: '',
     defaultWorkdir: '',
     deviceIdentity: '',
@@ -551,6 +552,7 @@ function localizeKnownText(input) {
     [/^会话ID[:：]\s*/gm, 'Session ID: '],
     [/^模型[:：]\s*/gm, 'Model: '],
     [/^Codex版本[:：]\s*/gm, 'Codex Version: '],
+    [/^Claude版本[:：]\s*/gm, 'Claude Version: '],
     [/^运行中回复[:：]\s*/gm, 'Reply in progress: '],
     [/^用户手动重试上一条消息[:：]\s*/gm, 'User manually retried the previous message: '],
     [/^本次请求附带\s+(\d+)\s+个图片附件$/gm, (_, count) => `This request includes ${count} image attachment(s)`],

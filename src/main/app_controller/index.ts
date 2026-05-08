@@ -148,6 +148,7 @@ class AppController {
       const restoredMeta = loaded.metaByConversation?.[conv.id];
       this.metaByConversation[conv.id] = {
         'Codex版本': '-',
+        'Claude版本': '-',
         '模型': '-',
         '会话ID': conv.sessionId || '-',
         '输入Tokens': '-',

@@ -1,6 +1,8 @@
 const { getConversation } = require('../conversation_service');
 const { NotificationCenter } = require('../notification_bridge');
 const {
+  defaultCommandTextForProvider,
+  normalizeCliProvider,
   normalizeIdentity,
   normalizeNotificationSettings,
   normalizeWorkdir,
@@ -55,6 +57,21 @@ const runtimePersistenceMethods = {
   _resolveConversationWorkdir(conversationId) {
     const conv = getConversation(this.conversations, conversationId);
     return normalizeWorkdir(conv?.workdir || this._defaultWorkdir());
+  },
+
+  _resolveConversationProvider(conversationId) {
+    const conv = getConversation(this.conversations, conversationId);
+    return normalizeCliProvider(conv?.provider || '', conv?.commandText || this.commandText);
+  },
+
+  _resolveConversationCommandText(conversationId) {
+    const conv = getConversation(this.conversations, conversationId);
+    if (!conv) {
+      return this.commandText;
+    }
+    const provider = this._resolveConversationProvider(conversationId);
+    const commandText = String(conv.commandText || '').trim() || defaultCommandTextForProvider(provider);
+    return commandText;
   },
 
   _syncNotificationCenter() {

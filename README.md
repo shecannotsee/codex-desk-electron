@@ -1,6 +1,6 @@
 # conductor
 
-Electron desktop client for Codex CLI. It keeps Electron focused on windowing, rendering, IPC, menus, and desktop integration, while the main-process business code is organized by domain: Codex bridge, Telegram integration, credential security, app controller, and renderer modules.
+Electron desktop client for Codex CLI and Claude Code. It keeps Electron focused on windowing, rendering, IPC, menus, and desktop integration, while the main-process business code is organized by domain: CLI bridges, Telegram integration, credential security, app controller, and renderer modules.
 
 ## Logo
 
@@ -10,6 +10,7 @@ Electron desktop client for Codex CLI. It keeps Electron focused on windowing, r
 
 - Multi-conversation workspace with per-conversation working directories.
 - Codex execution through `codex exec`, with native session resume/fork support and app-server mode when available.
+- Claude Code execution through `claude -p --output-format stream-json`, with native session resume/fork support.
 - Runtime observability: workflow steps, structured events, raw JSON, phase, elapsed time, and queued messages.
 - Running-message queue: follow-up messages are queued per conversation and executed serially.
 - Image attachments for `codex exec --image` compatible flows.
@@ -50,6 +51,7 @@ Electron desktop client for Codex CLI. It keeps Electron focused on windowing, r
 ```text
 src/main/              Electron main process and domain modules
 src/main/codex/        Codex CLI/app-server bridge, output parsing, usage metadata
+src/main/claude/       Claude Code print-mode bridge, stream-json parsing, usage metadata
 src/main/telegram/     Telegram API, sender, updates, notification UI state
 src/main/security/     Credential vault and encryption helpers
 src/main/app_controller/ AppController mixins and runtime orchestration

@@ -20,6 +20,14 @@ const metaMethods = {
     return parts;
   },
 
+  _resolveConversationCommandParts(conversationId) {
+    const commandText = this._resolveConversationCommandText
+      ? this._resolveConversationCommandText(conversationId)
+      : this.commandText;
+    const parts = splitShellArgs(commandText);
+    return parts.length ? parts : [];
+  },
+
   _extractModelFromCommand(parts) {
     let model = '';
     for (let i = 0; i < parts.length; i += 1) {
@@ -262,10 +270,11 @@ const metaMethods = {
       return { error: '会话不存在', snapshot: this.snapshot() };
     }
 
-    const parts = this._resolveCodexCommandParts();
+    const parts = this._resolveConversationCommandParts(targetId);
     const bin = parts[0] || 'codex';
-    if (!String(bin).toLowerCase().includes('codex')) {
-      return { error: '当前命令不是 codex，无法获取版本。', snapshot: this.snapshot() };
+    const lowerBin = String(bin).toLowerCase();
+    if (!lowerBin.includes('codex') && !lowerBin.includes('claude')) {
+      return { error: '当前命令不是 codex 或 claude，无法获取版本。', snapshot: this.snapshot() };
     }
 
     try {
@@ -278,16 +287,17 @@ const metaMethods = {
       const output = stripAnsi(String(result.stdout || result.stderr || '').trim());
       const firstLine = output.split(/\r?\n/)[0]?.trim() || '';
       if (!firstLine) {
-        return { error: '未获取到 Codex 版本输出。', snapshot: this.snapshot() };
+        return { error: '未获取到 CLI 版本输出。', snapshot: this.snapshot() };
       }
 
       const meta = this._ensureMeta(targetId);
-      meta['Codex版本'] = firstLine;
-      this._emit({ type: 'meta-updated', conversationId: targetId, key: 'Codex版本', value: firstLine });
-      this._appendStructuredEvent(targetId, 'hint', `Codex版本: ${firstLine}`);
+      const key = lowerBin.includes('claude') ? 'Claude版本' : 'Codex版本';
+      meta[key] = firstLine;
+      this._emit({ type: 'meta-updated', conversationId: targetId, key, value: firstLine });
+      this._appendStructuredEvent(targetId, 'hint', `${key}: ${firstLine}`);
       return this.snapshot();
     } catch (error) {
-      return { error: `获取 Codex 版本失败: ${error?.message || String(error)}`, snapshot: this.snapshot() };
+      return { error: `获取 CLI 版本失败: ${error?.message || String(error)}`, snapshot: this.snapshot() };
     }
   },
 
@@ -301,15 +311,17 @@ const metaMethods = {
       return { error: '会话不存在', snapshot: this.snapshot() };
     }
 
-    const parts = this._resolveCodexCommandParts();
+    const parts = this._resolveConversationCommandParts(targetId);
     const bin = parts[0] || 'codex';
-    if (!String(bin).toLowerCase().includes('codex')) {
-      return { error: '当前命令不是 codex，无法获取模型。', snapshot: this.snapshot() };
+    const lowerBin = String(bin).toLowerCase();
+    const isClaude = lowerBin.includes('claude');
+    if (!lowerBin.includes('codex') && !isClaude) {
+      return { error: '当前命令不是 codex 或 claude，无法获取模型。', snapshot: this.snapshot() };
     }
 
     let model = this._extractModelFromCommand(parts);
 
-    if (!this._isUsableModel(model)) {
+    if (!isClaude && !this._isUsableModel(model)) {
       model = this._extractModelFromConfigFile(parts);
     }
 
@@ -317,7 +329,7 @@ const metaMethods = {
       model = this._extractModelFromRuntime(targetId);
     }
 
-    if (!this._isUsableModel(model)) {
+    if (!isClaude && !this._isUsableModel(model)) {
       try {
         const probe = await this._probeModelFromCodex(parts, this._resolveConversationWorkdir(targetId));
         model = this._extractModelFromJsonOutput(probe.output);
@@ -341,6 +353,15 @@ const metaMethods = {
         this._appendStructuredEvent(targetId, 'warn', `模型探测失败: ${error?.message || String(error)}`);
         return this.snapshot();
       }
+    }
+
+    if (isClaude && !this._isUsableModel(model)) {
+      this._appendStructuredEvent(
+        targetId,
+        'hint',
+        '未从 Claude 运行事件中提取到模型信息。可在命令中添加 --model，或先发送一条消息后再刷新。',
+      );
+      return this.snapshot();
     }
 
     const meta = this._ensureMeta(targetId);

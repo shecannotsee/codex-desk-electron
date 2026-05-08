@@ -597,6 +597,7 @@ const I18N: Record<Language, Record<string, string>> = {
     runtimeWorkflowProgressIndexed: 'Progress #{index}',
     runtimeWorkflowTipsLabel: 'Tip',
     runtimeWorkflowTipsTitle: 'Runtime Guide',
+    runtimeWorkflowTipsFixedLabel: 'Fixed',
     runtimeWorkflowTipsNotePlan: 'Plans and progress updates will appear here',
     runtimeWorkflowTipsNoteStructured: 'Structured events can jump directly to the raw event',
     runtimeWorkflowTipsNoteRaw: 'For full commands and JSON, open Raw Events',

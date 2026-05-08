@@ -16,7 +16,7 @@ import { el } from './dom_refs.js';
 
 const state: AppState = {
   appInfo: {
-    name: 'Codex Desk',
+    name: 'Conductor',
     version: '',
   },
   settings: {
@@ -83,8 +83,10 @@ const state: AppState = {
   },
 };
 
-const UI_PREFS_KEY = 'codexdesk.ui-prefs.v1';
-const DRAFT_PREFS_KEY = 'codexdesk.drafts.v1';
+const UI_PREFS_KEY = 'conductor.ui-prefs.v1';
+const DRAFT_PREFS_KEY = 'conductor.drafts.v1';
+const LEGACY_UI_PREFS_KEY = 'codexdesk.ui-prefs.v1';
+const LEGACY_DRAFT_PREFS_KEY = 'codexdesk.drafts.v1';
 const NO_CONVERSATION_DRAFT_KEY = '__no_conversation__';
 const CHAT_FONT_SIZE_MIN = 12;
 const CHAT_FONT_SIZE_MAX = 24;
@@ -196,8 +198,12 @@ function parseUiPrefs(rawText: string | null): UiState {
 }
 
 function loadUiPrefs() {
-  const raw = window.localStorage.getItem(UI_PREFS_KEY);
+  const raw = window.localStorage.getItem(UI_PREFS_KEY)
+    || window.localStorage.getItem(LEGACY_UI_PREFS_KEY);
   state.ui = parseUiPrefs(raw);
+  if (!window.localStorage.getItem(UI_PREFS_KEY) && raw) {
+    saveUiPrefs();
+  }
 }
 
 function saveUiPrefs() {
@@ -236,7 +242,12 @@ function parseDraftPrefs(raw) {
 }
 
 function loadDraftPrefs() {
-  state.draftsByConversation = parseDraftPrefs(window.localStorage.getItem(DRAFT_PREFS_KEY));
+  const raw = window.localStorage.getItem(DRAFT_PREFS_KEY)
+    || window.localStorage.getItem(LEGACY_DRAFT_PREFS_KEY);
+  state.draftsByConversation = parseDraftPrefs(raw);
+  if (!window.localStorage.getItem(DRAFT_PREFS_KEY) && raw) {
+    saveDraftPrefs();
+  }
 }
 
 function saveDraftPrefs() {

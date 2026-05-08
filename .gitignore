@@ -1,6 +1,6 @@
 # Runtime state
-.codexdesk/
-codex-workspace/
+.conductor/
+conductor-workspace/
 
 # Dependencies
 src/node_modules/

@@ -106,7 +106,7 @@ class CodexAppServerRunner extends EventEmitter {
       await this._sendRequest('initialize', {
         clientInfo: {
           name: 'codex_desk_electron',
-          title: 'Codex Desk Electron',
+          title: 'Conductor Electron',
           version: '0.1.0',
         },
       });

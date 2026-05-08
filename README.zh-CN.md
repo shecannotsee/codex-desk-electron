@@ -1,6 +1,6 @@
-# codex-desk-electron（中文）
+# conductor（中文）
 
-`codex-desk-electron` 是 Codex CLI 的 Electron 桌面端。Electron 负责窗口、渲染、IPC、菜单和系统集成；主进程内部按领域拆分为 Codex 对接、Telegram 集成、凭据安全、应用控制器和渲染层模块。
+`conductor` 是 Codex CLI 的 Electron 桌面端。Electron 负责窗口、渲染、IPC、菜单和系统集成；主进程内部按领域拆分为 Codex 对接、Telegram 集成、凭据安全、应用控制器和渲染层模块。
 
 ## 核心能力
 
@@ -43,19 +43,19 @@ llm-readable/            面向 LLM 的紧凑代码地图
 notes/                   项目本地备注
 ```
 
-`src/app/`、`codex-workspace/`、`.codexdesk/`、`src/node_modules/` 是生成物或运行态目录，不应提交。
+`src/app/`、`conductor-workspace/`、`.conductor/`、`src/node_modules/` 是生成物或运行态目录，不应提交。
 
 ## 快速启动
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
+cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
 手动开发启动：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm start
@@ -64,7 +64,7 @@ npm start
 ## 校验与截图
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run check
 npm run build
 npm run capture:docs

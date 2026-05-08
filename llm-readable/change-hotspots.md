@@ -59,7 +59,7 @@ Start here:
 - `src/main/app_controller/runtime_security.ts`
 - `src/renderer/app/integration_settings.ts`
 
-Do not log raw tokens. Keep `.codexdesk/secrets.electron.json` out of Git.
+Do not log raw tokens. Keep `.conductor/secrets.electron.json` out of Git.
 
 ## Change bottom workdir behavior
 

@@ -3,8 +3,13 @@ const path = require('node:path');
 
 const { resolveRepoRoot } = require('./project_paths');
 
+function isEnabledEnv(name) {
+  return ['1', 'true', 'yes', 'on'].includes(String(process.env[name] || '').trim().toLowerCase());
+}
+
 const DOCS_CAPTURE_MODE = process.argv.includes('--docs-capture')
-  || ['1', 'true', 'yes', 'on'].includes(String(process.env.CODEX_DESK_DOC_CAPTURE || '').trim().toLowerCase());
+  || isEnabledEnv('CONDUCTOR_DOC_CAPTURE')
+  || isEnabledEnv('CODEX_DESK_DOC_CAPTURE');
 
 function docsAssetsDir() {
   return path.join(resolveRepoRoot(__dirname), 'docs', 'assets');

@@ -1,8 +1,8 @@
 # CLI 与 GUI 对照
 
-Codex Desk 不替代 Codex CLI。它是桌面编排层，负责会话、状态、日志、通知和系统交互。
+Conductor 不替代 Codex CLI。它是桌面编排层，负责会话、状态、日志、通知和系统交互。
 
-| 能力 | Codex CLI | Codex Desk GUI |
+| 能力 | Codex CLI | Conductor GUI |
 |---|---|---|
 | 执行 prompt | `codex exec` | 支持，底层仍调用 Codex |
 | 原生会话 resume | 支持 | 自动保存并续用 sessionId |

@@ -12,12 +12,12 @@ sudo apt install -y build-essential fakeroot dpkg rpm
 codex --version
 ```
 
-Codex CLI 不会被打包进 Codex Desk，安装后的系统仍需要可执行 `codex`。
+Codex CLI 不会被打包进 Conductor，安装后的系统仍需要可执行 `codex`。
 
 ## 3. 构建 DEB
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm run dist:deb
@@ -34,14 +34,14 @@ src/dist/*.deb
 推荐使用 `apt install`，让 APT 处理系统共享库依赖：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 sudo apt install ./dist/Codex\ Desk-*.deb
 ```
 
 安装后启动：
 
-- 应用菜单搜索 `Codex Desk`
-- 或执行 `codex-desk`
+- 应用菜单搜索 `Conductor`
+- 或执行 `conductor`
 
 ## 5. 包含与不包含
 
@@ -55,11 +55,11 @@ sudo apt install ./dist/Codex\ Desk-*.deb
 不包含：
 
 - Codex CLI。
-- `.codexdesk/` 本地状态。
-- `codex-workspace/` 临时工作目录。
+- `.conductor/` 本地状态。
+- `conductor-workspace/` 临时工作目录。
 
 ## 6. 常见问题
 
 - `dpkg -i` 报缺依赖：改用 `sudo apt install ./xxx.deb`。
 - 应用能启动但无法对话：检查 `codex --version`、PATH 和登录状态。
-- Telegram 不工作：检查 token/chat id、主密码是否锁定、`.codexdesk/telegram.logs.json`。
+- Telegram 不工作：检查 token/chat id、主密码是否锁定、`.conductor/telegram.logs.json`。

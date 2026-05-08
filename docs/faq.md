@@ -9,7 +9,7 @@ codex --version
 which codex
 ```
 
-Codex Desk 会尽量导入登录 shell 环境，但如果桌面环境没有正确 PATH，仍可能失败。
+Conductor 会尽量导入登录 shell 环境，但如果桌面环境没有正确 PATH，仍可能失败。
 
 ## 2. 为什么发送时报“目录不存在”？
 
@@ -20,9 +20,9 @@ Codex Desk 会尽量导入登录 shell 环境，但如果桌面环境没有正�
 
 如果目录被删除，请新建会话或导入时选择新的工作目录。
 
-## 3. Codex Desk 会提交 `codex-workspace/` 吗？
+## 3. Conductor 会提交 `conductor-workspace/` 吗？
 
-不会。`codex-workspace/` 是默认临时工作目录，已在 `.gitignore` 中忽略，不应提交。
+不会。`conductor-workspace/` 是默认临时工作目录，已在 `.gitignore` 中忽略，不应提交。
 
 ## 4. 模型显示未知怎么办？
 
@@ -46,7 +46,7 @@ Codex Desk 会尽量导入登录 shell 环境，但如果桌面环境没有正�
 
 ## 8. Telegram token 存在哪里？
 
-启用主密码后，token 会被加密保存到 `.codexdesk/secrets.electron.json`，运行时解锁后才注入通知/远程控制模块。
+启用主密码后，token 会被加密保存到 `.conductor/secrets.electron.json`，运行时解锁后才注入通知/远程控制模块。
 
 ## 9. Telegram 通知和远程控制是同一个配置吗？
 
@@ -68,15 +68,15 @@ Codex Desk 会尽量导入登录 shell 环境，但如果桌面环境没有正�
 
 ## 13. 数据存在哪里？
 
-- 状态：`.codexdesk/state.electron.json`
-- 加密 token：`.codexdesk/secrets.electron.json`
-- Telegram 日志：`.codexdesk/telegram.logs.json`
+- 状态：`.conductor/state.electron.json`
+- 加密 token：`.conductor/secrets.electron.json`
+- Telegram 日志：`.conductor/telegram.logs.json`
 - UI 偏好：Renderer localStorage
-- 兼容旧状态读取：`~/.codexdesk/state.electron.json`
+- 兼容旧状态读取：`.codexdesk/state.electron.json`、`~/.codexdesk/state.electron.json`
 
 ## 14. 怎么完整卸载？
 
-见 [uninstall.md](./uninstall.md)。卸载 Codex Desk 不会卸载 Codex CLI。
+见 [uninstall.md](./uninstall.md)。卸载 Conductor 不会卸载 Codex CLI。
 
 ## 15. Windows/macOS 支持吗？
 

@@ -306,7 +306,9 @@ const chatMethods = {
 
     const prompt = userText;
     const hasAttachments = normalizedAttachments.length > 0;
-    const useAppServerEnv = String(process.env.CODEX_DESK_ENABLE_APP_SERVER || '').trim().toLowerCase();
+    const useAppServerEnv = String(
+      process.env.CONDUCTOR_ENABLE_APP_SERVER || process.env.CODEX_DESK_ENABLE_APP_SERVER || '',
+    ).trim().toLowerCase();
     const preferAppServer = Boolean(this.preferAppServerByConversation?.[targetId]);
     const appServerDisabled = useAppServerEnv === '0' || useAppServerEnv === 'false';
     const allowAppServer = !appServerDisabled || preferAppServer;
@@ -350,7 +352,9 @@ const chatMethods = {
 
     this.runners.set(targetId, runner);
     this._emit({ type: 'runner-state', conversationId: targetId, running: true });
-    const streamPreviewEnv = String(process.env.CODEX_DESK_STREAM_PREVIEW || '').trim().toLowerCase();
+    const streamPreviewEnv = String(
+      process.env.CONDUCTOR_STREAM_PREVIEW || process.env.CODEX_DESK_STREAM_PREVIEW || '',
+    ).trim().toLowerCase();
     const enableStreamPreview = streamPreviewEnv === '1' || streamPreviewEnv === 'true';
 
     this.assistantBufferByRunner.set(runner, '');

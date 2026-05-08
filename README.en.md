@@ -1,6 +1,6 @@
-# codex-desk-electron (English)
+# conductor (English)
 
-`codex-desk-electron` is an Electron desktop client for Codex CLI. Electron owns windows, rendering, IPC, menus, and system integration; main-process business code is organized into Codex, Telegram, security, app-controller, and renderer domains.
+`conductor` is an Electron desktop client for Codex CLI. Electron owns windows, rendering, IPC, menus, and system integration; main-process business code is organized into Codex, Telegram, security, app-controller, and renderer domains.
 
 ## Features
 
@@ -43,19 +43,19 @@ llm-readable/          Compact code map for LLM-assisted maintenance
 notes/                 Project-local notes only
 ```
 
-Generated/runtime folders such as `src/app/`, `codex-workspace/`, `.codexdesk/`, and `src/node_modules/` are ignored.
+Generated/runtime folders such as `src/app/`, `conductor-workspace/`, `.conductor/`, and `src/node_modules/` are ignored.
 
 ## Quick Run
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
+cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
 Manual development run:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm start
@@ -64,7 +64,7 @@ npm start
 ## Validation and Screenshots
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run check
 npm run build
 npm run capture:docs

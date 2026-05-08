@@ -68,8 +68,8 @@ Important mixins:
 
 ## Ignored Runtime/Generated Paths
 
-- `.codexdesk/`
-- `codex-workspace/`
+- `.conductor/`
+- `conductor-workspace/`
 - `src/app/`
 - `src/build/icon.png`
 - `src/node_modules/`

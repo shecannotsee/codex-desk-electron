@@ -44,9 +44,18 @@ const {
 } = require('./state_store_codec');
 
 const APP_ROOT = resolveRepoRoot(__dirname);
-const DEFAULT_WORKDIR = path.join(APP_ROOT, 'codex-workspace');
-const APP_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
-const LEGACY_STATE_PATH = path.join(os.homedir(), '.codexdesk', 'state.electron.json');
+const DEFAULT_WORKDIR = path.join(APP_ROOT, 'conductor-workspace');
+const APP_DATA_DIR = path.join(APP_ROOT, '.conductor');
+const LEGACY_PROJECT_DATA_DIR = path.join(APP_ROOT, '.codexdesk');
+const LEGACY_HOME_DATA_DIR = path.join(os.homedir(), '.codexdesk');
+const LEGACY_STATE_PATHS = [
+  path.join(LEGACY_PROJECT_DATA_DIR, 'state.electron.json'),
+  path.join(LEGACY_HOME_DATA_DIR, 'state.electron.json'),
+];
+const LEGACY_SECRETS_PATHS = [
+  path.join(LEGACY_PROJECT_DATA_DIR, 'secrets.electron.json'),
+  path.join(LEGACY_HOME_DATA_DIR, 'secrets.electron.json'),
+];
 const DEFAULT_STATE_PATH = path.join(APP_DATA_DIR, 'state.electron.json');
 const MAX_PERSISTED_MESSAGES = 2000;
 const DEFAULT_DEVICE_IDENTITY = '';
@@ -59,7 +68,11 @@ function normalizeIdentity(raw) {
 function normalizeWorkdir(candidate) {
   const fallback = path.resolve(DEFAULT_WORKDIR);
   const raw = String(candidate || '').trim();
+  const legacyDefaultWorkdir = path.resolve(APP_ROOT, 'codex-workspace');
   let nextPath = raw ? path.resolve(raw) : fallback;
+  if (nextPath === legacyDefaultWorkdir) {
+    nextPath = fallback;
+  }
 
   if (nextPath === fallback) {
     fs.mkdirSync(nextPath, { recursive: true });
@@ -107,6 +120,16 @@ class StateStore {
     return null;
   }
 
+  _readFirstExistingJson(filePaths) {
+    for (const filePath of filePaths || []) {
+      const data = this._readStateFile(filePath);
+      if (data && typeof data === 'object') {
+        return data;
+      }
+    }
+    return null;
+  }
+
   _writeJsonFile(filePath, payload, mode = null) {
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
     if (mode != null) {
@@ -122,9 +145,13 @@ class StateStore {
     let data = this._readStateFile(this.path);
     let secretData = this._readStateFile(this.secretsPath);
 
-    // Backward-compatible migration: use legacy home path when new project-local path is absent.
+    // Backward-compatible migration: use legacy Codex Desk paths when the new
+    // Conductor project-local path is absent.
     if (!data && this.path === DEFAULT_STATE_PATH) {
-      data = this._readStateFile(LEGACY_STATE_PATH);
+      data = this._readFirstExistingJson(LEGACY_STATE_PATHS);
+    }
+    if (!secretData && this.secretsPath === DEFAULT_SECRETS_PATH) {
+      secretData = this._readFirstExistingJson(LEGACY_SECRETS_PATHS);
     }
 
     if (!data || typeof data !== 'object') {
@@ -380,7 +407,7 @@ module.exports = {
   APP_ROOT,
   DEFAULT_WORKDIR,
   APP_DATA_DIR,
-  LEGACY_STATE_PATH,
+  LEGACY_STATE_PATHS,
   DEFAULT_STATE_PATH,
   DEFAULT_SECRETS_PATH,
   DEFAULT_NOTIFICATION_PROVIDER,

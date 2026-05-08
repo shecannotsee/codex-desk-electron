@@ -1,5 +1,5 @@
-appId: com.codexdesk.electron
-productName: Codex Desk
+appId: com.conductor.electron
+productName: Conductor
 artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
 
 directories:
@@ -26,19 +26,19 @@ linux:
       arch:
         - x64
   category: Development
-  executableName: codex-desk
+  executableName: conductor
   icon: build/icon.png
   desktop:
-    Name: Codex Desk
+    Name: Conductor
     Comment: Codex CLI desktop GUI with runtime observability
-    StartupWMClass: Codex Desk
+    StartupWMClass: Conductor
     Terminal: false
 
 deb:
   priority: optional
-  maintainer: Codex Desk Maintainers
+  maintainer: Conductor Maintainers
   synopsis: Codex CLI desktop GUI
-  description: Codex Desk is an Electron desktop client for Codex CLI with multi-conversation workflow and runtime observability.
+  description: Conductor is an Electron desktop client for Codex CLI with multi-conversation workflow and runtime observability.
   depends:
     - libgtk-3-0
     - libnotify4

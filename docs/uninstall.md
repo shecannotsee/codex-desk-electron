@@ -5,25 +5,19 @@
 先确认包名：
 
 ```bash
-dpkg -l | rg -i "codex|desk|codexdesk"
+dpkg -l | rg -i "conductor|codex"
 ```
 
 常见卸载命令：
 
 ```bash
-sudo apt remove codexdesk-electron
-```
-
-或：
-
-```bash
-sudo apt remove codex-desk
+sudo apt remove conductor
 ```
 
 ## 2. 清理系统配置
 
 ```bash
-sudo apt purge codexdesk-electron
+sudo apt purge conductor
 sudo apt autoremove -y
 ```
 
@@ -34,16 +28,16 @@ sudo apt autoremove -y
 谨慎执行。会删除会话、加密 token、Telegram 日志和本地状态：
 
 ```bash
-rm -rf /home/shecannotsee/Desktop/projects/codex-desk-electron/.codexdesk
-rm -rf ~/.codexdesk
+rm -rf /home/shecannotsee/Desktop/projects/conductor/.conductor
+rm -rf ~/.conductor
 ```
 
 临时工作目录如不再需要也可以删除：
 
 ```bash
-rm -rf /home/shecannotsee/Desktop/projects/codex-desk-electron/codex-workspace
+rm -rf /home/shecannotsee/Desktop/projects/conductor/conductor-workspace
 ```
 
 ## 4. Codex CLI
 
-卸载 Codex Desk 不会卸载 Codex CLI。若要移除 CLI，请按 Codex CLI 的安装方式单独卸载。
+卸载 Conductor 不会卸载 Codex CLI。若要移除 CLI，请按 Codex CLI 的安装方式单独卸载。

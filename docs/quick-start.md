@@ -17,14 +17,14 @@ codex --version
 推荐根目录脚本：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
+cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
 开发方式：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm start

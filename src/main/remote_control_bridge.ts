@@ -438,7 +438,7 @@ class TelegramRemoteControlService {
 
   async _handlePlainText(chatId, text) {
     return [
-      '普通文本不会直接发送到 Codex Desk，避免误发。',
+      '普通文本不会直接发送到 Conductor，避免误发。',
       '如需发送，请使用 `/chat 你的消息`。',
       '',
       commandUsage(),
@@ -561,7 +561,7 @@ class RemoteControlCenter {
       return { ok: false, error: 'Telegram 远程对话 Chat ID 未配置' };
     }
     const lines = [
-      'Codex Desk Telegram 远程对话测试',
+      'Conductor Telegram 远程对话测试',
       this.deviceIdentity ? `设备标识: ${this.deviceIdentity}` : '',
       '测试消息发送成功，说明当前远程对话配置可用。',
       '后续可在 Telegram 中发送 /help 查看可用命令。',

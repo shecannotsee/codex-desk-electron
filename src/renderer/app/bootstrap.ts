@@ -161,7 +161,7 @@ async function init() {
     const appInfo = await codexdesk.getAppInfo().catch(() => null);
     if (appInfo && typeof appInfo === 'object') {
       state.appInfo = {
-        name: String(appInfo.name || 'Codex Desk').trim() || 'Codex Desk',
+        name: String(appInfo.name || 'Conductor').trim() || 'Conductor',
         version: String(appInfo.version || '').trim(),
       };
     }

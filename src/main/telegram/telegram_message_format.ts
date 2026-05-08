@@ -57,7 +57,7 @@ function buildConversationResultHeaderLines({
     ? 'failed'
     : 'completed';
   const lines = [
-    escapeTelegramHtml(`Codex Desk${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${normalizedStatus === 'failed' ? '对话失败' : '对话完成'}`),
+    escapeTelegramHtml(`Conductor${deviceIdentity ? ` [${String(deviceIdentity).trim()}]` : ''} ${normalizedStatus === 'failed' ? '对话失败' : '对话完成'}`),
     buildTelegramLabelLine('对话', resolveConversationLabel(conversationId, conversationTitle, titleLimit)),
   ];
   if (totalPages > 1) {

@@ -81,7 +81,7 @@
 ## J. Docs Capture
 
 1. Run `cd src && npm run capture:docs`.
-2. Electron starts with `CODEX_DESK_DOC_CAPTURE=1 --docs-capture`.
+2. Electron starts with `CONDUCTOR_DOC_CAPTURE=1 --docs-capture`.
 3. `docs_capture_sequence.ts` injects deterministic state.
 4. Main `docs_capture_main.ts` writes screenshots to `docs/assets/`.
 5. App exits automatically.

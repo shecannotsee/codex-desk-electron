@@ -19,7 +19,7 @@ const {
   templateText,
 } = require('./menu_window_actions');
 
-app.setName('Codex Desk');
+app.setName('Conductor');
 
 let mainWindow = null;
 let controller = null;
@@ -124,7 +124,7 @@ async function handleWindowCloseGuard(event) {
 function createWindow() {
   const icon = resolveAppIconPath();
   mainWindow = new BrowserWindow({
-    title: 'Codex Desk',
+    title: 'Conductor',
     width: 1460,
     height: 920,
     minWidth: 1100,

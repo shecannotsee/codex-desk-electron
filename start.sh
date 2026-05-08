@@ -54,28 +54,28 @@ needs_logo_sync() {
 }
 
 if [[ ! -d node_modules ]]; then
-  echo "[CodexDesk Electron] installing dependencies..."
+  echo "[Conductor] installing dependencies..."
   npm install
 fi
 
 if needs_build; then
-  echo "[CodexDesk Electron] source changed, rebuilding app ..."
+  echo "[Conductor] source changed, rebuilding app ..."
   npm run build
 else
-  echo "[CodexDesk Electron] build outputs are up to date, skip rebuild."
+  echo "[Conductor] build outputs are up to date, skip rebuild."
 fi
 
 if needs_logo_sync; then
-  echo "[CodexDesk Electron] syncing logo ..."
+  echo "[Conductor] syncing logo ..."
   node app/scripts/sync-logo.js
 elif [[ -n "$SOURCE_LOGO" ]]; then
-  echo "[CodexDesk Electron] logo is up to date, skip sync."
+  echo "[Conductor] logo is up to date, skip sync."
 else
-  echo "[CodexDesk Electron] warning: resource/logo.png not found, keep existing app icon."
+  echo "[Conductor] warning: resource/logo.png not found, keep existing app icon."
 fi
 
 if [[ ! -x "$ELECTRON_BIN" ]]; then
-  echo "[CodexDesk Electron] error: electron binary not found: $ELECTRON_BIN" >&2
+  echo "[Conductor] error: electron binary not found: $ELECTRON_BIN" >&2
   exit 1
 fi
 

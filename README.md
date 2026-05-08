@@ -1,10 +1,10 @@
-# codex-desk-electron
+# conductor
 
 Electron desktop client for Codex CLI. It keeps Electron focused on windowing, rendering, IPC, menus, and desktop integration, while the main-process business code is organized by domain: Codex bridge, Telegram integration, credential security, app controller, and renderer modules.
 
 ## Logo
 
-<img src="./resource/logo.png" alt="Codex Desk Logo" width="220" />
+<img src="./resource/logo.png" alt="Conductor Logo" width="220" />
 
 ## Current Capabilities
 
@@ -59,19 +59,19 @@ llm-readable/          Compact code map for LLM-assisted maintenance
 notes/                 Project-local notes only
 ```
 
-`src/app/`, `codex-workspace/`, `.codexdesk/`, and `src/node_modules/` are generated/runtime directories and are intentionally ignored.
+`src/app/`, `conductor-workspace/`, `.conductor/`, and `src/node_modules/` are generated/runtime directories and are intentionally ignored.
 
 ## Quick Run
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron
+cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
 Manual development run:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm start
@@ -82,14 +82,14 @@ npm start
 Primary validation command:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run check
 ```
 
 Full build:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run build
 ```
 
@@ -98,7 +98,7 @@ npm run build
 Use the dedicated docs-capture mode. It opens a separate Electron window and exits automatically after writing screenshots.
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run capture:docs
 ```
 

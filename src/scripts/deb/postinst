@@ -10,8 +10,8 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 
 if ! command -v codex >/dev/null 2>&1; then
-  echo "[codex-desk] warning: 'codex' command was not found in PATH."
-  echo "[codex-desk] please install Codex CLI and run 'codex --version' to verify."
+  echo "[conductor] warning: 'codex' command was not found in PATH."
+  echo "[conductor] please install Codex CLI and run 'codex --version' to verify."
 fi
 
 exit 0

@@ -2,11 +2,11 @@
 
 ## 1. 总体边界
 
-Codex Desk 是一个 Electron 应用，但业务逻辑不直接堆在窗口代码里。当前主进程按领域组织：
+Conductor 是一个 Electron 应用，但业务逻辑不直接堆在窗口代码里。当前主进程按领域组织：
 
 - `src/main/main.ts`：Electron app 生命周期、BrowserWindow、菜单动作、关闭保护。
 - `src/main/ipc_registration.ts`：Renderer 到 Main 的 IPC 注册。
-- `src/main/preload.ts`：安全暴露 `window.codexdesk` API。
+- `src/main/preload.ts`：安全暴露 `window.codexdesk` API（沿用旧内部桥接名）。
 - `src/main/app_controller/`：应用状态编排、会话、队列、运行态、设置和安全 mixin。
 - `src/main/codex/`：Codex CLI/app-server 对接层。
 - `src/main/telegram/`：Telegram 通知和远程控制底层能力。
@@ -110,12 +110,12 @@ Main 通过 `app:event` 推送运行态更新：
 
 ## 6. 状态与文件
 
-- 应用状态：`.codexdesk/state.electron.json`
-- Telegram 日志：`.codexdesk/telegram.logs.json`
-- UI 偏好：`localStorage['codexdesk.ui-prefs.v1']`
-- 草稿：`localStorage['codexdesk.drafts.v1']`
+- 应用状态：`.conductor/state.electron.json`
+- Telegram 日志：`.conductor/telegram.logs.json`
+- UI 偏好：`localStorage['conductor.ui-prefs.v1']`
+- 草稿：`localStorage['conductor.drafts.v1']`
 - 编译产物：`src/app/`，不提交。
-- 临时工作目录：`codex-workspace/`，不提交。
+- 临时工作目录：`conductor-workspace/`，不提交。
 
 ## 7. 文档截图
 

@@ -12,7 +12,7 @@ Read in this order:
 Validation baseline:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run check
 ```
 

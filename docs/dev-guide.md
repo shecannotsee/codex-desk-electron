@@ -13,7 +13,7 @@
 ## 2. 常用命令
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm install
 npm run check
 npm run build
@@ -62,20 +62,20 @@ src/renderer/styles.css          样式与主题
 - `src/app/`：编译产物。
 - `src/node_modules/`：依赖。
 - `src/build/icon.png`：构建同步产物。
-- `.codexdesk/`：本地状态、token 加密文件、Telegram 日志。
-- `codex-workspace/`：默认临时工作目录。
+- `.conductor/`：本地状态、token 加密文件、Telegram 日志。
+- `conductor-workspace/`：默认临时工作目录。
 
 ## 6. 文档截图
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/codex-desk-electron/src
+cd /home/shecannotsee/Desktop/projects/conductor/src
 npm run capture:docs
 ```
 
 该命令会：
 
 1. 构建应用。
-2. 以 `CODEX_DESK_DOC_CAPTURE=1 --docs-capture` 启动独立窗口。
+2. 以 `CONDUCTOR_DOC_CAPTURE=1 --docs-capture` 启动独立窗口。
 3. Renderer 写入模拟数据。
 4. Main 通过 `capturePage()` 保存 PNG 到 `docs/assets/`。
 5. 自动退出。

@@ -161,7 +161,7 @@ function renderSettings() {
     node.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
   if (el.qsAppName) {
-    el.qsAppName.textContent = String(state.appInfo?.name || 'Codex Desk').trim() || 'Codex Desk';
+    el.qsAppName.textContent = String(state.appInfo?.name || 'Conductor').trim() || 'Conductor';
   }
   if (el.qsAppVersion) {
     const rawVersion = String(state.appInfo?.version || '').trim();

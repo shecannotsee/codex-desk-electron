@@ -77,7 +77,7 @@ export async function runDocsCaptureSequence(options: DocsCaptureOptions) {
     conv.messages = [
       {
         role: 'user',
-        text: '请总结一下 Codex Desk 的核心能力。',
+        text: '请总结一下 Conductor 的核心能力。',
         createdAt: now - 4 * 60 * 1000,
       },
       {
@@ -111,7 +111,7 @@ export async function runDocsCaptureSequence(options: DocsCaptureOptions) {
       {
         type: 'round',
         roundIndex: 1,
-        preview: '请总结一下 Codex Desk 的核心能力。',
+        preview: '请总结一下 Conductor 的核心能力。',
         timestamp: '14:20:01',
       },
       {

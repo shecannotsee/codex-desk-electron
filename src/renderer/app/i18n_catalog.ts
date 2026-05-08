@@ -283,6 +283,7 @@ const I18N: Record<Language, Record<string, string>> = {
     runtimeWorkflowProgressIndexed: '阶段进展 #{index}',
     runtimeWorkflowTipsLabel: '提示',
     runtimeWorkflowTipsTitle: '运行提示',
+    runtimeWorkflowTipsFixedLabel: '固定',
     runtimeWorkflowTipsNotePlan: '计划与阶段进展会显示在这里',
     runtimeWorkflowTipsNoteStructured: '结构化事件可直接跳到事件原文',
     runtimeWorkflowTipsNoteRaw: '完整命令与 JSON 请看事件原文',

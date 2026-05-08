@@ -216,6 +216,7 @@ function renderWorkflowRequestTip(): string {
     '<div class="runtime-step runtime-step-static tag-TIPS">',
     '<div class="runtime-step-head">',
     `<span class="left">${escapeHtml(t('runtimeWorkflowTipsLabel'))} | ${escapeHtml(t('runtimeWorkflowTipsTitle'))}</span>`,
+    `<span class="right runtime-step-fixed-badge">${escapeHtml(t('runtimeWorkflowTipsFixedLabel'))}</span>`,
     '</div>',
     '<div class="runtime-step-body runtime-step-note-list">',
     `<div class="runtime-step-note-inline">${escapeHtml(inlineTips)}</div>`,

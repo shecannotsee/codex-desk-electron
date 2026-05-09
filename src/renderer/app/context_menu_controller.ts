@@ -6,6 +6,12 @@ import {
   t,
 } from './state_i18n.js';
 import { findConversationById } from './conversation_runtime.js';
+import {
+  deleteAgentTeamGroup,
+  renameAgentTeamGroup,
+  switchAgentTeamGroup,
+} from './agent_team.js';
+import { askConfirmDialog, askRenameTitle } from './app_dialogs.js';
 
 type ContextMenuOptions = {
   applySnapshot: (snapshot: unknown) => void;
@@ -80,6 +86,7 @@ async function copyPlainText(text) {
 
 export function createContextMenuController(options: ContextMenuOptions) {
   let contextMenuConversationId = '';
+  let contextMenuTeamGroupId = '';
   let chatContextSelectionText = '';
 
   const hideConversationContextMenu = () => {
@@ -88,6 +95,41 @@ export function createContextMenuController(options: ContextMenuOptions) {
     }
     el.contextMenu.classList.add('hidden');
     contextMenuConversationId = '';
+    contextMenuTeamGroupId = '';
+  };
+
+  const showTeamGroupContextMenu = (x, y, groupId = '') => {
+    if (!el.contextMenu) {
+      return;
+    }
+    contextMenuConversationId = '';
+    contextMenuTeamGroupId = String(groupId || '').trim();
+    const hasTarget = Boolean(contextMenuTeamGroupId);
+    if (el.ctxNewConv) {
+      el.ctxNewConv.textContent = t('agentTeamCreate');
+    }
+    if (el.ctxImportConv) {
+      el.ctxImportConv.classList.add('hidden');
+    }
+    if (el.ctxExportConv) {
+      el.ctxExportConv.classList.add('hidden');
+    }
+    if (el.ctxPinConv) {
+      el.ctxPinConv.classList.add('hidden');
+    }
+    if (el.ctxRenameConv) {
+      el.ctxRenameConv.disabled = !hasTarget;
+      el.ctxRenameConv.classList.remove('hidden');
+    }
+    if (el.ctxCloseConv) {
+      el.ctxCloseConv.disabled = !hasTarget;
+      el.ctxCloseConv.classList.remove('hidden');
+      el.ctxCloseConv.textContent = t('agentTeamDeleteGroup');
+    }
+    el.contextMenu.classList.remove('hidden');
+    const position = clampMenuPosition(el.contextMenu, x, y);
+    el.contextMenu.style.left = `${position.left}px`;
+    el.contextMenu.style.top = `${position.top}px`;
   };
 
   const showConversationContextMenu = (x, y, conversationId = '') => {
@@ -95,25 +137,35 @@ export function createContextMenuController(options: ContextMenuOptions) {
       return;
     }
     contextMenuConversationId = String(conversationId || '');
+    contextMenuTeamGroupId = '';
     const hasTarget = Boolean(contextMenuConversationId);
     const targetConversation = findConversationById(contextMenuConversationId);
+    if (el.ctxNewConv) {
+      el.ctxNewConv.textContent = t('contextMenuNew');
+    }
     if (el.ctxImportConv) {
+      el.ctxImportConv.classList.remove('hidden');
       el.ctxImportConv.disabled = false;
     }
     if (el.ctxExportConv) {
+      el.ctxExportConv.classList.remove('hidden');
       el.ctxExportConv.disabled = !hasTarget;
     }
     if (el.ctxRenameConv) {
+      el.ctxRenameConv.classList.remove('hidden');
       el.ctxRenameConv.disabled = !hasTarget;
     }
     if (el.ctxPinConv) {
+      el.ctxPinConv.classList.remove('hidden');
       el.ctxPinConv.disabled = !hasTarget;
       el.ctxPinConv.textContent = hasTarget && Number(targetConversation?.pinnedAt || 0) > 0
         ? t('contextMenuUnpin')
         : t('contextMenuPin');
     }
     if (el.ctxCloseConv) {
+      el.ctxCloseConv.classList.remove('hidden');
       el.ctxCloseConv.disabled = !hasTarget;
+      el.ctxCloseConv.textContent = t('contextMenuClose');
     }
     el.contextMenu.classList.remove('hidden');
     const position = clampMenuPosition(el.contextMenu, x, y);
@@ -154,8 +206,13 @@ export function createContextMenuController(options: ContextMenuOptions) {
     el.conversationList.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       const row = getEventElementTarget(event)?.closest('.conversation-item');
+      const teamGroupId = row ? String(row.getAttribute('data-team-group-id') || '').trim() : '';
       const id = row ? String(row.getAttribute('data-id') || '').trim() : '';
       hideChatContextMenu();
+      if (state.workspaceMode === 'team') {
+        showTeamGroupContextMenu(event.clientX, event.clientY, teamGroupId);
+        return;
+      }
       showConversationContextMenu(event.clientX, event.clientY, id);
     });
 
@@ -232,6 +289,22 @@ export function createContextMenuController(options: ContextMenuOptions) {
     }
     if (el.ctxRenameConv) {
       el.ctxRenameConv.addEventListener('click', async () => {
+        if (contextMenuTeamGroupId) {
+          const id = contextMenuTeamGroupId;
+          hideConversationContextMenu();
+          const group = switchAgentTeamGroup(id);
+          const title = await askRenameTitle(group?.name || '');
+          if (title === null) {
+            return;
+          }
+          if (!title.trim()) {
+            window.alert(t('alertConversationNameEmpty'));
+            return;
+          }
+          renameAgentTeamGroup(id, title);
+          options.renderAll({ stickChatToBottom: true });
+          return;
+        }
         const id = contextMenuConversationId;
         hideConversationContextMenu();
         await options.switchConversationIfNeeded(id);
@@ -256,6 +329,21 @@ export function createContextMenuController(options: ContextMenuOptions) {
     }
     if (el.ctxCloseConv) {
       el.ctxCloseConv.addEventListener('click', async () => {
+        if (contextMenuTeamGroupId) {
+          const id = contextMenuTeamGroupId;
+          hideConversationContextMenu();
+          const group = switchAgentTeamGroup(id);
+          const ok = await askConfirmDialog({
+            title: t('agentTeamDeleteGroup'),
+            message: t('agentTeamConfirmDeleteGroup', { title: group?.name || '-' }),
+          });
+          if (!ok) {
+            return;
+          }
+          deleteAgentTeamGroup(id);
+          options.renderAll({ stickChatToBottom: true });
+          return;
+        }
         const id = contextMenuConversationId;
         hideConversationContextMenu();
         await options.switchConversationIfNeeded(id);

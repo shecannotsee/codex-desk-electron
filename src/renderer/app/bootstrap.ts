@@ -79,6 +79,12 @@ import { bindConversationActions } from './conversation_actions_controller.js';
 import { bindComposerController } from './composer_controller.js';
 import { bindIntegrationSettingsBindings } from './integration_settings_bindings.js';
 import { bindGlobalEventHandlers } from './global_event_bindings.js';
+import {
+  bindAgentTeamController,
+  loadAgentTeamPrefs,
+  switchAgentTeamGroup,
+  switchWorkspaceMode,
+} from './agent_team.js';
 
 function getEventElementTarget(event: Event): Element | null {
   return event.target instanceof Element ? event.target : null;
@@ -137,6 +143,7 @@ async function init() {
     renderSettings,
   });
   const switchConversationAndRender = async (id: string) => {
+    switchWorkspaceMode('conversation');
     const previousActiveId = state.activeConversationId;
     const payload = await codexdesk.switchConversation(id);
     applyConversationSwitchPayload(payload);
@@ -157,6 +164,7 @@ async function init() {
 
   loadUiPrefs();
   loadDraftPrefs();
+  loadAgentTeamPrefs();
   applyTheme();
   applySidebarWidth();
   applyRuntimePanelWidth();
@@ -482,6 +490,15 @@ async function init() {
 
   el.conversationList.addEventListener('click', async (event) => {
     const target = getEventElementTarget(event);
+    const teamItem = target?.closest<HTMLElement>('.conversation-item[data-team-group-id]');
+    if (teamItem) {
+      const groupId = String(teamItem.getAttribute('data-team-group-id') || '').trim();
+      if (!groupId || !switchAgentTeamGroup(groupId)) {
+        return;
+      }
+      renderAll({ stickChatToBottom: true });
+      return;
+    }
     const item = target?.closest<HTMLElement>('.conversation-item[data-id]');
     if (!item) {
       return;
@@ -497,12 +514,23 @@ async function init() {
     el.btnNewConv.click();
   });
 
+  bindAgentTeamController(renderAll);
+
   el.tabButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const nextTab = btn.getAttribute('data-tab');
-      state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
-        ? nextTab
-        : 'workflow';
+      if (state.workspaceMode === 'team') {
+        const teamTab = String(btn.getAttribute('data-team-tab') || '').trim();
+        if (teamTab === 'add-role' || teamTab === 'roles' || teamTab === 'status') {
+          state.activeAgentTeamTab = teamTab;
+        } else {
+          state.activeAgentTeamTab = 'workflow';
+        }
+      } else {
+        const nextTab = btn.getAttribute('data-tab');
+        state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
+          ? nextTab
+          : 'workflow';
+      }
       renderRuntime();
       renderTabs();
       window.requestAnimationFrame(() => {

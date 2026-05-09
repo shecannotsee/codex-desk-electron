@@ -13,6 +13,7 @@ import {
   queuedCount,
   sortedConversations,
 } from './conversation_runtime.js';
+import { renderAgentTeamGroupList } from './agent_team.js';
 
 interface ConversationListItemCacheEntry {
   version: number;
@@ -38,6 +39,7 @@ let sortedConversationCacheKey = '';
 let sortedConversationCache: ConversationSummary[] = [];
 let conversationListCacheVersion = 0;
 let lastConversationListRenderSignature = '';
+let lastConversationListMode = 'conversation';
 
 function toMessageTimeMs(input: unknown): number {
   const raw = Number(input);
@@ -210,6 +212,15 @@ function renderConversationListItem(item: ConversationSummary, activeId: string)
 }
 
 function renderConversationList() {
+  if (state.workspaceMode === 'team') {
+    lastConversationListMode = 'team';
+    renderAgentTeamGroupList();
+    return;
+  }
+  if (lastConversationListMode !== 'conversation') {
+    lastConversationListMode = 'conversation';
+    lastConversationListRenderSignature = '';
+  }
   const activeId = state.activeConversationId;
   if (!state.conversations.length) {
     el.conversationList.innerHTML = [

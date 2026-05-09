@@ -18,6 +18,7 @@ import {
   setAttachmentMenuOpen,
 } from './composer_attachments.js';
 import { currentConversation } from './conversation_runtime.js';
+import { currentAgentTeamGroup, renderAgentTeamChat, renderAgentTeamRuntime, saveAgentTeamPrefs } from './agent_team.js';
 
 function isClaudeConversation() {
   const conv = currentConversation();
@@ -102,6 +103,52 @@ export function bindComposerController(options: ComposerControllerOptions) {
 
   el.btnSend.addEventListener('click', async () => {
     const text = el.inputBox.value.trim();
+    if (state.workspaceMode === 'team') {
+      const group = currentAgentTeamGroup();
+      if (!group || !text) {
+        return;
+      }
+      const ts = Date.now();
+      const entryRole = group.roles.find((role) => !String(role.upstreamRoleId || '').trim()) || group.roles[0] || null;
+      const downstreamRoles = entryRole
+        ? (entryRole.downstreamRoleIds || [])
+          .map((id) => group.roles.find((role) => role.id === id))
+          .filter(Boolean)
+        : [];
+      group.messages.push({ role: 'user', text, createdAt: ts });
+      group.steps.push({
+        id: `step-${ts.toString(36)}`,
+        kind: 'user-to-role',
+        title: entryRole ? `你 -> ${entryRole.name}` : '你 -> Agent Team',
+        body: text,
+        colorKey: 'blue',
+        status: 'done',
+        timestamp: ts,
+      });
+      downstreamRoles.forEach((role, index) => {
+        if (!role || !entryRole) {
+          return;
+        }
+        group.steps.push({
+          id: `step-${ts.toString(36)}-${index}`,
+          kind: 'role-to-role',
+          title: `${entryRole.name} -> ${role.name}`,
+          body: `${role.name}: ${String(role.responsibility || '').trim()}`,
+          colorKey: ['teal', 'amber', 'violet', 'rose'][index % 4],
+          status: 'pending',
+          timestamp: ts + index + 1,
+        });
+      });
+      group.updatedAt = ts;
+      el.inputBox.value = '';
+      setConversationDraft('', '');
+      state.inputBindingConversationId = draftStorageKey('');
+      saveAgentTeamPrefs();
+      renderAgentTeamChat();
+      renderAgentTeamRuntime();
+      options.renderAll();
+      return;
+    }
     const attachments = getComposerAttachments(state.activeConversationId);
     if (!text) {
       return;

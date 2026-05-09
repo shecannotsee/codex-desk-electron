@@ -33,6 +33,8 @@ import {
   updateUsageMetaValue,
 } from './chat_renderer.js';
 import { renderComposerDraft, renderComposerWorkdir } from './composer_renderer.js';
+import { renderAgentTeamChat } from './agent_team.js';
+import { state } from './state_i18n.js';
 import {
   renderCurrentTimeDisplay,
   renderHeader,
@@ -51,7 +53,11 @@ function renderAll(options: RenderAllOptions = {}) {
   renderConversationList();
   renderSettings();
   renderHeader();
-  renderChat(stickChatToBottom);
+  if (state.workspaceMode === 'team') {
+    renderAgentTeamChat();
+  } else {
+    renderChat(stickChatToBottom);
+  }
   renderRuntime(stickChatToBottom);
   renderRunButtons();
   renderComposerDraft();

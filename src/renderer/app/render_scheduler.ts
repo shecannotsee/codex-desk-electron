@@ -1,6 +1,7 @@
 import type { RenderJobs, ScheduleRenderOptions } from './types.js';
 import { state } from './state_i18n.js';
 import { ensureRuntime, hasActiveConversation } from './conversation_runtime.js';
+import { renderAgentTeamChat } from './agent_team.js';
 import {
   renderAll,
   renderChat,
@@ -81,7 +82,11 @@ function flushScheduledRender() {
     renderHeader();
   }
   if (jobs.chat) {
-    renderChat(stickChatToBottom);
+    if (state.workspaceMode === 'team') {
+      renderAgentTeamChat();
+    } else {
+      renderChat(stickChatToBottom);
+    }
   } else if (jobs.chatTransient) {
     renderChatTransientPanels({ stickToBottom: stickChatToBottom });
   }

@@ -381,6 +381,16 @@
           <button id="btn-sidebar-new-conv" class="sidebar-compose-btn" type="button" aria-label="新建对话" title="新建对话">
             <span class="sidebar-compose-icon" aria-hidden="true">+</span>
           </button>
+          <button id="btn-sidebar-new-team" class="sidebar-team-btn" type="button" aria-label="切换到 Agent Team" title="切换到 Agent Team">
+            <span class="sidebar-team-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                <path d="M2 21a6 6 0 0 1 12 0" />
+                <path d="M17 11a3 3 0 1 0 0-6" />
+                <path d="M19 21a5 5 0 0 0-3-4.6" />
+              </svg>
+            </span>
+          </button>
         </div>
       </div>
       <div class="sidebar-actions sidebar-legacy-actions" hidden>
@@ -462,12 +472,18 @@
             <button id="tab-btn-workflow" class="tab-btn active" data-tab="workflow">运行步骤</button>
             <button id="tab-btn-structured" class="tab-btn" data-tab="structured">结构化事件</button>
             <button id="tab-btn-raw" class="tab-btn" data-tab="raw">事件原文</button>
+            <button id="tab-btn-team-add" class="tab-btn team-tab-btn hidden" data-team-tab="add-role">角色添加</button>
+            <button id="tab-btn-team-roles" class="tab-btn team-tab-btn hidden" data-team-tab="roles">角色列表</button>
+            <button id="tab-btn-team-status" class="tab-btn team-tab-btn hidden" data-team-tab="status">状态</button>
           </div>
 
           <div class="tab-content">
             <div id="tab-workflow" class="tab-pane active"></div>
             <div id="tab-structured" class="tab-pane"></div>
             <div id="tab-raw" class="tab-pane raw-pane"></div>
+            <div id="tab-team-add" class="tab-pane team-tab-pane"></div>
+            <div id="tab-team-roles" class="tab-pane team-tab-pane"></div>
+            <div id="tab-team-status" class="tab-pane team-tab-pane"></div>
           </div>
         </div>
       </section>
@@ -500,6 +516,7 @@
           <button id="btn-insert-message" class="hidden">插入对话</button>
           <button id="btn-retry-last">重试上一条</button>
           <button id="btn-stop">停止</button>
+          <button id="btn-add-team-role" class="hidden" type="button">添加角色</button>
         </div>
       </section>
     </main>
@@ -624,6 +641,46 @@
       <div class="modal-actions">
         <button id="create-conversation-cancel" class="btn-secondary" type="button" data-i18n-key="cancel">取消</button>
         <button id="create-conversation-confirm" class="btn-primary" type="button" data-i18n-key="newConversation">新建对话</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="create-team-modal" class="modal-backdrop hidden">
+    <div class="modal-card create-team-modal-card">
+      <div class="modal-title">新建 Agent Team</div>
+      <div class="modal-message">创建后 group 里只有你，需要手动添加角色。</div>
+      <input id="create-team-name-input" class="modal-input" type="text" placeholder="Group 名称" />
+      <div class="modal-actions">
+        <button id="create-team-cancel" class="btn-secondary" type="button">取消</button>
+        <button id="create-team-confirm" class="btn-primary" type="button">创建 Group</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-team-role-modal" class="modal-backdrop hidden">
+    <div class="modal-card add-team-role-modal-card">
+      <div class="modal-title">添加角色</div>
+      <div class="team-role-form">
+        <label class="team-role-field">
+          <span>名称</span>
+          <input id="add-team-role-name-input" class="modal-input" type="text" placeholder="例如：架构负责人" />
+        </label>
+        <label class="team-role-field">
+          <span>对上负责人</span>
+          <select id="add-team-role-upstream-select" class="modal-input"></select>
+        </label>
+        <div class="team-role-field">
+          <span>对下负责人</span>
+          <div id="add-team-role-downstream-list" class="team-role-downstream-list"></div>
+        </div>
+        <label class="team-role-field">
+          <span>职责</span>
+          <textarea id="add-team-role-responsibility-input" class="modal-input team-role-responsibility-input" placeholder="手动输入这个角色负责什么、交付什么、需要避免什么。"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="add-team-role-cancel" class="btn-secondary" type="button">取消</button>
+        <button id="add-team-role-confirm" class="btn-primary" type="button">添加角色</button>
       </div>
     </div>
   </div>

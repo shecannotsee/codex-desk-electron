@@ -2,6 +2,8 @@ export type Language = 'zh-CN' | 'en-US';
 export type Theme = 'light' | 'dark';
 export type ActiveTab = 'structured' | 'workflow' | 'raw';
 export type RuntimeTab = ActiveTab;
+export type WorkspaceMode = 'conversation' | 'team';
+export type AgentTeamTab = 'workflow' | 'add-role' | 'roles' | 'status';
 
 export interface AppInfo {
   name: string;
@@ -179,6 +181,37 @@ export interface AppSnapshot {
   [key: string]: unknown;
 }
 
+export interface AgentTeamRole {
+  id: string;
+  name: string;
+  upstreamRoleId?: string;
+  downstreamRoleIds?: string[];
+  responsibility: string;
+  status?: 'idle' | 'running' | 'blocked' | 'done';
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface AgentTeamStep {
+  id: string;
+  kind: 'user-to-role' | 'role-to-role' | 'role-return' | 'system';
+  title: string;
+  body: string;
+  colorKey: string;
+  status?: 'pending' | 'running' | 'done';
+  timestamp?: number;
+}
+
+export interface AgentTeamGroup {
+  id: string;
+  name: string;
+  roles: AgentTeamRole[];
+  steps: AgentTeamStep[];
+  messages: ConversationMessage[];
+  createdAt?: number;
+  updatedAt?: number;
+}
+
 export interface ConversationSwitchPayload {
   settings?: Partial<SettingsState>;
   activeConversationId?: string;
@@ -296,6 +329,17 @@ export interface RenderJobs {
   tabs: boolean;
 }
 
+export interface CreateAgentTeamGroupOptions {
+  name?: string;
+}
+
+export interface CreateAgentTeamRoleOptions {
+  name?: string;
+  upstreamRoleId?: string;
+  downstreamRoleIds?: string[];
+  responsibility?: string;
+}
+
 export interface GenericResult {
   error?: string;
   snapshot?: AppSnapshot;
@@ -380,6 +424,10 @@ export interface AppState {
   composerAttachmentsByConversation: Record<string, MessageAttachment[]>;
   inputBindingConversationId: string;
   activeTab: ActiveTab;
+  activeAgentTeamTab: AgentTeamTab;
+  workspaceMode: WorkspaceMode;
+  activeAgentTeamGroupId: string;
+  agentTeamGroups: AgentTeamGroup[];
   ui: UiState;
 }
 
@@ -392,6 +440,7 @@ export interface UiElementRefs {
   conversationList: HTMLElement;
   focusRow: HTMLElement;
   btnSidebarNewConv: HTMLButtonElement;
+  btnSidebarNewTeam: HTMLButtonElement;
   btnNewConv: HTMLButtonElement;
   btnImportSession: HTMLButtonElement;
   btnExportSession: HTMLButtonElement;
@@ -512,9 +561,15 @@ export interface UiElementRefs {
   tabStructured: HTMLElement;
   tabWorkflow: HTMLElement;
   tabRaw: HTMLElement;
+  tabTeamAdd: HTMLElement;
+  tabTeamRoles: HTMLElement;
+  tabTeamStatus: HTMLElement;
   tabBtnStructured: HTMLButtonElement;
   tabBtnWorkflow: HTMLButtonElement;
   tabBtnRaw: HTMLButtonElement;
+  tabBtnTeamAdd: HTMLButtonElement;
+  tabBtnTeamRoles: HTMLButtonElement;
+  tabBtnTeamStatus: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];
   inputBox: HTMLTextAreaElement;
   attachmentInput: HTMLInputElement;
@@ -528,6 +583,7 @@ export interface UiElementRefs {
   btnInsertMessage: HTMLButtonElement;
   btnRetryLast: HTMLButtonElement;
   btnStop: HTMLButtonElement;
+  btnAddTeamRole: HTMLButtonElement;
   composerWorkdir: HTMLElement;
   labelComposerWorkdir: HTMLElement;
   composerWorkdirValue: HTMLElement;
@@ -541,6 +597,17 @@ export interface UiElementRefs {
   createConversationProviderClaude: HTMLButtonElement;
   createConversationCancel: HTMLButtonElement;
   createConversationConfirm: HTMLButtonElement;
+  createTeamModal: HTMLElement;
+  createTeamNameInput: HTMLInputElement;
+  createTeamCancel: HTMLButtonElement;
+  createTeamConfirm: HTMLButtonElement;
+  addTeamRoleModal: HTMLElement;
+  addTeamRoleNameInput: HTMLInputElement;
+  addTeamRoleUpstreamSelect: HTMLSelectElement;
+  addTeamRoleDownstreamList: HTMLElement;
+  addTeamRoleResponsibilityInput: HTMLTextAreaElement;
+  addTeamRoleCancel: HTMLButtonElement;
+  addTeamRoleConfirm: HTMLButtonElement;
   importWorkdirModal: HTMLElement;
   importWorkdirTitle: HTMLElement;
   importWorkdirMessage: HTMLElement;

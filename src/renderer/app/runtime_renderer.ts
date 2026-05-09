@@ -19,6 +19,7 @@ import {
   queuedMessages,
   setWorkflowStepCollapsed,
 } from './conversation_runtime.js';
+import { renderAgentTeamRuntime } from './agent_team.js';
 
 const rawFocusIdByConversation = new Map<string, string>();
 
@@ -635,6 +636,10 @@ function renderActiveRuntimeTab(runtime: RuntimeState, stickToBottom = true) {
 }
 
 function renderRuntime(stickToBottom = true) {
+  if (state.workspaceMode === 'team') {
+    renderAgentTeamRuntime();
+    return;
+  }
   if (!hasActiveConversation()) {
     if (state.activeTab === 'structured') {
       el.tabStructured.innerHTML = `<div class="tip">${escapeHtml(t('runtimeTipStructured'))}</div>`;

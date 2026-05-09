@@ -71,6 +71,10 @@ const state: AppState = {
   composerAttachmentsByConversation: {},
   inputBindingConversationId: '',
   activeTab: 'workflow',
+  activeAgentTeamTab: 'workflow',
+  workspaceMode: 'conversation',
+  activeAgentTeamGroupId: '',
+  agentTeamGroups: [],
   ui: {
     language: 'zh-CN',
     theme: 'light',

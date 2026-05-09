@@ -18,9 +18,33 @@ import {
 import { renderQueuePopover } from './runtime_renderer.js';
 import { renderComposerWorkdir } from './composer_renderer.js';
 import { renderCurrentTimeDisplay } from './time_display.js';
+import { currentAgentTeamGroup } from './agent_team.js';
 
 function renderHeader() {
   renderCurrentTimeDisplay();
+  if (state.workspaceMode === 'team') {
+    const group = currentAgentTeamGroup();
+    el.chatTitle.textContent = group?.name || t('agentTeamLabel');
+    el.sessionId.textContent = group ? `${group.id.slice(0, 8)}...${group.id.slice(-4)}` : '-';
+    if (el.btnSessionId) {
+      el.btnSessionId.disabled = !group;
+      el.btnSessionId.dataset.fullValue = group?.id || '';
+      el.btnSessionId.dataset.tooltip = group ? t('clickToCopy') : '';
+      el.btnSessionId.setAttribute('aria-label', group ? `${t('clickToCopy')}: ${group.id}` : t('sessionId'));
+    }
+    el.phase.textContent = t('stateIdle');
+    updatePhaseClass('空闲');
+    el.queueCount.textContent = '0';
+    el.queueChip.classList.add('hidden');
+    if (el.metaModelValue) {
+      el.metaModelValue.textContent = t('agentTeamLabel');
+    }
+    if (el.btnMetaModel) {
+      el.btnMetaModel.disabled = true;
+    }
+    renderComposerWorkdir();
+    return;
+  }
   const conv = currentConversation();
   const meta = conv
     ? ensureMeta(state.activeConversationId)
@@ -95,6 +119,42 @@ function renderHeader() {
 }
 
 function renderRunButtons() {
+  if (state.workspaceMode === 'team') {
+    const hasGroup = Boolean(currentAgentTeamGroup());
+    el.btnSend.disabled = !hasGroup;
+    el.btnSend.textContent = t('send');
+    el.btnInsertMessage.classList.add('hidden');
+    el.btnRetryLast.classList.add('hidden');
+    el.btnStop.classList.add('hidden');
+    el.btnAddTeamRole.classList.remove('hidden');
+    el.btnAddTeamRole.disabled = !hasGroup;
+    el.btnAddTeamRole.textContent = t('agentTeamAddRole');
+    el.btnImportSession.disabled = true;
+    el.btnExportSession.disabled = true;
+    el.btnRenameConv.disabled = true;
+    el.btnCloseConv.disabled = true;
+    el.btnClearChat.disabled = !hasGroup;
+    el.btnClearRuntime.disabled = !hasGroup;
+    el.btnMetaModel.disabled = true;
+    if (el.btnAddAttachment) {
+      el.btnAddAttachment.disabled = true;
+      el.btnAddAttachment.title = '';
+    }
+    if (el.attachmentInput) {
+      el.attachmentInput.disabled = true;
+    }
+    if (el.btnAddImageAttachment) {
+      el.btnAddImageAttachment.disabled = true;
+      el.btnAddImageAttachment.title = '';
+    }
+    if (el.attachmentKindMenu) {
+      el.attachmentKindMenu.classList.add('hidden');
+      el.btnAddAttachment?.setAttribute('aria-expanded', 'false');
+    }
+    el.inputBox.disabled = !hasGroup;
+    el.inputBox.placeholder = hasGroup ? t('agentTeamInputPlaceholder') : t('agentTeamEmptyTitle');
+    return;
+  }
   const hasConv = hasActiveConversation();
   const conv = currentConversation();
   const isClaudeConversation = String(conv?.provider || state.settings.provider || '').trim().toLowerCase() === 'claude';
@@ -107,6 +167,9 @@ function renderRunButtons() {
   el.btnInsertMessage.textContent = t('insertMessage');
   el.btnInsertMessage.title = isClaudeConversation ? t('insertUnavailableClaude') : '';
   el.btnInsertMessage.classList.remove('hidden');
+  el.btnRetryLast.classList.remove('hidden');
+  el.btnStop.classList.remove('hidden');
+  el.btnAddTeamRole.classList.add('hidden');
   el.btnRetryLast.disabled = !canRetryLastMessage();
   el.btnRetryLast.textContent = t('retryLast');
   el.btnStop.textContent = t('stop');
@@ -198,21 +261,34 @@ function renderRunButtons() {
 }
 
 function renderTabs() {
+  const teamMode = state.workspaceMode === 'team';
   el.tabButtons.forEach((btn) => {
     const tab = btn.getAttribute('data-tab');
-    const active = tab === state.activeTab;
+    const teamTab = btn.getAttribute('data-team-tab');
+    const active = teamMode
+      ? (teamTab || tab) === state.activeAgentTeamTab
+      : tab === state.activeTab;
     btn.classList.toggle('active', active);
   });
 
-  document.getElementById('tab-structured')?.classList.toggle('active', state.activeTab === 'structured');
-  document.getElementById('tab-workflow')?.classList.toggle('active', state.activeTab === 'workflow');
-  document.getElementById('tab-raw')?.classList.toggle('active', state.activeTab === 'raw');
+  el.tabBtnStructured.classList.toggle('hidden', teamMode);
+  el.tabBtnRaw.classList.toggle('hidden', teamMode);
+  el.tabBtnTeamAdd.classList.toggle('hidden', !teamMode);
+  el.tabBtnTeamRoles.classList.toggle('hidden', !teamMode);
+  el.tabBtnTeamStatus.classList.toggle('hidden', !teamMode);
+  document.getElementById('tab-structured')?.classList.toggle('active', !teamMode && state.activeTab === 'structured');
+  document.getElementById('tab-workflow')?.classList.toggle('active', teamMode ? state.activeAgentTeamTab === 'workflow' : state.activeTab === 'workflow');
+  document.getElementById('tab-raw')?.classList.toggle('active', !teamMode && state.activeTab === 'raw');
+  el.tabTeamAdd.classList.toggle('active', teamMode && state.activeAgentTeamTab === 'add-role');
+  el.tabTeamRoles.classList.toggle('active', teamMode && state.activeAgentTeamTab === 'roles');
+  el.tabTeamStatus.classList.toggle('active', teamMode && state.activeAgentTeamTab === 'status');
 }
 
 function renderLayout() {
   el.contentRow.classList.toggle('runtime-hidden', state.ui.runtimePanelHidden);
   el.runtimePanel.classList.toggle('hidden', state.ui.runtimePanelHidden);
   el.appRoot.classList.toggle('sidebar-hidden', state.ui.sidebarHidden);
+  el.appRoot.classList.toggle('agent-team-mode', state.workspaceMode === 'team');
 }
 
 function applyLocalizedAttribute(attrName: string, keyAttrName: string) {
@@ -238,8 +314,14 @@ function renderLocaleTexts() {
     el.sidebarSearchInput.setAttribute('aria-label', t('sidebarSearchPlaceholder'));
   }
   if (el.btnSidebarNewConv) {
-    el.btnSidebarNewConv.title = t('newConversation');
-    el.btnSidebarNewConv.setAttribute('aria-label', t('newConversation'));
+    const newTitle = state.workspaceMode === 'team' ? t('agentTeamCreate') : t('newConversation');
+    el.btnSidebarNewConv.title = newTitle;
+    el.btnSidebarNewConv.setAttribute('aria-label', newTitle);
+  }
+  if (el.btnSidebarNewTeam) {
+    const teamSwitchTitle = state.workspaceMode === 'team' ? t('agentTeamSwitchToConversations') : t('agentTeamSwitchToGroups');
+    el.btnSidebarNewTeam.title = teamSwitchTitle;
+    el.btnSidebarNewTeam.setAttribute('aria-label', teamSwitchTitle);
   }
   el.labelSessionId.textContent = t('sessionId');
   if (el.btnSessionId) {
@@ -306,6 +388,9 @@ function renderLocaleTexts() {
   el.tabBtnStructured.textContent = t('tabStructured');
   el.tabBtnWorkflow.textContent = t('tabWorkflow');
   el.tabBtnRaw.textContent = t('tabRaw');
+  el.tabBtnTeamAdd.textContent = t('agentTeamAddTab');
+  el.tabBtnTeamRoles.textContent = t('agentTeamRoles');
+  el.tabBtnTeamStatus.textContent = t('status');
   if (el.btnAddAttachment) {
     el.btnAddAttachment.textContent = t('addAttachment');
   }

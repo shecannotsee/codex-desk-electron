@@ -43,6 +43,7 @@ function applyEvent(event: AppEvent | null | undefined) {
 
   const id = String(event.conversationId || '');
   const isActiveConversation = Boolean(id) && id === state.activeConversationId;
+  const isActiveConversationWorkspace = isActiveConversation && state.workspaceMode !== 'team';
   const renderJobs = createRenderJobs();
   switch (event.type) {
     case 'runtime-event-append': {
@@ -52,7 +53,7 @@ function applyEvent(event: AppEvent | null | undefined) {
         runtime.events.push(runtimeItem);
         trimRuntimeState(runtime);
       }
-      if (isActiveConversation && state.activeTab === 'structured') {
+      if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
       }
       break;
@@ -65,7 +66,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       } else if (runtime.events.length) {
         runtime.events.pop();
       }
-      if (isActiveConversation && state.activeTab === 'structured') {
+      if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
       }
       break;
@@ -76,7 +77,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (Number.isInteger(index) && index >= 0 && index < runtime.events.length) {
         runtime.events[index] = (event.item || {}) as RuntimeEventItem;
       }
-      if (isActiveConversation && state.activeTab === 'structured') {
+      if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
       }
       break;
@@ -84,7 +85,7 @@ function applyEvent(event: AppEvent | null | undefined) {
     case 'runtime-workflow-append':
       ensureRuntime(id).workflow.push((event.item || {}) as WorkflowItem);
       trimRuntimeState(state.runtimeByConversation[id]);
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
       }
@@ -95,7 +96,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (Number.isInteger(index) && index >= 0 && index < runtime.workflow.length) {
         runtime.workflow[index] = (event.item || {}) as WorkflowItem;
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
       }
@@ -109,7 +110,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       } else if (runtime.workflow.length) {
         runtime.workflow.pop();
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
       }
@@ -118,7 +119,7 @@ function applyEvent(event: AppEvent | null | undefined) {
     case 'runtime-raw-append':
       ensureRuntime(id).raw.push((event.line || '') as string | RawEventEntry);
       trimRuntimeState(state.runtimeByConversation[id]);
-      if (isActiveConversation && state.activeTab === 'raw') {
+      if (isActiveConversationWorkspace && state.activeTab === 'raw') {
         renderJobs.runtimeRaw = true;
       }
       break;
@@ -127,7 +128,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!patchConversationListItem(id)) {
         renderJobs.conversationList = true;
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
@@ -136,7 +137,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       break;
     case 'runtime-started-at':
       ensureRuntime(id).startedAt = typeof event.startedAt === 'number' ? event.startedAt : null;
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
       }
       break;
@@ -151,7 +152,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!patchConversationListItem(id)) {
         renderJobs.conversationList = true;
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.runtime = true;
@@ -174,7 +175,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       }
       syncChatVisibleCount(conv.id, Array.isArray(conv.messages) ? conv.messages.length : 0, previousTotal);
       renderJobs.conversationList = true;
-      if (conv.id === state.activeConversationId) {
+      if (conv.id === state.activeConversationId && state.workspaceMode !== 'team') {
         renderJobs.header = true;
         renderJobs.chat = true;
         renderJobs.runButtons = true;
@@ -188,7 +189,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       break;
     case 'meta-updated':
       ensureMeta(id)[String(event.key || '')] = String(event.value || '');
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
       }
       break;
@@ -201,7 +202,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!patchConversationListItem(id)) {
         renderJobs.conversationList = true;
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
@@ -218,7 +219,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!patchConversationListItem(id)) {
         renderJobs.conversationList = true;
       }
-      if (isActiveConversation) {
+      if (isActiveConversationWorkspace) {
         renderJobs.header = true;
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;

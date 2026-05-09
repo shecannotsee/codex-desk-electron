@@ -15,6 +15,7 @@ import {
   askRenameTitle,
   resolvePreferredImportContinuationMode,
 } from './app_dialogs.js';
+import { openCreateTeamModal } from './agent_team.js';
 
 type ConversationActionsOptions = {
   applySnapshot: (snapshot: unknown) => void;
@@ -87,6 +88,10 @@ export function bindConversationActions(options: ConversationActionsOptions) {
   };
 
   el.btnNewConv.addEventListener('click', async () => {
+    if (state.workspaceMode === 'team') {
+      openCreateTeamModal();
+      return;
+    }
     await runCreateConversationFlow();
   });
 

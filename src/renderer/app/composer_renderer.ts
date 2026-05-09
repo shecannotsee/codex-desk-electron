@@ -15,6 +15,13 @@ function renderComposerWorkdir() {
   if (!el.composerWorkdir || !el.labelComposerWorkdir || !el.composerWorkdirValue) {
     return;
   }
+  if (state.workspaceMode === 'team') {
+    el.composerWorkdir.classList.add('hidden');
+    el.composerWorkdirValue.removeAttribute('data-open-path');
+    el.composerWorkdirValue.removeAttribute('data-copy-text');
+    el.composerWorkdirValue.removeAttribute('aria-label');
+    return;
+  }
   const conv = currentConversation();
   const workdir = String(conv?.workdir || '').trim();
   el.labelComposerWorkdir.textContent = `${t('composerWorkdir')}:`;
@@ -36,6 +43,11 @@ function renderComposerAttachments() {
   if (!el.composerAttachments) {
     return;
   }
+  if (state.workspaceMode === 'team') {
+    el.composerAttachments.classList.add('hidden');
+    el.composerAttachments.innerHTML = '';
+    return;
+  }
   const items = getComposerAttachments(state.activeConversationId);
   el.composerAttachments.classList.toggle('hidden', items.length <= 0);
   el.composerAttachments.innerHTML = items.length
@@ -54,6 +66,14 @@ function renderComposerDraft(options: ComposerRenderOptions = {}) {
     return;
   }
   const force = options.force === true;
+  if (state.workspaceMode === 'team') {
+    if (state.inputBindingConversationId !== '__agent_team__' || force) {
+      el.inputBox.value = '';
+    }
+    state.inputBindingConversationId = '__agent_team__';
+    renderComposerAttachments();
+    return;
+  }
   const draftKey = draftStorageKey(state.activeConversationId);
   const nextValue = getConversationDraft(state.activeConversationId);
   const bindingChanged = state.inputBindingConversationId !== draftKey;

@@ -520,7 +520,7 @@ async function init() {
     btn.addEventListener('click', async () => {
       if (state.workspaceMode === 'team') {
         const teamTab = String(btn.getAttribute('data-team-tab') || '').trim();
-        if (teamTab === 'add-role' || teamTab === 'roles' || teamTab === 'status') {
+        if (teamTab === 'roles' || teamTab === 'status') {
           state.activeAgentTeamTab = teamTab;
         } else {
           state.activeAgentTeamTab = 'workflow';

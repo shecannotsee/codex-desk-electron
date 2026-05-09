@@ -63,6 +63,12 @@ const runtimeMethods = {
     const conv = newConversation(undefined, this.conversations);
     const selectedWorkdir = typeof options.workdir === 'string' ? options.workdir : '';
     const provider = normalizeCliProvider(options.provider || options.cliProvider, '');
+    const title = String(options.title || '').trim();
+    const preserveActive = Boolean(options.preserveActive);
+    const previousActiveId = this.activeConversationId;
+    if (title) {
+      conv.title = title;
+    }
     conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
     conv.provider = provider;
     conv.commandText = defaultCommandTextForProvider(provider);
@@ -70,13 +76,16 @@ const runtimeMethods = {
     this.runtimeStore.ensure(conv.id);
     this._ensureMeta(conv.id);
 
-    this.activeConversationId = conv.id;
+    this.activeConversationId = preserveActive ? previousActiveId : conv.id;
     this._appendStructuredEvent(conv.id, 'success', `已新建对话: ${conv.title}`);
     this._appendStructuredEvent(conv.id, 'hint', `CLI: ${provider === 'claude' ? 'Claude Code' : 'Codex CLI'}`);
     this._appendStructuredEvent(conv.id, 'hint', `工作目录: ${conv.workdir}`);
     this._persist();
     this._autoRefreshMetaForConversation(conv.id);
-    return this.snapshot();
+    return {
+      ...this.snapshot(),
+      createdConversationId: conv.id,
+    };
   },
 
   async _autoRefreshMetaForConversation(conversationId) {

@@ -11,6 +11,7 @@ import {
   ensureRuntime,
   findConversationIndexById,
 } from './conversation_runtime.js';
+import { syncAgentTeamRoleConversationStatus } from './agent_team.js';
 import { patchConversationListItem, isChatViewNearBottom } from './renderers.js';
 import { removeConversationRuntimeState, trimRuntimeState } from './app_state_sync.js';
 import { createRenderJobs, scheduleRender } from './render_scheduler.js';
@@ -33,6 +34,21 @@ function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item:
   );
 }
 
+function isAgentTeamRoleConversation(conversationId: string): boolean {
+  const id = String(conversationId || '').trim();
+  return Boolean(id)
+    && state.workspaceMode === 'team'
+    && state.agentTeamGroups.some((group) => (group.roles || []).some((role) => role.conversationId === id));
+}
+
+function touchAgentTeamRoleConversation(conversationId: string, running?: boolean): void {
+  const id = String(conversationId || '').trim();
+  if (!id) {
+    return;
+  }
+  syncAgentTeamRoleConversationStatus(id, running);
+}
+
 function applyEvent(event: AppEvent | null | undefined) {
   if (!event || typeof event !== 'object') {
     return;
@@ -44,6 +60,7 @@ function applyEvent(event: AppEvent | null | undefined) {
   const id = String(event.conversationId || '');
   const isActiveConversation = Boolean(id) && id === state.activeConversationId;
   const isActiveConversationWorkspace = isActiveConversation && state.workspaceMode !== 'team';
+  let isTeamRoleConversation = isAgentTeamRoleConversation(id);
   const renderJobs = createRenderJobs();
   switch (event.type) {
     case 'runtime-event-append': {
@@ -55,6 +72,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       }
       if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
+      }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
       }
       break;
     }
@@ -69,6 +89,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
       }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
+      }
       break;
     }
     case 'runtime-event-update': {
@@ -80,6 +103,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (isActiveConversationWorkspace && state.activeTab === 'structured') {
         renderJobs.runtimeStructured = true;
       }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
+      }
       break;
     }
     case 'runtime-workflow-append':
@@ -88,6 +114,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (isActiveConversationWorkspace) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
+      }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
       }
       break;
     case 'runtime-workflow-update': {
@@ -99,6 +128,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (isActiveConversationWorkspace) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
+      }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
       }
       break;
     }
@@ -114,6 +146,9 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
       }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
+      }
       break;
     }
     case 'runtime-raw-append':
@@ -121,6 +156,9 @@ function applyEvent(event: AppEvent | null | undefined) {
       trimRuntimeState(state.runtimeByConversation[id]);
       if (isActiveConversationWorkspace && state.activeTab === 'raw') {
         renderJobs.runtimeRaw = true;
+      }
+      if (isTeamRoleConversation) {
+        renderJobs.runtime = true;
       }
       break;
     case 'runtime-phase':
@@ -133,6 +171,10 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
+      }
+      if (isTeamRoleConversation) {
+        renderJobs.conversationList = true;
+        renderJobs.runtime = true;
       }
       break;
     case 'runtime-started-at':
@@ -164,6 +206,7 @@ function applyEvent(event: AppEvent | null | undefined) {
       if (!conv || !conv.id) {
         break;
       }
+      isTeamRoleConversation = isAgentTeamRoleConversation(conv.id);
       const idx = findConversationIndexById(conv.id);
       const previousTotal = idx >= 0 && Array.isArray(state.conversations[idx]?.messages)
         ? state.conversations[idx].messages.length
@@ -179,6 +222,11 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.header = true;
         renderJobs.chat = true;
         renderJobs.runButtons = true;
+      }
+      if (isTeamRoleConversation) {
+        touchAgentTeamRoleConversation(conv.id);
+        renderJobs.chat = true;
+        renderJobs.runtime = true;
       }
       break;
     }
@@ -207,6 +255,11 @@ function applyEvent(event: AppEvent | null | undefined) {
         renderJobs.runButtons = true;
         renderJobs.chatTransient = true;
         renderJobs.runtimeWorkflow = true;
+      }
+      if (isTeamRoleConversation) {
+        touchAgentTeamRoleConversation(id, Boolean(event.running));
+        renderJobs.conversationList = true;
+        renderJobs.runtime = true;
       }
       break;
     case 'queue-updated':

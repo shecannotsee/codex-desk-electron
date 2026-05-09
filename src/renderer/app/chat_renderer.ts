@@ -283,6 +283,47 @@ function findLatestAssistantMessageIndex(conversation: ConversationSummary | nul
   return -1;
 }
 
+function providerLabel(provider: unknown): string {
+  return String(provider || '').trim().toLowerCase() === 'claude' ? t('roleClaude') : t('roleCodex');
+}
+
+function conversationProviderLabel(conversation: ConversationSummary): string {
+  const provider = String(conversation.provider || '').trim().toLowerCase();
+  if (provider === 'claude') {
+    return t('roleClaude');
+  }
+  const commandText = String(conversation.commandText || '').trim().toLowerCase();
+  if (commandText.includes('claude')) {
+    return t('roleClaude');
+  }
+  return providerLabel(provider);
+}
+
+function agentTeamRoleNameForConversation(conversationId: string): string {
+  const id = String(conversationId || '').trim();
+  if (!id) {
+    return '';
+  }
+  for (const group of state.agentTeamGroups || []) {
+    const role = (group.roles || []).find((item) => item.conversationId === id);
+    if (role?.name) {
+      return String(role.name || '').trim();
+    }
+  }
+  return '';
+}
+
+function messageRoleLabel(item: ConversationMessage, conversation: ConversationSummary): string {
+  const speakerName = String(item.speakerName || '').trim();
+  if (speakerName) {
+    return speakerName;
+  }
+  if (item.role === 'user') {
+    return t('roleYou');
+  }
+  return agentTeamRoleNameForConversation(conversation.id) || conversationProviderLabel(conversation);
+}
+
 function renderMessageUsageFooter(conversation: ConversationSummary, latestAssistantIndex: number, index: number, item: ConversationMessage): string {
   if (item.role !== 'assistant') {
     return '';
@@ -386,7 +427,7 @@ function renderChatMessageBlock(
   conversation: ConversationSummary,
   latestAssistantIndex: number,
 ): string {
-  const role = item.role === 'user' ? t('roleYou') : t('roleCodex');
+  const role = messageRoleLabel(item, conversation);
   const bubbleClass = item.role === 'user'
     ? `msg-user${item?.interrupted ? ' msg-user-interrupted' : ''}`
     : 'msg-assistant';

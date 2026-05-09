@@ -207,6 +207,34 @@ function renderWorkflowRunningPanel(conversationId: string): string {
   ].join('');
 }
 
+function providerLabel(provider: unknown): string {
+  return String(provider || '').trim().toLowerCase() === 'claude' ? t('roleClaude') : t('roleCodex');
+}
+
+function conversationProviderLabel(conversation: { provider?: unknown; commandText?: unknown } | null | undefined): string {
+  const provider = String(conversation?.provider || '').trim().toLowerCase();
+  if (provider === 'claude') {
+    return t('roleClaude');
+  }
+  const commandText = String(conversation?.commandText || '').trim().toLowerCase();
+  if (commandText.includes('claude')) {
+    return t('roleClaude');
+  }
+  return providerLabel(provider);
+}
+
+function assistantWorkflowLabel(conversationId = state.activeConversationId): string {
+  const id = String(conversationId || '').trim();
+  for (const group of state.agentTeamGroups || []) {
+    const role = (group.roles || []).find((item) => item.conversationId === id);
+    if (role?.name) {
+      return String(role.name || '').trim();
+    }
+  }
+  const conversation = state.conversations.find((item) => item.id === id) || null;
+  return conversationProviderLabel(conversation);
+}
+
 function renderWorkflowRequestTip(): string {
   const inlineTips = [
     t('runtimeWorkflowTipsNotePlan'),
@@ -407,6 +435,7 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
     const index = startIndex + offset;
     const collapsed = isWorkflowStepCollapsed(state.activeConversationId, index);
     const toggleText = collapsed ? t('expandMessage') : t('collapseMessage');
+    const assistantLabel = assistantWorkflowLabel();
 
     if (item.type === 'round') {
       const collapsedLine = messagePreview(localizeKnownText(item.body || item.preview || ''));
@@ -455,7 +484,7 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
       return [
         `<div class="runtime-step tag-${escapeHtml(item.tag || 'PROG')}${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
         '<div class="runtime-step-head">',
-        `<span class="left">${escapeHtml(t('roleCodex'))} | ${escapeHtml(title)} | ${escapeHtml(progressStatus)}</span>`,
+        `<span class="left">${escapeHtml(assistantLabel)} | ${escapeHtml(title)} | ${escapeHtml(progressStatus)}</span>`,
         '<span class="right-group">',
         `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
         `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,
@@ -473,7 +502,7 @@ function renderWorkflowTab(runtime: RuntimeState, stickToBottom = true) {
       return [
         `<div class="runtime-step tag-${escapeHtml(item.tag || 'REPLY')}${collapsed ? ' collapsed' : ''}" data-wf-index="${escapeHtml(index)}">`,
         '<div class="runtime-step-head">',
-        `<span class="left">${escapeHtml(t('roleCodex'))} | ${escapeHtml(assistantStatus)}</span>`,
+        `<span class="left">${escapeHtml(assistantLabel)} | ${escapeHtml(assistantStatus)}</span>`,
         '<span class="right-group">',
         `<span class="right">${escapeHtml(item.timestamp || '--:--:--')}</span>`,
         `<button type="button" class="runtime-step-toggle" data-wf-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,

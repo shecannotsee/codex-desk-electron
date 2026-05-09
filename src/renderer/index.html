@@ -659,23 +659,34 @@
 
   <div id="add-team-role-modal" class="modal-backdrop hidden">
     <div class="modal-card add-team-role-modal-card">
-      <div class="modal-title">添加角色</div>
+      <div id="add-team-role-title" class="modal-title">添加角色</div>
       <div class="team-role-form">
         <label class="team-role-field">
           <span>名称</span>
           <input id="add-team-role-name-input" class="modal-input" type="text" placeholder="例如：架构负责人" />
         </label>
-        <label class="team-role-field">
-          <span>对上负责人</span>
-          <select id="add-team-role-upstream-select" class="modal-input"></select>
-        </label>
         <div class="team-role-field">
-          <span>对下负责人</span>
+          <span>CLI</span>
+          <div class="create-conversation-provider-group" role="group" aria-label="Role CLI">
+            <button id="add-team-role-provider-codex" class="quick-settings-pill active" type="button">Codex</button>
+            <button id="add-team-role-provider-claude" class="quick-settings-pill" type="button">Claude</button>
+          </div>
+        </div>
+        <div class="team-role-field">
+          <span>对上负责人</span>
+          <div id="add-team-role-upstream-list" class="team-role-downstream-list"></div>
+        </div>
+        <div class="team-role-field">
+          <span>下级角色</span>
           <div id="add-team-role-downstream-list" class="team-role-downstream-list"></div>
         </div>
         <label class="team-role-field">
           <span>职责</span>
           <textarea id="add-team-role-responsibility-input" class="modal-input team-role-responsibility-input" placeholder="手动输入这个角色负责什么、交付什么、需要避免什么。"></textarea>
+        </label>
+        <label class="team-role-field">
+          <span>完成契约</span>
+          <textarea id="add-team-role-completion-input" class="modal-input team-role-completion-input" placeholder="默认使用系统完成契约，也可以按角色单独调整。"></textarea>
         </label>
       </div>
       <div class="modal-actions">

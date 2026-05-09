@@ -30,7 +30,12 @@ contextBridge.exposeInMainWorld('codexdesk', {
   refreshCodexVersion: (conversationId) => ipcRenderer.invoke('meta:refresh-codex-version', { conversationId }),
   refreshModelInfo: (conversationId) => ipcRenderer.invoke('meta:refresh-model', { conversationId }),
 
-  sendMessage: (conversationId, text, attachments = []) => ipcRenderer.invoke('chat:send', { conversationId, text, attachments }),
+  sendMessage: (conversationId, text, attachments = [], options = {}) => ipcRenderer.invoke('chat:send', {
+    conversationId,
+    text,
+    attachments,
+    options,
+  }),
   insertMessage: (conversationId, text) => ipcRenderer.invoke('chat:insert', { conversationId, text }),
   retryLastMessage: (conversationId) => ipcRenderer.invoke('chat:retry-last', { conversationId }),
   cancelQueuedMessage: (conversationId, queuedMessageId, queuedIndex) => ipcRenderer.invoke('chat:cancel-queued-message', {

@@ -15,16 +15,26 @@ import {
 } from './conversation_runtime.js';
 import { renderAgentTeamGroupList } from './agent_team.js';
 
+interface AgentTeamConversationMeta {
+  groupName: string;
+  roleName: string;
+  provider: 'codex' | 'claude';
+  upstreamName: string;
+}
+
 interface ConversationListItemCacheEntry {
   version: number;
   conversationRef: ConversationSummary;
   language: string;
   title: string;
   sessionId: string;
+  commandText: string;
   pinnedAt: number;
   updatedAt: number;
   createdAt: number;
   latestMessageRef: ConversationMessage | null;
+  provider: string;
+  teamMetaKey: string;
   statusKey: string;
   statusLabel: string;
   queue: number;
@@ -105,8 +115,58 @@ function conversationPreviewText(item: ConversationSummary): string {
   if (!latest) {
     return t('sidebarEmptyPreview');
   }
-  const prefix = latest.role === 'user' ? `${t('roleYou')}: ` : '';
+  const teamMeta = agentTeamConversationMeta(item.id);
+  const prefix = teamMeta
+    ? latest.role === 'user'
+      ? `${teamMeta.upstreamName || t('agentTeamUpstream')}: `
+      : `${teamMeta.roleName}: `
+    : latest.role === 'user' ? `${t('roleYou')}: ` : '';
   return messagePreview(`${prefix}${String(latest.text || '')}`);
+}
+
+function agentTeamConversationMeta(conversationId: string): AgentTeamConversationMeta | null {
+  const id = String(conversationId || '').trim();
+  if (!id) {
+    return null;
+  }
+  for (const group of state.agentTeamGroups || []) {
+    const role = (group.roles || []).find((item) => item.conversationId === id);
+    if (!role) {
+      continue;
+    }
+    return {
+      groupName: String(group.name || '').trim(),
+      roleName: String(role.name || '').trim(),
+      provider: role.provider === 'claude' ? 'claude' : 'codex',
+      upstreamName: String(role.currentUpstreamName || group.ownerName || t('agentTeamOwnerName')).trim(),
+    };
+  }
+  return null;
+}
+
+function providerLabel(provider: unknown): string {
+  return String(provider || '').trim().toLowerCase() === 'claude' ? 'Claude' : 'Codex';
+}
+
+function conversationProvider(item: ConversationSummary, teamMeta: AgentTeamConversationMeta | null): 'codex' | 'claude' {
+  const provider = String(teamMeta?.provider || item.provider || '').trim().toLowerCase();
+  if (provider === 'claude') {
+    return 'claude';
+  }
+  const commandText = String(item.commandText || '').trim().toLowerCase();
+  return commandText.includes('claude') ? 'claude' : 'codex';
+}
+
+function agentTeamMetaKey(teamMeta: AgentTeamConversationMeta | null): string {
+  if (!teamMeta) {
+    return '';
+  }
+  return [
+    teamMeta.groupName,
+    teamMeta.roleName,
+    teamMeta.provider,
+    teamMeta.upstreamName,
+  ].map((item) => String(item || '').trim()).join('\u0001');
 }
 
 function sortedConversationsCached(): ConversationSummary[] {
@@ -125,11 +185,16 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
   const status = getConversationState(item.id);
   const queue = queuedCount(item.id);
   const pinned = Number(item.pinnedAt || 0) > 0;
+  const teamMeta = agentTeamConversationMeta(item.id);
   const titleText = String(item.title || '-').trim();
-  const avatarChar = titleText ? Array.from(titleText)[0] : '•';
+  const avatarChar = teamMeta?.roleName ? Array.from(teamMeta.roleName)[0] : titleText ? Array.from(titleText)[0] : '•';
   const avatarTone = conversationAvatarTone(item.id, titleText);
   const timeText = formatMessageTime(item.updatedAt || item.createdAt);
   const previewText = conversationPreviewText(item);
+  const provider = conversationProvider(item, teamMeta);
+  const providerBadge = `<span class="conversation-provider-badge provider-${escapeHtml(provider)}">${escapeHtml(providerLabel(provider))}</span>`;
+  const teamBadge = teamMeta ? `<span class="conversation-team-role-badge">${escapeHtml(teamMeta.groupName ? `${teamMeta.groupName} / ${teamMeta.roleName}` : teamMeta.roleName)}</span>` : '';
+  const displayTitle = teamMeta?.roleName || item.title || '-';
   const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
   const pinBadge = pinned ? [
     `<span class="conversation-pin-badge" title="${escapeHtml(t('pinnedConversation'))}" aria-label="${escapeHtml(t('pinnedConversation'))}">`,
@@ -143,7 +208,9 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     '<div class="conversation-main">',
     '<div class="conversation-top-row">',
     '<div class="conversation-title-row">',
-    `<span class="conversation-title-text">${escapeHtml(item.title || '-')}</span>`,
+    `<span class="conversation-title-text">${escapeHtml(displayTitle)}</span>`,
+    providerBadge,
+    teamBadge,
     '</div>',
     '<div class="conversation-top-meta">',
     `<div class="conversation-time">${escapeHtml(timeText || '')}</div>`,
@@ -165,14 +232,17 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     language: currentLang(),
     title: String(item.title || ''),
     sessionId: String(item.sessionId || ''),
+    commandText: String(item.commandText || ''),
     pinnedAt: Number(item.pinnedAt || 0),
     updatedAt: Number(item.updatedAt || 0),
     createdAt: Number(item.createdAt || 0),
     latestMessageRef: Array.isArray(item.messages) && item.messages.length ? item.messages[item.messages.length - 1] : null,
+    provider,
+    teamMetaKey: agentTeamMetaKey(teamMeta),
     statusKey: status.key,
     statusLabel: status.label,
     queue,
-    searchText: `${String(item.title || '')}\n${previewText}\n${String(item.sessionId || '')}`.toLowerCase(),
+    searchText: `${String(item.title || '')}\n${teamMeta?.groupName || ''}\n${teamMeta?.roleName || ''}\n${providerLabel(provider)}\n${previewText}\n${String(item.sessionId || '')}`.toLowerCase(),
     contentHtml,
     idAttr: escapeHtml(item.id),
   };
@@ -183,16 +253,22 @@ function getConversationListItemCache(item: ConversationSummary): ConversationLi
   const latestMessageRef = Array.isArray(item.messages) && item.messages.length ? item.messages[item.messages.length - 1] : null;
   const status = getConversationState(item.id);
   const queue = queuedCount(item.id);
+  const teamMeta = agentTeamConversationMeta(item.id);
+  const provider = conversationProvider(item, teamMeta);
+  const teamMetaKey = agentTeamMetaKey(teamMeta);
   if (
     cached
     && cached.conversationRef === item
     && cached.language === currentLang()
     && cached.title === String(item.title || '')
     && cached.sessionId === String(item.sessionId || '')
+    && cached.commandText === String(item.commandText || '')
     && cached.pinnedAt === Number(item.pinnedAt || 0)
     && cached.updatedAt === Number(item.updatedAt || 0)
     && cached.createdAt === Number(item.createdAt || 0)
     && cached.latestMessageRef === latestMessageRef
+    && cached.provider === provider
+    && cached.teamMetaKey === teamMetaKey
     && cached.statusKey === status.key
     && cached.statusLabel === status.label
     && cached.queue === queue

@@ -18,12 +18,44 @@ import {
 import { renderQueuePopover } from './runtime_renderer.js';
 import { renderComposerWorkdir } from './composer_renderer.js';
 import { renderCurrentTimeDisplay } from './time_display.js';
-import { currentAgentTeamGroup } from './agent_team.js';
+import { currentAgentTeamGroup, syncAgentTeamRoleRuntimeStatus } from './agent_team.js';
+
+function setHeaderMetaChipsVisible(visible: boolean) {
+  el.btnSessionId?.parentElement?.classList.toggle('hidden', !visible);
+  el.btnMetaModel?.parentElement?.classList.toggle('hidden', !visible);
+}
+
+function teamHeaderStatus(group) {
+  const roles = Array.isArray(group?.roles) ? group.roles : [];
+  const counts = roles.reduce((acc, role) => {
+    const key = String(role?.status || 'idle').trim() || 'idle';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const total = roles.length;
+  if (!total) {
+    return { text: t('stateIdle'), phase: '空闲' };
+  }
+  if (Number(counts.running || 0) > 0) {
+    return { text: t('agentTeamHeaderStatusRunning', { count: counts.running, total }), phase: '运行中' };
+  }
+  if (Number(counts.blocked || 0) > 0) {
+    return { text: t('agentTeamHeaderStatusBlocked', { count: counts.blocked, total }), phase: '失败' };
+  }
+  if (Number(counts.done || 0) >= total) {
+    return { text: t('agentTeamHeaderStatusDone', { count: total, total }), phase: '已完成' };
+  }
+  return { text: t('agentTeamHeaderStatusIdle', { count: counts.idle || 0, total }), phase: '空闲' };
+}
 
 function renderHeader() {
   renderCurrentTimeDisplay();
   if (state.workspaceMode === 'team') {
+    setHeaderMetaChipsVisible(false);
     const group = currentAgentTeamGroup();
+    if (group) {
+      syncAgentTeamRoleRuntimeStatus(group);
+    }
     el.chatTitle.textContent = group?.name || t('agentTeamLabel');
     el.sessionId.textContent = group ? `${group.id.slice(0, 8)}...${group.id.slice(-4)}` : '-';
     if (el.btnSessionId) {
@@ -32,12 +64,13 @@ function renderHeader() {
       el.btnSessionId.dataset.tooltip = group ? t('clickToCopy') : '';
       el.btnSessionId.setAttribute('aria-label', group ? `${t('clickToCopy')}: ${group.id}` : t('sessionId'));
     }
-    el.phase.textContent = t('stateIdle');
-    updatePhaseClass('空闲');
+    const status = teamHeaderStatus(group);
+    el.phase.textContent = status.text;
+    updatePhaseClass(status.phase);
     el.queueCount.textContent = '0';
     el.queueChip.classList.add('hidden');
     if (el.metaModelValue) {
-      el.metaModelValue.textContent = t('agentTeamLabel');
+      el.metaModelValue.textContent = '-';
     }
     if (el.btnMetaModel) {
       el.btnMetaModel.disabled = true;
@@ -45,6 +78,7 @@ function renderHeader() {
     renderComposerWorkdir();
     return;
   }
+  setHeaderMetaChipsVisible(true);
   const conv = currentConversation();
   const meta = conv
     ? ensureMeta(state.activeConversationId)
@@ -273,7 +307,10 @@ function renderTabs() {
 
   el.tabBtnStructured.classList.toggle('hidden', teamMode);
   el.tabBtnRaw.classList.toggle('hidden', teamMode);
-  el.tabBtnTeamAdd.classList.toggle('hidden', !teamMode);
+  if (teamMode && state.activeAgentTeamTab === 'add-role') {
+    state.activeAgentTeamTab = 'roles';
+  }
+  el.tabBtnTeamAdd.classList.add('hidden');
   el.tabBtnTeamRoles.classList.toggle('hidden', !teamMode);
   el.tabBtnTeamStatus.classList.toggle('hidden', !teamMode);
   document.getElementById('tab-structured')?.classList.toggle('active', !teamMode && state.activeTab === 'structured');

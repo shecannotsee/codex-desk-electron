@@ -76,6 +76,10 @@ export interface UiState {
 export interface ConversationMessage {
   role: 'user' | 'assistant';
   text: string;
+  speakerName?: string;
+  sourceKind?: 'user' | 'role' | 'system';
+  roleId?: string;
+  targetRoleId?: string;
   attachments?: MessageAttachment[];
   usage?: MessageUsage;
   createdAt?: number;
@@ -172,6 +176,7 @@ export interface QueuedMessageItem {
 export interface AppSnapshot {
   settings?: Partial<SettingsState>;
   activeConversationId?: string;
+  createdConversationId?: string;
   conversations?: ConversationSummary[];
   runtimeByConversation?: RuntimeStore;
   metaByConversation?: MetaStore;
@@ -184,10 +189,22 @@ export interface AppSnapshot {
 export interface AgentTeamRole {
   id: string;
   name: string;
+  conversationId?: string;
+  provider?: 'codex' | 'claude';
   upstreamRoleId?: string;
+  upstreamRoleIds?: string[];
   downstreamRoleIds?: string[];
   responsibility: string;
+  responsibilityDoc?: string;
+  completionContractDoc?: string;
+  routingPromptDoc?: string;
+  docsUpdatedAt?: number;
+  lastReadAt?: number;
   status?: 'idle' | 'running' | 'blocked' | 'done';
+  currentUpstreamName?: string;
+  currentTaskPreview?: string;
+  currentProgress?: string;
+  waitingForRoleIds?: string[];
   createdAt?: number;
   updatedAt?: number;
 }
@@ -205,6 +222,7 @@ export interface AgentTeamStep {
 export interface AgentTeamGroup {
   id: string;
   name: string;
+  ownerName?: string;
   roles: AgentTeamRole[];
   steps: AgentTeamStep[];
   messages: ConversationMessage[];
@@ -335,9 +353,12 @@ export interface CreateAgentTeamGroupOptions {
 
 export interface CreateAgentTeamRoleOptions {
   name?: string;
+  provider?: 'codex' | 'claude';
   upstreamRoleId?: string;
+  upstreamRoleIds?: string[];
   downstreamRoleIds?: string[];
   responsibility?: string;
+  completionContractDoc?: string;
 }
 
 export interface GenericResult {
@@ -372,7 +393,7 @@ export interface CodexDeskApi {
   testRemoteControlProvider(): Promise<GenericResult>;
   pickWorkdir(payload?: { defaultPath?: string }): Promise<GenericResult>;
   switchConversation(conversationId: string): Promise<ConversationSwitchPayload>;
-  createConversation(payload?: { workdir?: string; provider?: 'codex' | 'claude' }): Promise<AppSnapshot>;
+  createConversation(payload?: { workdir?: string; provider?: 'codex' | 'claude'; title?: string; preserveActive?: boolean }): Promise<AppSnapshot>;
   pickImportSession(): Promise<GenericResult>;
   importSessionFromFile(filePath: string, continuationMode: string, workdirChoice?: ImportWorkdirChoice): Promise<GenericResult>;
   exportSession(conversationId: string): Promise<GenericResult>;
@@ -384,7 +405,12 @@ export interface CodexDeskApi {
   stopConversation(conversationId: string): Promise<AppSnapshot>;
   refreshCodexVersion(conversationId: string): Promise<GenericResult>;
   refreshModelInfo(conversationId: string): Promise<GenericResult>;
-  sendMessage(conversationId: string, text: string, attachments?: MessageAttachment[]): Promise<GenericResult>;
+  sendMessage(
+    conversationId: string,
+    text: string,
+    attachments?: MessageAttachment[],
+    options?: { appendUserMessage?: boolean; forceFreshSession?: boolean; fromRetry?: boolean },
+  ): Promise<GenericResult>;
   insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
   cancelQueuedMessage(conversationId: string, queuedMessageId: string, queuedIndex?: number): Promise<GenericResult>;
@@ -602,10 +628,14 @@ export interface UiElementRefs {
   createTeamCancel: HTMLButtonElement;
   createTeamConfirm: HTMLButtonElement;
   addTeamRoleModal: HTMLElement;
+  addTeamRoleTitle: HTMLElement;
   addTeamRoleNameInput: HTMLInputElement;
-  addTeamRoleUpstreamSelect: HTMLSelectElement;
+  addTeamRoleProviderCodex: HTMLButtonElement;
+  addTeamRoleProviderClaude: HTMLButtonElement;
+  addTeamRoleUpstreamList: HTMLElement;
   addTeamRoleDownstreamList: HTMLElement;
   addTeamRoleResponsibilityInput: HTMLTextAreaElement;
+  addTeamRoleCompletionInput: HTMLTextAreaElement;
   addTeamRoleCancel: HTMLButtonElement;
   addTeamRoleConfirm: HTMLButtonElement;
   importWorkdirModal: HTMLElement;

@@ -427,6 +427,38 @@ button:hover:not(:disabled) {
   white-space: nowrap;
 }
 
+.conversation-provider-badge,
+.conversation-team-role-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.conversation-provider-badge.provider-codex {
+  color: #0f6fc7;
+  background: rgba(51, 144, 236, 0.16);
+}
+
+.conversation-provider-badge.provider-claude {
+  color: #8a4b0f;
+  background: rgba(240, 177, 62, 0.2);
+}
+
+.conversation-team-role-badge {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #526273;
+  background: rgba(148, 163, 184, 0.18);
+}
+
 .conversation-time {
   color: #96a3b2;
   font-size: 12px;
@@ -1255,10 +1287,115 @@ body.composer-resizing {
 .agent-team-chat-shell {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 100%;
-  color: #1f2d3d;
+  color: #243a4e;
   font-family: 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+.agent-team-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--chat-font-scale));
+}
+
+.agent-team-roster-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #c6d9ea;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.agent-team-roster-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: auto;
+}
+
+.agent-team-roster-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid #c6d9ea;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #2e465c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-team-roster-chip.is-entry {
+  border-color: #8fb5d6;
+  background: #eef7ff;
+  color: #174467;
+}
+
+.agent-team-roster-owner {
+  border-color: rgba(15, 118, 110, 0.28);
+}
+
+.agent-team-roster-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  flex: 0 0 22px;
+  background: #4c6f8f;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.agent-team-roster-empty {
+  min-height: 30px;
+  padding: 6px 10px;
+}
+
+.agent-team-conversation-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed #c8d9ea;
+  border-radius: 8px;
+  background: rgba(248, 251, 255, 0.82);
+  color: #60778d;
+}
+
+.agent-team-message {
+  margin: calc(8px * var(--chat-font-scale)) 0;
+}
+
+.agent-team-message-head {
+  align-items: center;
+  max-width: min(82%, 760px);
+}
+
+.agent-team-message-user-row .agent-team-message-head {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.agent-team-message-role {
+  font-weight: 500;
+  color: #5f7386;
+}
+
+.agent-team-user-bubble,
+.agent-team-role-bubble {
+  max-width: min(82%, 760px);
 }
 
 .agent-team-group-head {
@@ -1266,15 +1403,17 @@ body.composer-resizing {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0 12px;
-  border-bottom: 1px solid #d8e3ef;
+  padding: 4px 0 2px;
+  border-bottom: 0;
 }
 
 .agent-team-group-head h2 {
-  margin: 2px 0 6px;
-  font-size: 22px;
+  margin: 0;
+  color: #244563;
+  font-size: 16px;
   line-height: 1.2;
   letter-spacing: 0;
+  font-weight: 700;
 }
 
 .agent-team-group-head p {
@@ -1286,9 +1425,9 @@ body.composer-resizing {
 }
 
 .agent-team-eyebrow {
-  color: #0f766e;
+  color: #5f7386;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1297,18 +1436,18 @@ body.composer-resizing {
   flex: 0 0 auto;
   min-height: 34px;
   border-radius: 18px;
-  border-color: #0f766e;
-  background: #0f766e;
+  border-color: #3390ec;
+  background: #3390ec;
   color: #ffffff;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: none;
 }
 
 .agent-team-primary-action:hover:not(:disabled),
 .agent-team-side-add:hover:not(:disabled) {
   transform: none;
-  border-color: #0d9488;
-  background: #0d9488;
+  border-color: #52a9f8;
+  background: #52a9f8;
 }
 
 .agent-team-empty,
@@ -1403,6 +1542,15 @@ body.composer-resizing {
   background: #edf9f1;
 }
 
+.agent-team-owner-card .agent-team-role-avatar,
+.agent-team-side-owner {
+  border-color: rgba(15, 118, 110, 0.28);
+}
+
+.agent-team-owner-card .agent-team-role-avatar {
+  background: #134e4a;
+}
+
 .agent-team-role-duty {
   padding: 12px;
   color: #31475c;
@@ -1412,10 +1560,10 @@ body.composer-resizing {
 
 .agent-team-step {
   margin: 0 0 10px;
-  border: 1px solid #1e293b;
+  border: 1px solid #c6d9ea;
   border-left: 6px solid #60a5fa;
   border-radius: 8px;
-  background: #0b1220;
+  background: #ffffff;
   overflow: hidden;
 }
 
@@ -1430,11 +1578,11 @@ body.composer-resizing {
   justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
-  background: #0f172a;
-  border-bottom: 1px solid #1e293b;
-  color: #bfdbfe;
+  background: #f3f8fd;
+  border-bottom: 1px solid #d9e4ef;
+  color: #244563;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .agent-team-step-head time {
@@ -1445,8 +1593,57 @@ body.composer-resizing {
 
 .agent-team-step-body {
   padding: 10px 12px;
-  color: #cbd5e1;
+  color: #345069;
   line-height: 1.55;
+}
+
+.agent-team-role-runtime {
+  margin: 12px 0 10px;
+  border: 1px solid #c6d9ea;
+  border-radius: 8px;
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.agent-team-role-runtime-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #eef6fc;
+  border-bottom: 1px solid #d9e4ef;
+  color: #244563;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-team-role-runtime-head em {
+  color: #64748b;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.agent-team-runtime-item {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-bottom: 1px solid #edf2f7;
+  color: #345069;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.agent-team-runtime-item:last-child {
+  border-bottom: 0;
+}
+
+.agent-team-runtime-item strong {
+  color: #244563;
+}
+
+.agent-team-runtime-item span {
+  white-space: pre-wrap;
 }
 
 .agent-team-side-add {
@@ -1454,26 +1651,129 @@ body.composer-resizing {
   margin-bottom: 10px;
 }
 
+.agent-team-role-summary {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #c6d9ea;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #345069;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .agent-team-side-role {
   margin-bottom: 10px;
   padding: 10px;
-  border: 1px solid #1e293b;
+  border: 1px solid #c6d9ea;
   border-radius: 8px;
-  background: #0b1220;
-  color: #cbd5e1;
+  background: #ffffff;
+  color: #345069;
   font-size: 12px;
   line-height: 1.5;
 }
 
 .agent-team-side-role-title {
   margin-bottom: 6px;
-  color: #5eead4;
-  font-weight: 800;
+  color: #244563;
+  font-weight: 700;
+}
+
+.agent-team-role-inline-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+  color: #60778d;
+}
+
+.agent-team-role-inline-status span {
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+
+.agent-team-side-role-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.agent-team-side-role-head .agent-team-side-role-title {
+  margin-bottom: 0;
+}
+
+.agent-team-role-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.agent-team-role-edit,
+.agent-team-role-delete {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.agent-team-role-edit {
+  border: 1px solid #bed6ee;
+  background: #f3f8fd;
+  color: #1e5c88;
+}
+
+.agent-team-role-delete {
+  border: 1px solid #efc4c4;
+  background: #fff7f7;
+  color: #9b2c2c;
+}
+
+.agent-team-role-edit:hover:not(:disabled),
+.agent-team-role-edit:focus-visible {
+  transform: none;
+  border-color: #90bee8;
+  background: #eaf5ff;
+  color: #164d73;
+}
+
+.agent-team-role-delete:hover:not(:disabled),
+.agent-team-role-delete:focus-visible {
+  transform: none;
+  border-color: #dc8f8f;
+  background: #ffecec;
+  color: #7f1d1d;
 }
 
 .agent-team-side-role p {
   margin: 8px 0 0;
-  color: #94a3b8;
+  color: #60778d;
+}
+
+.agent-team-doc-details {
+  margin-top: 10px;
+  border: 1px solid #d9e4ef;
+  border-radius: 8px;
+  background: #f8fbff;
+  overflow: hidden;
+}
+
+.agent-team-doc-details summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  color: #244563;
+  font-weight: 700;
+}
+
+.agent-team-doc-body {
+  padding: 0 10px 10px;
+  color: #345069;
 }
 
 .agent-team-list-item .conversation-avatar {
@@ -1487,21 +1787,21 @@ body.composer-resizing {
 
 .agent-team-add-panel {
   padding: 12px;
-  border: 1px solid #1e293b;
+  border: 1px solid #c6d9ea;
   border-radius: 8px;
-  background: #0b1220;
-  color: #cbd5e1;
+  background: #ffffff;
+  color: #345069;
 }
 
 .agent-team-add-title {
-  color: #5eead4;
+  color: #244563;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .agent-team-add-panel p {
   margin: 8px 0 12px;
-  color: #94a3b8;
+  color: #60778d;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1514,24 +1814,88 @@ body.composer-resizing {
 
 .agent-team-status-metric {
   padding: 12px;
-  border: 1px solid #1e293b;
+  border: 1px solid #c6d9ea;
   border-radius: 8px;
-  background: #0b1220;
-  color: #94a3b8;
+  background: #ffffff;
+  color: #60778d;
   font-size: 12px;
 }
 
 .agent-team-status-metric strong {
   display: block;
   margin-top: 6px;
-  color: #e2e8f0;
+  color: #244563;
   font-size: 24px;
   line-height: 1;
 }
 
+.agent-team-status-role-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.agent-team-status-role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #c6d9ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #345069;
+  font-size: 12px;
+}
+
+.agent-team-status-role strong {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #edf2f7;
+  color: #475569;
+  font-size: 11px;
+}
+
+.agent-team-status-role strong.state-running {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.agent-team-status-role strong.state-blocked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.agent-team-status-role strong.state-done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.agent-team-flow-status-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-team-flow-status-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #c6d9ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #345069;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-team-flow-status-item strong {
+  color: #244563;
+}
+
 .agent-team-status-note {
   margin-top: 12px;
-  color: #94a3b8;
+  color: #60778d;
   font-size: 12px;
   line-height: 1.55;
 }
@@ -3005,6 +3369,12 @@ body.composer-resizing .composer-resize-handle::before {
 
 .team-role-responsibility-input {
   min-height: 120px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.team-role-completion-input {
+  min-height: 132px;
   resize: vertical;
   line-height: 1.55;
 }
@@ -4604,6 +4974,21 @@ html[data-theme='dark'] .conversation-preview {
   color: #8ea4b7;
 }
 
+html[data-theme='dark'] .conversation-provider-badge.provider-codex {
+  color: #bfdbfe;
+  background: rgba(51, 144, 236, 0.22);
+}
+
+html[data-theme='dark'] .conversation-provider-badge.provider-claude {
+  color: #fde68a;
+  background: rgba(240, 177, 62, 0.2);
+}
+
+html[data-theme='dark'] .conversation-team-role-badge {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.16);
+}
+
 html[data-theme='dark'] .conversation-time {
   color: #70879a;
 }
@@ -4856,13 +5241,18 @@ html[data-theme='dark'] .agent-team-chat-shell {
   color: #d7e6f5;
 }
 
-html[data-theme='dark'] .agent-team-group-head {
-  border-bottom-color: #334a60;
-}
-
 html[data-theme='dark'] .agent-team-group-head p,
 html[data-theme='dark'] .agent-team-role-meta {
   color: #a9bfd3;
+}
+
+html[data-theme='dark'] .agent-team-group-head h2 {
+  color: #e2edf8;
+}
+
+html[data-theme='dark'] .agent-team-eyebrow,
+html[data-theme='dark'] .agent-team-message-role {
+  color: #9fb4c8;
 }
 
 html[data-theme='dark'] .agent-team-role-card,
@@ -4884,6 +5274,103 @@ html[data-theme='dark'] .agent-team-empty-title {
 
 html[data-theme='dark'] .agent-team-role-duty {
   color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-roster-strip,
+html[data-theme='dark'] .agent-team-conversation-empty {
+  border-color: #334a60;
+  background: rgba(23, 33, 43, 0.88);
+}
+
+html[data-theme='dark'] .agent-team-roster-chip {
+  border-color: #334a60;
+  background: #1f2b38;
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-roster-chip.is-entry {
+  border-color: #38506a;
+  background: #243241;
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-step,
+html[data-theme='dark'] .agent-team-role-runtime,
+html[data-theme='dark'] .agent-team-side-role,
+html[data-theme='dark'] .agent-team-role-summary,
+html[data-theme='dark'] .agent-team-add-panel,
+html[data-theme='dark'] .agent-team-status-role,
+html[data-theme='dark'] .agent-team-flow-status-item,
+html[data-theme='dark'] .agent-team-status-metric,
+html[data-theme='dark'] .agent-team-doc-details {
+  border-color: #334a60;
+  background: #17212b;
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-step-head {
+  background: #1f2b38;
+  border-bottom-color: #2a3a4c;
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-role-runtime-head {
+  background: #1f2b38;
+  border-bottom-color: #2a3a4c;
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .agent-team-step-body,
+html[data-theme='dark'] .agent-team-runtime-item,
+html[data-theme='dark'] .agent-team-doc-body,
+html[data-theme='dark'] .agent-team-add-panel p,
+html[data-theme='dark'] .agent-team-status-note,
+html[data-theme='dark'] .agent-team-role-inline-status,
+html[data-theme='dark'] .agent-team-side-role p {
+  color: #a9bfd3;
+}
+
+html[data-theme='dark'] .agent-team-role-inline-status span {
+  background: #243241;
+}
+
+html[data-theme='dark'] .agent-team-runtime-item {
+  border-bottom-color: #253648;
+}
+
+html[data-theme='dark'] .agent-team-side-role-title,
+html[data-theme='dark'] .agent-team-add-title,
+html[data-theme='dark'] .agent-team-status-metric strong,
+html[data-theme='dark'] .agent-team-doc-details summary,
+html[data-theme='dark'] .agent-team-flow-status-item strong,
+html[data-theme='dark'] .agent-team-runtime-item strong {
+  color: #e2edf8;
+}
+
+html[data-theme='dark'] .agent-team-role-edit {
+  border-color: #315b73;
+  background: #1f2f3a;
+  color: #b9e4ff;
+}
+
+html[data-theme='dark'] .agent-team-role-delete {
+  border-color: #6f3a3a;
+  background: #332225;
+  color: #f0b8b8;
+}
+
+html[data-theme='dark'] .agent-team-role-edit:hover:not(:disabled),
+html[data-theme='dark'] .agent-team-role-edit:focus-visible {
+  border-color: #3d7899;
+  background: #213d50;
+  color: #d7f0ff;
+}
+
+html[data-theme='dark'] .agent-team-role-delete:hover:not(:disabled),
+html[data-theme='dark'] .agent-team-role-delete:focus-visible {
+  border-color: #8b4a4a;
+  background: #452a2f;
+  color: #ffd0d0;
 }
 
 html[data-theme='dark'] .team-role-downstream-list {

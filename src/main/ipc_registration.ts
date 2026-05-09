@@ -236,10 +236,14 @@ function registerAppIpc({
   });
 
   ipcMain.handle('chat:send', async (_, payload) => {
+    const options = payload?.options && typeof payload.options === 'object' ? payload.options : {};
     return getController().sendMessage({
       conversationId: String(payload?.conversationId || ''),
       text: String(payload?.text || ''),
       attachments: Array.isArray(payload?.attachments) ? payload.attachments : [],
+      appendUserMessage: options.appendUserMessage !== false,
+      forceFreshSession: Boolean(options.forceFreshSession),
+      fromRetry: Boolean(options.fromRetry),
     });
   });
 

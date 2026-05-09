@@ -195,6 +195,9 @@ const chatMethods = {
     if (!runner) {
       return { error: '当前没有进行中的任务。', snapshot: this.snapshot() };
     }
+    if (this._resolveConversationProvider(targetId) === 'claude') {
+      return { error: 'Claude Code print 模式不支持插入当前轮次，请使用排队发送。', snapshot: this.snapshot() };
+    }
     if (typeof runner.steer !== 'function') {
       this.preferAppServerByConversation[targetId] = true;
       this._appendStructuredEvent(targetId, 'hint', '当前轮次不支持插入，已自动切换为混合策略：后续轮次将启用可插入模式');

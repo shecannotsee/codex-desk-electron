@@ -35,11 +35,11 @@ All notable changes to this project are documented in this file.
 
 ### Docs
 
-- README、docs、llm-readable 更新到当前模块边界与功能状态。
+- README 与 docs 更新到当前模块边界与功能状态。
 - `notes/` 清理为仅保留项目本地备注，移除无关外部 OpenCV 笔记。
 - 文档同步到当前 UI 结构：右键会话、多级设置、队列预览、默认折叠、主题与布局控制。
 - 补充外链默认浏览器、缩放 HUD、切会话自动到底部、选区右键复制的说明与截图。
-- `gpt-readable/` 重命名为 `llm-readable/`，并重写为大模型优先快速摄入结构。
+- 移除早期面向大模型快速摄入的独立维护目录，统一以 README 与 docs 作为文档入口。
 
 ## [0.1.0] - 2026-03-05
 

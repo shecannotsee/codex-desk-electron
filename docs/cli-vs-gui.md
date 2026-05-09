@@ -22,6 +22,14 @@ Conductor 不替代 Codex CLI 或 Claude Code。它是桌面编排层，负责�
 | 外部链接 | 终端处理 | 系统默认浏览器 |
 | UI 主题/缩放 | 终端能力 | GUI 主题、字号、窗口缩放、侧栏拖拽 |
 
+## 会话持续模式语义
+
+`resume` / `fork` 是 Conductor 对不同 CLI 的跨 provider 抽象，UI 上语义一致，但底层协议不等价：
+
+- `resume`：继续已有原生会话。Codex 使用 Codex 会话恢复语义；Claude Code 使用 `--resume <session-id>`。
+- `fork`：基于已有会话上下文创建新的后续会话。Codex 通过 app-server/thread 分叉链路取得新的 thread id；Claude Code 使用 `--resume <session-id> --fork-session` 创建新的 session ID。
+- Codex 和 Claude 的会话 ID、历史上下文和工具事件格式不能跨 provider 互通。
+
 ## GUI 发送等价命令
 
 基本等价：
@@ -43,6 +51,8 @@ claude -p --verbose --output-format stream-json <PROMPT>
 3. 有图片附件时，Codex 附加 `--image` 参数，Claude 追加可读取的文件路径。
 4. 将 stdout/stderr、JSON-RPC、app-server 或 Claude stream-json 事件归一化为 UI runtime 事件。
 5. 完成后保存 assistant 消息、usage 和会话元数据。
+
+导入/导出使用 Conductor 会话文件（`.jsonl`）。JSONL 仍是当前格式，因为会话天然是逐条记录流；文件中会写入 provider、CLI 版本、模型、工作目录和消息，便于 Codex/Claude 会话都能恢复到对应 runner。
 
 ## 什么时候仍然用 CLI
 

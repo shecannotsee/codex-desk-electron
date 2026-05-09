@@ -14,7 +14,7 @@ Electron desktop client for Codex CLI and Claude Code. It keeps Electron focused
 - Runtime observability: workflow steps, structured events, raw JSON, phase, elapsed time, and queued messages.
 - Running-message queue: follow-up messages are queued per conversation and executed serially.
 - Image attachments for `codex exec --image` compatible flows.
-- Import/export Codex session JSONL files.
+- Import/export Conductor session files (`.jsonl`) with Codex/Claude provider metadata.
 - Telegram notifications and Telegram remote-control commands.
 - Credential vault with master-password lock/unlock for Telegram tokens.
 - Quick settings: language, theme, layout, zoom, runtime/sidebar visibility, notification/remote-control settings.
@@ -43,7 +43,6 @@ Electron desktop client for Codex CLI and Claude Code. It keeps Electron focused
 - Ubuntu DEB Deploy: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
-- LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
 ## Project Layout
@@ -57,7 +56,6 @@ src/main/security/     Credential vault and encryption helpers
 src/main/app_controller/ AppController mixins and runtime orchestration
 src/renderer/          HTML/CSS and TypeScript renderer modules
 docs/                  User, architecture, deployment and development docs
-llm-readable/          Compact code map for LLM-assisted maintenance
 notes/                 Project-local notes only
 ```
 

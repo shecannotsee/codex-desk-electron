@@ -109,5 +109,4 @@ npm run dist:deb
 影响架构时更新：
 
 - `docs/architecture.md`
-- `llm-readable/*.md`
 - `src/README.md`

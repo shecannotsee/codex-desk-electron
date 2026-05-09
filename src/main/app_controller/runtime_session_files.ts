@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const { nowTs, newConversation, getConversation } = require('../conversation_service');
 const { importSessionJsonl } = require('../session_importer');
 const { buildExportFileName, exportConversationJsonl } = require('../session_exporter');
-const { normalizeWorkdir } = require('../state_store');
+const { defaultCommandTextForProvider, normalizeCliProvider, normalizeWorkdir } = require('../state_store');
 
 const runtimeSessionFileMethods = {
   previewConversationImportFromSessionFile(filePath) {
@@ -15,6 +15,7 @@ const runtimeSessionFileMethods = {
       sessionId: imported.sessionId || '',
       source: imported.source,
       originator: imported.originator,
+      provider: imported.provider || 'codex',
       cwd: importedCwd,
       hasImportedWorkdir: Boolean(importedCwd && fs.existsSync(importedCwd) && fs.statSync(importedCwd).isDirectory()),
       model: imported.model || '-',
@@ -48,6 +49,8 @@ const runtimeSessionFileMethods = {
     }
 
     conv.sessionId = imported.sessionId || '';
+    conv.provider = normalizeCliProvider(imported.provider || '', imported.source || imported.originator || '');
+    conv.commandText = defaultCommandTextForProvider(conv.provider);
     conv.sessionContinuationMode = conv.sessionId
       ? (continuationMode === 'fork' ? 'fork' : 'resume')
       : '';
@@ -59,12 +62,17 @@ const runtimeSessionFileMethods = {
     this.runtimeStore.ensure(conv.id);
 
     const meta = this._ensureMeta(conv.id);
-    meta['Codex版本'] = imported.cliVersion || '-';
+    if (conv.provider === 'claude') {
+      meta['Claude版本'] = imported.cliVersion || '-';
+    } else {
+      meta['Codex版本'] = imported.cliVersion || '-';
+    }
     meta['模型'] = imported.model || '-';
     meta['会话ID'] = conv.sessionId || '-';
 
     this.activeConversationId = conv.id;
     this._appendStructuredEvent(conv.id, 'success', `已导入会话: ${conv.title}`);
+    this._appendStructuredEvent(conv.id, 'hint', `CLI: ${conv.provider === 'claude' ? 'Claude Code' : 'Codex CLI'}`);
     this._appendStructuredEvent(conv.id, 'hint', `来源: ${imported.source} / ${imported.originator}`);
     this._appendStructuredEvent(conv.id, 'hint', `原工作目录: ${importedCwd || '-'}`);
     this._appendStructuredEvent(
@@ -132,10 +140,12 @@ const runtimeSessionFileMethods = {
         conv,
         {
           model: meta['模型'],
-          cliVersion: meta['Codex版本'],
+          cliVersion: conv.provider === 'claude' ? meta['Claude版本'] : meta['Codex版本'],
+          provider: conv.provider || 'codex',
         },
         {
           workdir: conv.workdir || this._defaultWorkdir(),
+          provider: conv.provider || 'codex',
         },
       );
       return {

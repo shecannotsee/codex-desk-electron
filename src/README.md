@@ -35,4 +35,4 @@ npm run capture:docs
 npm run dist:deb
 ```
 
-Project-level docs live in `../README.md`, `../docs/`, and `../llm-readable/`.
+Project-level docs live in `../README.md` and `../docs/`.

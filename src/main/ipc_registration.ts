@@ -119,11 +119,11 @@ function registerAppIpc({
     }
 
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: '导入 Codex 会话',
+      title: '导入 CLI 会话',
       defaultPath: path.join(os.homedir(), '.codex', 'sessions'),
       properties: ['openFile'],
       filters: [
-        { name: 'Codex Session', extensions: ['jsonl'] },
+        { name: 'Conductor Session', extensions: ['jsonl'] },
         { name: 'JSON', extensions: ['json', 'jsonl'] },
         { name: 'All Files', extensions: ['*'] },
       ],
@@ -179,7 +179,7 @@ function registerAppIpc({
         title: '导出当前会话',
         defaultPath: path.join(defaultDir, preview.suggestedFileName),
         filters: [
-          { name: 'Codex Session', extensions: ['jsonl'] },
+          { name: 'Conductor Session', extensions: ['jsonl'] },
           { name: 'JSON', extensions: ['json', 'jsonl'] },
           { name: 'All Files', extensions: ['*'] },
         ],

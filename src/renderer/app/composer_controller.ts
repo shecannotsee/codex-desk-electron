@@ -17,6 +17,12 @@ import {
   removeComposerAttachment,
   setAttachmentMenuOpen,
 } from './composer_attachments.js';
+import { currentConversation } from './conversation_runtime.js';
+
+function isClaudeConversation() {
+  const conv = currentConversation();
+  return String(conv?.provider || state.settings.provider || '').trim().toLowerCase() === 'claude';
+}
 
 type ComposerControllerOptions = {
   applySnapshot: (snapshot: unknown) => void;
@@ -67,7 +73,7 @@ function insertTextIntoInputBox(text: string) {
 
 export function bindComposerController(options: ComposerControllerOptions) {
   el.btnAddAttachment.addEventListener('click', () => {
-    if (el.attachmentInput.disabled) {
+    if (el.attachmentInput.disabled || isClaudeConversation()) {
       return;
     }
     const willOpen = el.attachmentKindMenu.classList.contains('hidden');
@@ -75,7 +81,7 @@ export function bindComposerController(options: ComposerControllerOptions) {
   });
 
   el.btnAddImageAttachment.addEventListener('click', () => {
-    if (el.attachmentInput.disabled) {
+    if (el.attachmentInput.disabled || isClaudeConversation()) {
       return;
     }
     setAttachmentMenuOpen(false);
@@ -83,6 +89,10 @@ export function bindComposerController(options: ComposerControllerOptions) {
   });
 
   el.attachmentInput.addEventListener('change', () => {
+    if (isClaudeConversation()) {
+      el.attachmentInput.value = '';
+      return;
+    }
     const attachments = imageAttachmentsOnly(normalizeAttachmentFiles(Array.from(el.attachmentInput.files || [])));
     if (attachments.length) {
       addComposerAttachments(attachments);
@@ -110,6 +120,9 @@ export function bindComposerController(options: ComposerControllerOptions) {
   });
 
   el.btnInsertMessage.addEventListener('click', async () => {
+    if (isClaudeConversation()) {
+      return;
+    }
     const text = el.inputBox.value.trim();
     if (!text) {
       return;

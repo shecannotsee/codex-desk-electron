@@ -42,12 +42,14 @@
 - 当前任务异常结束时，不会继续自动执行剩余队列，避免连锁失败。
 - 可取消单条排队消息，也可清空当前会话队列。
 
-## 6. 导入/导出 Codex 会话
+## 6. 导入/导出会话文件
 
-- 导入支持 Codex session JSONL。
+- 导入/导出使用 Conductor 会话文件（`.jsonl`）。JSONL 是当前实际文件格式，因为会话记录天然按行追加，便于保存消息、模型、CLI 版本、provider 和工作目录。
+- 导入支持带 provider 元数据的 Codex / Claude 会话文件；没有 provider 时会根据来源字段推断，默认按 Codex 处理。
 - 导入时选择工作目录来源：导入文件目录、默认目录或手动选择。
-- 有 sessionId 时可选择继续原会话 resume 或分叉 fork。
-- 导出会写入包含消息、模型、CLI 版本和工作目录的 JSONL 文件。
+- 有 sessionId 时可选择继续原会话 resume 或分叉 fork。这里的 resume/fork 是 Conductor 的跨 CLI 抽象：Codex 和 Claude 的 UI 语义一致，但底层参数和会话协议不同。
+- Codex resume/fork 使用 Codex 原生会话恢复/分叉语义；Claude resume 使用 `--resume <session-id>`，Claude fork 使用 `--resume <session-id> --fork-session`。
+- 导出会写入包含消息、模型、CLI 版本、provider 和工作目录的 `.jsonl` 文件。
 
 ## 7. Telegram 通知
 

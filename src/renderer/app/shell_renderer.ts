@@ -96,12 +96,16 @@ function renderHeader() {
 
 function renderRunButtons() {
   const hasConv = hasActiveConversation();
+  const conv = currentConversation();
+  const isClaudeConversation = String(conv?.provider || state.settings.provider || '').trim().toLowerCase() === 'claude';
   const running = isConversationRunning(state.activeConversationId);
-  const canInsert = running && hasConv;
+  const canInsert = running && hasConv && !isClaudeConversation;
+  const canUseAttachments = hasConv && !isClaudeConversation;
   el.btnSend.disabled = !hasConv;
   el.btnSend.textContent = running ? t('queueSend') : t('send');
   el.btnInsertMessage.disabled = !canInsert;
   el.btnInsertMessage.textContent = t('insertMessage');
+  el.btnInsertMessage.title = isClaudeConversation ? t('insertUnavailableClaude') : '';
   el.btnInsertMessage.classList.remove('hidden');
   el.btnRetryLast.disabled = !canRetryLastMessage();
   el.btnRetryLast.textContent = t('retryLast');
@@ -169,10 +173,19 @@ function renderRunButtons() {
     el.btnMetaModel.disabled = !hasConv;
   }
   if (el.btnAddAttachment) {
-    el.btnAddAttachment.disabled = !hasConv;
+    el.btnAddAttachment.disabled = !canUseAttachments;
+    el.btnAddAttachment.title = isClaudeConversation ? t('attachmentUnavailableClaude') : t('attachmentHint');
   }
   if (el.attachmentInput) {
-    el.attachmentInput.disabled = !hasConv;
+    el.attachmentInput.disabled = !canUseAttachments;
+  }
+  if (el.btnAddImageAttachment) {
+    el.btnAddImageAttachment.disabled = !canUseAttachments;
+    el.btnAddImageAttachment.title = isClaudeConversation ? t('attachmentUnavailableClaude') : t('attachmentHint');
+  }
+  if (isClaudeConversation && el.attachmentKindMenu) {
+    el.attachmentKindMenu.classList.add('hidden');
+    el.btnAddAttachment?.setAttribute('aria-expanded', 'false');
   }
   el.inputBox.disabled = !hasConv;
   if (!hasConv) {
@@ -295,7 +308,6 @@ function renderLocaleTexts() {
   el.tabBtnRaw.textContent = t('tabRaw');
   if (el.btnAddAttachment) {
     el.btnAddAttachment.textContent = t('addAttachment');
-    el.btnAddAttachment.title = t('attachmentHint');
   }
   if (el.btnAddImageAttachment) {
     el.btnAddImageAttachment.textContent = t('attachmentTypeImage');

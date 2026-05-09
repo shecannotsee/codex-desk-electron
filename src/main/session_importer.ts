@@ -192,6 +192,21 @@ function inferSessionId(filePath, sessionMeta) {
   return match ? match[1] : '';
 }
 
+function inferProvider(sessionMeta) {
+  const explicit = String(sessionMeta?.provider || sessionMeta?.cli_provider || '').trim().toLowerCase();
+  if (explicit === 'claude' || explicit === 'codex') {
+    return explicit;
+  }
+  const sourceText = [sessionMeta?.source, sessionMeta?.originator, sessionMeta?.cli, sessionMeta?.cli_version]
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter(Boolean)
+    .join(' ');
+  if (sourceText.includes('claude')) {
+    return 'claude';
+  }
+  return 'codex';
+}
+
 function importSessionJsonl(filePath) {
   const resolved = path.resolve(String(filePath || '').trim());
   if (!resolved) {
@@ -278,6 +293,7 @@ function importSessionJsonl(filePath) {
   return {
     title: fallbackTitle(sessionMeta, messages),
     sessionId: inferSessionId(resolved, sessionMeta),
+    provider: inferProvider(sessionMeta),
     messages,
     createdAt,
     updatedAt,

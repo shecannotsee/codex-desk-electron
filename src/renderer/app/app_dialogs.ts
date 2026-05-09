@@ -242,8 +242,24 @@ function askImportSessionMode(importInfo: ImportSessionPreview = {}, preferredMo
     }
 
     let selectedMode = '';
+    const provider = String(importInfo.provider || 'codex').trim().toLowerCase() === 'claude' ? 'claude' : 'codex';
     fileEl.textContent = t('importModeFile', { value: String(importInfo.filePath || '-') });
     sessionEl.textContent = t('importModeSession', { value: String(importInfo.sessionId || '-') });
+    if (el.importModeMessage) {
+      el.importModeMessage.textContent = t(provider === 'claude' ? 'importModeMessageClaude' : 'importModeMessageCodex');
+    }
+    if (el.importModeResumeTitle) {
+      el.importModeResumeTitle.textContent = t(provider === 'claude' ? 'importModeResumeTitleClaude' : 'importModeResumeTitleCodex');
+    }
+    if (el.importModeResumeDesc) {
+      el.importModeResumeDesc.textContent = t(provider === 'claude' ? 'importModeResumeDescClaude' : 'importModeResumeDescCodex');
+    }
+    if (el.importModeForkTitle) {
+      el.importModeForkTitle.textContent = t(provider === 'claude' ? 'importModeForkTitleClaude' : 'importModeForkTitleCodex');
+    }
+    if (el.importModeForkDesc) {
+      el.importModeForkDesc.textContent = t(provider === 'claude' ? 'importModeForkDescClaude' : 'importModeForkDescCodex');
+    }
     confirmBtn.disabled = true;
     optionButtons.forEach((button) => {
       button.classList.remove('is-selected');

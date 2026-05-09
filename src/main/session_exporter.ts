@@ -96,6 +96,7 @@ function exportConversationJsonl(filePath, conversation, meta: any = {}, options
   }
 
   const sessionId = String(conversation.sessionId || '').trim();
+  const provider = String(conversation.provider || meta.provider || '').trim().toLowerCase() === 'claude' ? 'claude' : 'codex';
   const model = String(meta.model || '').trim();
   const cliVersion = String(meta.cliVersion || '').trim();
   const cwd = String(options.workdir || '').trim();
@@ -109,6 +110,8 @@ function exportConversationJsonl(filePath, conversation, meta: any = {}, options
         timestamp: toIsoTimestamp(conversation.createdAt),
         source: 'conductor',
         originator: 'conductor',
+        provider,
+        cli: provider === 'claude' ? 'claude-code' : 'codex',
         cwd: cwd || '-',
         cli_version: cliVersion || '-',
         model: model || '',

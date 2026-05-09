@@ -73,6 +73,7 @@ import {
 } from './app_state_sync.js';
 import { showCloseGuardModal } from './app_dialogs.js';
 import { setAttachmentMenuOpen } from './composer_attachments.js';
+import { setComposerAttachments } from './state_i18n.js';
 import { applyEvent } from './app_event_handler.js';
 import { bindConversationActions } from './conversation_actions_controller.js';
 import { bindComposerController } from './composer_controller.js';
@@ -123,6 +124,11 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
   applyConversationSwitchPayloadToState(payload, () => {
     integrationSettings.refreshCredentialRuntimeLockNotice();
   });
+  const provider = String(payload?.conversation?.provider || payload?.settings?.provider || '').trim().toLowerCase();
+  const conversationId = String(payload?.activeConversationId || payload?.conversation?.id || '').trim();
+  if (provider === 'claude' && conversationId) {
+    setComposerAttachments(conversationId, []);
+  }
 }
 
 async function init() {

@@ -216,6 +216,7 @@ export interface ConfirmDialogOptions {
 export interface ImportSessionPreview {
   filePath?: string;
   sessionId?: string;
+  provider?: 'codex' | 'claude';
   cwd?: string;
   hasImportedWorkdir?: boolean;
 }

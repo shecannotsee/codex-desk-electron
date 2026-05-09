@@ -1,15 +1,16 @@
 # conductor (English)
 
-`conductor` is an Electron desktop client for Codex CLI. Electron owns windows, rendering, IPC, menus, and system integration; main-process business code is organized into Codex, Telegram, security, app-controller, and renderer domains.
+`conductor` is an Electron desktop client for Codex CLI and Claude Code. Electron owns windows, rendering, IPC, menus, and system integration; main-process business code is organized into CLI bridges, Telegram, security, app-controller, and renderer domains.
 
 ## Features
 
 - Multi-conversation workspace with per-conversation working directories.
 - `codex exec` execution with native resume/fork support; app-server path when available.
+- Claude Code execution through `claude -p --output-format stream-json`, with native resume/fork support.
 - Runtime observability: workflow steps, structured events, raw JSON, phase, elapsed time, and queued messages.
 - Per-conversation queued follow-up messages.
 - Image attachments for compatible Codex CLI flows.
-- Codex session JSONL import/export.
+- Conductor session file (`.jsonl`) import/export with Codex/Claude provider metadata.
 - Telegram notifications and Telegram remote control.
 - Master-password credential vault for Telegram tokens.
 - Quick settings for language, theme, layout, zoom, side panels, notification, and remote control.
@@ -26,7 +27,6 @@
 - Ubuntu DEB Deploy: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - Uninstall Guide: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
-- LLM Readable Map: [llm-readable/README.md](./llm-readable/README.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
 ## Layout
@@ -34,12 +34,12 @@
 ```text
 src/main/              Electron main process and domain modules
 src/main/codex/        Codex bridge, output parsing, usage metadata
+src/main/claude/       Claude Code print-mode bridge, stream-json parsing, usage metadata
 src/main/telegram/     Telegram API, sender, updates, notification state
 src/main/security/     Credential vault and encryption helpers
 src/main/app_controller/ AppController mixins and runtime orchestration
 src/renderer/          HTML/CSS and TypeScript renderer modules
 docs/                  User, architecture, deployment and development docs
-llm-readable/          Compact code map for LLM-assisted maintenance
 notes/                 Project-local notes only
 ```
 

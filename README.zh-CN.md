@@ -1,15 +1,16 @@
 # conductor（中文）
 
-`conductor` 是 Codex CLI 的 Electron 桌面端。Electron 负责窗口、渲染、IPC、菜单和系统集成；主进程内部按领域拆分为 Codex 对接、Telegram 集成、凭据安全、应用控制器和渲染层模块。
+`conductor` 是 Codex CLI 和 Claude Code 的 Electron 桌面端。Electron 负责窗口、渲染、IPC、菜单和系统集成；主进程内部按领域拆分为 CLI 对接、Telegram 集成、凭据安全、应用控制器和渲染层模块。
 
 ## 核心能力
 
 - 多会话工作台，每个会话可绑定独立工作目录。
 - 通过 `codex exec` 执行任务，支持原生会话 resume/fork；可用时支持 app-server 运行链路。
+- 通过 `claude -p --output-format stream-json` 执行 Claude Code 任务，支持原生会话 resume/fork。
 - 三类运行可观测信息：运行步骤、结构化事件、事件原文 JSON。
 - 会话级排队：运行中继续发送会进入队列并串行执行。
 - 图片附件：兼容 `codex exec --image` 流程。
-- Codex session JSONL 导入/导出。
+- Conductor 会话文件（`.jsonl`）导入/导出，保留 Codex/Claude provider 元数据。
 - Telegram 通知和 Telegram 远程控制。
 - 主密码保护的凭据保险箱，用于 Telegram token。
 - 快捷设置：语言、主题、布局、缩放、左右面板、通知与远程控制。
@@ -26,7 +27,6 @@
 - Ubuntu DEB 部署: [docs/deploy-ubuntu.md](./docs/deploy-ubuntu.md)
 - 卸载指南: [docs/uninstall.md](./docs/uninstall.md)
 - FAQ: [docs/faq.md](./docs/faq.md)
-- LLM 快速代码地图: [llm-readable/README.md](./llm-readable/README.md)
 - 版本变更: [CHANGELOG.md](./CHANGELOG.md)
 
 ## 目录结构
@@ -34,12 +34,12 @@
 ```text
 src/main/                Electron 主进程与领域模块
 src/main/codex/          Codex CLI/app-server 对接、输出解析、usage 元数据
+src/main/claude/         Claude Code print-mode 对接、stream-json 解析、usage 元数据
 src/main/telegram/       Telegram API、发送、更新订阅、通知分页状态
 src/main/security/       凭据保险箱和加密辅助函数
 src/main/app_controller/ AppController mixin 与运行编排
 src/renderer/            HTML/CSS 和 Renderer TypeScript 模块
 docs/                    用户、架构、部署和开发文档
-llm-readable/            面向 LLM 的紧凑代码地图
 notes/                   项目本地备注
 ```
 

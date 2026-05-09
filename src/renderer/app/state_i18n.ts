@@ -557,6 +557,8 @@ function localizeKnownText(input) {
     [/^用户手动重试上一条消息[:：]\s*/gm, 'User manually retried the previous message: '],
     [/^本次请求附带\s+(\d+)\s+个图片附件$/gm, (_, count) => `This request includes ${count} image attachment(s)`],
     [/^检测到\s+(\d+)\s+个图片附件，已切换到 exec --image 模式$/gm, (_, count) => `Detected ${count} image attachment(s); switched to exec --image mode`],
+    [/^CLI[:：]\s*Claude Code$/gm, 'CLI: Claude Code'],
+    [/^CLI[:：]\s*Codex CLI$/gm, 'CLI: Codex CLI'],
     [/^计划\s+(\d+\/\d+)$/gm, 'Plan $1'],
     [/^阶段进展\s+#(\d+)[:：]\s*/gm, 'Progress #$1: '],
     [/^阶段进展[:：]\s*/gm, 'Progress: '],

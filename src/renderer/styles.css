@@ -427,7 +427,6 @@ button:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-.conversation-provider-badge,
 .conversation-team-role-badge {
   display: inline-flex;
   align-items: center;
@@ -438,16 +437,6 @@ button:hover:not(:disabled) {
   font-size: 10px;
   font-weight: 800;
   line-height: 1.2;
-}
-
-.conversation-provider-badge.provider-codex {
-  color: #0f6fc7;
-  background: rgba(51, 144, 236, 0.16);
-}
-
-.conversation-provider-badge.provider-claude {
-  color: #8a4b0f;
-  background: rgba(240, 177, 62, 0.2);
 }
 
 .conversation-team-role-badge {
@@ -4972,16 +4961,6 @@ html[data-theme='dark'] .sidebar-title {
 
 html[data-theme='dark'] .conversation-preview {
   color: #8ea4b7;
-}
-
-html[data-theme='dark'] .conversation-provider-badge.provider-codex {
-  color: #bfdbfe;
-  background: rgba(51, 144, 236, 0.22);
-}
-
-html[data-theme='dark'] .conversation-provider-badge.provider-claude {
-  color: #fde68a;
-  background: rgba(240, 177, 62, 0.2);
 }
 
 html[data-theme='dark'] .conversation-team-role-badge {

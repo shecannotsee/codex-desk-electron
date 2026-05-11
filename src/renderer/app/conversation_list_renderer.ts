@@ -192,7 +192,6 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
   const timeText = formatMessageTime(item.updatedAt || item.createdAt);
   const previewText = conversationPreviewText(item);
   const provider = conversationProvider(item, teamMeta);
-  const providerBadge = `<span class="conversation-provider-badge provider-${escapeHtml(provider)}">${escapeHtml(providerLabel(provider))}</span>`;
   const teamBadge = teamMeta ? `<span class="conversation-team-role-badge">${escapeHtml(teamMeta.groupName ? `${teamMeta.groupName} / ${teamMeta.roleName}` : teamMeta.roleName)}</span>` : '';
   const displayTitle = teamMeta?.roleName || item.title || '-';
   const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
@@ -209,7 +208,6 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     '<div class="conversation-top-row">',
     '<div class="conversation-title-row">',
     `<span class="conversation-title-text">${escapeHtml(displayTitle)}</span>`,
-    providerBadge,
     teamBadge,
     '</div>',
     '<div class="conversation-top-meta">',

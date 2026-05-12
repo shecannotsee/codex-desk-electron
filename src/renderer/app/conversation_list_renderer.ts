@@ -158,8 +158,29 @@ function conversationProvider(item: ConversationSummary, teamMeta: AgentTeamConv
   return commandText.includes('claude') ? 'claude' : 'codex';
 }
 
-function defaultConversationAvatarPath(provider: 'codex' | 'claude'): string {
-  return provider === 'claude' ? 'resource/claude.png' : 'resource/codex.png';
+const CHATGPT_AVATAR_PATHS = [
+  'resource/chatgpt-01.png',
+  'resource/chatgpt-02.png',
+  'resource/chatgpt-03.png',
+  'resource/chatgpt-04.png',
+  'resource/chatgpt-05.png',
+  'resource/chatgpt-06.png',
+];
+
+function stableIndex(seed: string, size: number): number {
+  let hash = 0;
+  for (const ch of seed) {
+    hash = ((hash * 31) + (ch.codePointAt(0) || 0)) >>> 0;
+  }
+  return size > 0 ? hash % size : 0;
+}
+
+function defaultConversationAvatarPath(item: ConversationSummary, provider: 'codex' | 'claude'): string {
+  if (provider === 'claude') {
+    return 'resource/claude.png';
+  }
+  return CHATGPT_AVATAR_PATHS[stableIndex(String(item.id || item.title || ''), CHATGPT_AVATAR_PATHS.length)]
+    || CHATGPT_AVATAR_PATHS[0];
 }
 
 function normalizeResourceAvatarPath(input: unknown): string {
@@ -167,7 +188,12 @@ function normalizeResourceAvatarPath(input: unknown): string {
   if (!normalized || normalized.includes('..') || /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(normalized)) {
     return '';
   }
-  return normalized.startsWith('resource/') ? normalized.slice('resource/'.length) : normalized;
+  const relativePath = normalized.startsWith('resource/') ? normalized.slice('resource/'.length) : normalized;
+  return relativePath;
+}
+
+function isLegacyCodexAvatarPath(input: unknown): boolean {
+  return normalizeResourceAvatarPath(input) === 'codex.png';
 }
 
 function conversationAvatarUrl(item: ConversationSummary, provider: 'codex' | 'claude'): string {
@@ -176,9 +202,10 @@ function conversationAvatarUrl(item: ConversationSummary, provider: 'codex' | 'c
     return '';
   }
   const customPath = String(item.avatarPath || '').trim();
-  const paths = customPath
-    ? [customPath, defaultConversationAvatarPath(provider)]
-    : [defaultConversationAvatarPath(provider)];
+  const hasCustomPath = customPath && !isLegacyCodexAvatarPath(customPath);
+  const paths = hasCustomPath
+    ? [customPath, defaultConversationAvatarPath(item, provider)]
+    : [defaultConversationAvatarPath(item, provider)];
   for (const avatarPath of paths) {
     const relativePath = normalizeResourceAvatarPath(avatarPath);
     if (!relativePath) {

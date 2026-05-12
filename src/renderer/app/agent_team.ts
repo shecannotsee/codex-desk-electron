@@ -752,11 +752,7 @@ function buildRoleRoutingPromptDoc(group: AgentTeamGroup, role: AgentTeamRole): 
     t('agentTeamPromptDelegate'),
     t('agentTeamPromptDelegateBoundary'),
     t('agentTeamPromptDelegateFormat'),
-    '',
-    `## ${t('agentTeamCommunicationReport')}`,
     t('agentTeamPromptRejectOutOfScope'),
-    t('agentTeamPromptReport'),
-    t('agentTeamPromptCompletionGate'),
   ].join('\n');
 }
 
@@ -835,9 +831,9 @@ function buildRoleRunPrompt(group: AgentTeamGroup, role: AgentTeamRole, taskText
   return [
     role.responsibilityDoc || '',
     '',
-    buildRoleCompletionContractDoc(role),
-    '',
     role.routingPromptDoc || '',
+    '',
+    buildRoleCompletionContractDoc(role),
     '',
     t('agentTeamConversationInputPrompt', { from: upstreamName || group.ownerName || t('agentTeamOwnerName') }),
     '',
@@ -992,9 +988,18 @@ function isCompletionContractSatisfied(text: string): boolean {
   if (!body) {
     return false;
   }
-  return /完成状态\s*[：:]\s*(完成|阻塞)/.test(body)
-    || /完成状态\s*[：:]\s*拒绝/.test(body)
-    || /Completion status\s*:\s*(done|blocked|rejected)/i.test(body);
+  const isDone = /完成状态\s*[：:]\s*完成/.test(body)
+    || /Completion status\s*:\s*done/i.test(body);
+  const isBlockedOrRejected = /完成状态\s*[：:]\s*(阻塞|拒绝)/.test(body)
+    || /Completion status\s*:\s*(blocked|rejected)/i.test(body);
+  if (isBlockedOrRejected) {
+    return true;
+  }
+  if (!isDone) {
+    return false;
+  }
+  const planningPattern = /(?:我(?:将|会|打算|准备)|接下来(?:我)?(?:将|会)|(?:将|会)(?:进行|执行|处理|完成|检查|实现|补充|修改|更新|整理)|计划(?:先|将|会|进行|执行)?|准备(?:先|将|会|进行|执行)?|下一步(?:是|将|会)|I\s+(?:will|plan to|am going to)|next\s+I\s+will)/i;
+  return !planningPattern.test(body);
 }
 
 function isRejectedOrBlockedCompletion(text: string): boolean {
@@ -1097,6 +1102,8 @@ function buildSummaryPrompt(role: AgentTeamRole, originalTask: string, ownResult
     '',
     t('agentTeamSummaryPromptReturns'),
     returns || t('agentTeamNoDownstreamReturns'),
+    '',
+    buildRoleCompletionContractDoc(role),
   ].join('\n');
 }
 
@@ -1631,13 +1638,15 @@ function renderAgentTeamRolesTab(): void {
     const level = Number(levels.get(role.id) || 1);
     const downstreamNames = downstreamRoleNameList(group, role.downstreamRoleIds || []);
     return [
-      '<div class="agent-team-side-role">',
-      '<div class="agent-team-side-role-head">',
-      `<div class="agent-team-side-role-title">${escapeHtml(role.name)}</div>`,
+      '<details class="agent-team-side-role agent-team-side-role-collapsible">',
+      '<summary class="agent-team-side-role-summary">',
+      `<span class="agent-team-side-role-title">${escapeHtml(role.name)}</span>`,
+      `<span class="agent-team-role-status state-${escapeHtml(role.status || 'idle')}">${escapeHtml(roleStatusLabel(role))}</span>`,
+      '</summary>',
+      '<div class="agent-team-side-role-body">',
       '<div class="agent-team-role-actions">',
       `<button type="button" class="agent-team-role-edit" data-agent-team-edit-role="${escapeHtml(role.id)}" title="${escapeHtml(t('agentTeamEditRole'))}">${escapeHtml(t('agentTeamEditRole'))}</button>`,
       `<button type="button" class="agent-team-role-delete" data-agent-team-delete-role="${escapeHtml(role.id)}" title="${escapeHtml(t('agentTeamDeleteRole'))}">${escapeHtml(t('agentTeamDeleteRole'))}</button>`,
-      '</div>',
       '</div>',
       `<div>${escapeHtml(t('agentTeamRoleLevel'))}: ${escapeHtml(roleDepthLabel(level))}</div>`,
       renderRoleStatusLine(group, role),
@@ -1658,6 +1667,7 @@ function renderAgentTeamRolesTab(): void {
       `<div class="agent-team-doc-body">${renderMarkdownLike(role.routingPromptDoc || buildRoleRoutingPromptDoc(group, role))}</div>`,
       '</details>',
       '</div>',
+      '</details>',
     ].join('');
   }).join('');
   el.tabTeamRoles.innerHTML = [

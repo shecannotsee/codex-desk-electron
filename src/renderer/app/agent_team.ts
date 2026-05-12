@@ -867,6 +867,57 @@ function isStoppedPhase(phase: unknown): boolean {
   return value.includes('已停止') || value.includes('任务已停止') || value.includes('stopped') || value.includes('stop');
 }
 
+function runtimeEntryText(item: unknown): string {
+  if (!item) {
+    return '';
+  }
+  if (typeof item === 'string') {
+    return item;
+  }
+  if (typeof item !== 'object') {
+    return String(item || '');
+  }
+  const record = item as Record<string, unknown>;
+  return [
+    record.message,
+    record.title,
+    record.body,
+    record.preview,
+    record.line,
+    record.tag,
+  ].map((value) => String(value || '').trim()).filter(Boolean).join('\n');
+}
+
+function hasStoppedRuntimeSignal(runtime: RuntimeState | null | undefined, conversationId = ''): boolean {
+  if (runtime && isStoppedPhase(runtime.phase)) {
+    return true;
+  }
+  const conversation = findConversation(conversationId);
+  const hasInterruptedUserMessage = Array.isArray(conversation?.messages)
+    && conversation.messages.slice(-6).some((item) => item?.role === 'user' && (
+      item.interrupted === true
+      || String(item.interruptedReason || '').trim() === 'user-stop'
+    ));
+  if (hasInterruptedUserMessage) {
+    return true;
+  }
+  if (!runtime) {
+    return false;
+  }
+  const text = [
+    ...(Array.isArray(runtime.events) ? runtime.events.slice(-12).map(runtimeEntryText) : []),
+    ...(Array.isArray(runtime.workflow) ? runtime.workflow.slice(-12).map(runtimeEntryText) : []),
+    ...(Array.isArray(runtime.raw) ? runtime.raw.slice(-12).map(runtimeEntryText) : []),
+  ].join('\n').toLowerCase();
+  return text.includes('已请求停止当前对话任务')
+    || text.includes('任务已停止')
+    || text.includes('turn.interrupted')
+    || text.includes('user-stop')
+    || text.includes('interrupted')
+    || text.includes('exit code 130')
+    || text.includes('退出码 130');
+}
+
 function workflowText(item: WorkflowItem | null | undefined): string {
   if (!item || typeof item !== 'object') {
     return '';
@@ -1720,10 +1771,10 @@ function syncAgentTeamRoleRuntimeStatus(group: AgentTeamGroup): boolean {
       if (!nextProgress || previousStatus !== 'running') {
         nextProgress = t('agentTeamProgressWorking');
       }
-    } else if (isStoppedPhase(phase)) {
+    } else if (hasStoppedRuntimeSignal(runtime, conversationId)) {
       nextStatus = 'idle';
       nextProgress = t('agentTeamProgressStopped');
-    } else if (phase === '空闲' && previousStatus === 'running') {
+    } else if (phase === '空闲' && (previousStatus === 'running' || previousProgress === t('agentTeamProgressWorking'))) {
       nextStatus = 'idle';
       nextProgress = t('agentTeamProgressStopped');
     } else if (phase === '失败' && previousStatus === 'running') {
@@ -1747,6 +1798,10 @@ function syncAgentTeamRoleRuntimeStatus(group: AgentTeamGroup): boolean {
   return changed;
 }
 
+function syncAllAgentTeamRoleRuntimeStatus(): boolean {
+  return state.agentTeamGroups.reduce((changed, group) => syncAgentTeamRoleRuntimeStatus(group) || changed, false);
+}
+
 function syncAgentTeamRoleConversationStatus(conversationId: string, running?: boolean): boolean {
   const id = String(conversationId || '').trim();
   if (!id) {
@@ -1766,7 +1821,7 @@ function syncAgentTeamRoleConversationStatus(conversationId: string, running?: b
       } else if (running === false) {
         const runtime = state.runtimeByConversation[id];
         const phase = String(runtime?.phase || '').trim();
-        if (isStoppedPhase(phase) || phase === '空闲' || previousStatus === 'running') {
+        if (hasStoppedRuntimeSignal(runtime, id) || phase === '空闲' || previousStatus === 'running') {
           role.status = 'idle';
           role.currentProgress = t('agentTeamProgressStopped');
           role.waitingForRoleIds = [];
@@ -2037,6 +2092,7 @@ export {
   renderAgentTeamRuntime,
   renameAgentTeamGroup,
   saveAgentTeamPrefs,
+  syncAllAgentTeamRoleRuntimeStatus,
   syncAgentTeamRoleConversationStatus,
   syncAgentTeamRoleRuntimeStatus,
   switchAgentTeamGroup,

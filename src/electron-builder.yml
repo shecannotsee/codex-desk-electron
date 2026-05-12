@@ -17,8 +17,8 @@ extraMetadata:
 asar: true
 
 extraResources:
-  - from: ../resource/logo.png
-    to: resource/logo.png
+  - from: ../resource
+    to: resource
 
 linux:
   target:

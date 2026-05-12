@@ -8,6 +8,7 @@ export type AgentTeamTab = 'workflow' | 'add-role' | 'roles' | 'status';
 export interface AppInfo {
   name: string;
   version: string;
+  resourceBaseUrl?: string;
 }
 
 export type NotificationProvider = 'telegram';
@@ -112,6 +113,7 @@ export interface ConversationSummary {
   workdir?: string;
   provider?: 'codex' | 'claude';
   commandText?: string;
+  avatarPath?: string;
   sessionId: string;
   sessionContinuationMode?: string;
   messages: ConversationMessage[];
@@ -398,6 +400,7 @@ export interface CodexDeskApi {
   importSessionFromFile(filePath: string, continuationMode: string, workdirChoice?: ImportWorkdirChoice): Promise<GenericResult>;
   exportSession(conversationId: string): Promise<GenericResult>;
   renameConversation(conversationId: string, title: string): Promise<GenericResult>;
+  changeConversationAvatar(conversationId: string): Promise<GenericResult>;
   toggleConversationPin(conversationId: string): Promise<GenericResult>;
   closeCurrentConversation(): Promise<AppSnapshot>;
   clearChat(conversationId: string): Promise<GenericResult>;
@@ -693,6 +696,7 @@ export interface UiElementRefs {
   ctxImportConv: HTMLButtonElement;
   ctxExportConv: HTMLButtonElement;
   ctxRenameConv: HTMLButtonElement;
+  ctxAvatarConv: HTMLButtonElement;
   ctxPinConv: HTMLButtonElement;
   ctxCloseConv: HTMLButtonElement;
   chatContextMenu: HTMLElement;

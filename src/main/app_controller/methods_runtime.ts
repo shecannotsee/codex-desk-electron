@@ -130,6 +130,23 @@ const runtimeMethods = {
     return this.snapshot();
   },
 
+  changeConversationAvatar(conversationId, avatarPath) {
+    const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
+    if (!conv) {
+      return { error: '会话不存在', snapshot: this.snapshot() };
+    }
+    const nextAvatarPath = String(avatarPath || '').trim().replace(/\\/g, '/');
+    if (!nextAvatarPath || nextAvatarPath.includes('..') || !nextAvatarPath.startsWith('resource/')) {
+      return { error: '头像路径无效', snapshot: this.snapshot() };
+    }
+    conv.avatarPath = nextAvatarPath;
+    conv.updatedAt = nowTs();
+    this._syncConversationUpdated(conv);
+    this._appendStructuredEvent(conv.id, 'hint', '已更换会话头像');
+    this._persist();
+    return this.snapshot();
+  },
+
   toggleConversationPin(conversationId) {
     const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
     if (!conv) {

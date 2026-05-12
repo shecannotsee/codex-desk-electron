@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('codexdesk', {
   }),
   exportSession: (conversationId) => ipcRenderer.invoke('conversation:export-session', { conversationId }),
   renameConversation: (conversationId, title) => ipcRenderer.invoke('conversation:rename', { conversationId, title }),
+  changeConversationAvatar: (conversationId) => ipcRenderer.invoke('conversation:change-avatar', { conversationId }),
   toggleConversationPin: (conversationId) => ipcRenderer.invoke('conversation:toggle-pin', { conversationId }),
   closeCurrentConversation: () => ipcRenderer.invoke('conversation:close-current'),
   clearChat: (conversationId) => ipcRenderer.invoke('conversation:clear-chat', { conversationId }),

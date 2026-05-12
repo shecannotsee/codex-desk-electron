@@ -29,6 +29,7 @@ interface ConversationListItemCacheEntry {
   title: string;
   sessionId: string;
   commandText: string;
+  avatarPath: string;
   pinnedAt: number;
   updatedAt: number;
   createdAt: number;
@@ -157,6 +158,41 @@ function conversationProvider(item: ConversationSummary, teamMeta: AgentTeamConv
   return commandText.includes('claude') ? 'claude' : 'codex';
 }
 
+function defaultConversationAvatarPath(provider: 'codex' | 'claude'): string {
+  return provider === 'claude' ? 'resource/claude.png' : 'resource/codex.png';
+}
+
+function normalizeResourceAvatarPath(input: unknown): string {
+  const normalized = String(input || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  if (!normalized || normalized.includes('..') || /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(normalized)) {
+    return '';
+  }
+  return normalized.startsWith('resource/') ? normalized.slice('resource/'.length) : normalized;
+}
+
+function conversationAvatarUrl(item: ConversationSummary, provider: 'codex' | 'claude'): string {
+  const resourceBaseUrl = String(state.appInfo.resourceBaseUrl || '').trim();
+  if (!resourceBaseUrl) {
+    return '';
+  }
+  const customPath = String(item.avatarPath || '').trim();
+  const paths = customPath
+    ? [customPath, defaultConversationAvatarPath(provider)]
+    : [defaultConversationAvatarPath(provider)];
+  for (const avatarPath of paths) {
+    const relativePath = normalizeResourceAvatarPath(avatarPath);
+    if (!relativePath) {
+      continue;
+    }
+    try {
+      return new URL(relativePath, resourceBaseUrl).toString();
+    } catch {
+      continue;
+    }
+  }
+  return '';
+}
+
 function agentTeamMetaKey(teamMeta: AgentTeamConversationMeta | null): string {
   if (!teamMeta) {
     return '';
@@ -192,6 +228,10 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
   const timeText = formatMessageTime(item.updatedAt || item.createdAt);
   const previewText = conversationPreviewText(item);
   const provider = conversationProvider(item, teamMeta);
+  const avatarUrl = conversationAvatarUrl(item, provider);
+  const avatarHtml = avatarUrl
+    ? `<div class="conversation-avatar has-image"><img src="${escapeHtml(avatarUrl)}" alt="" loading="lazy" /></div>`
+    : `<div class="conversation-avatar ${escapeHtml(avatarTone)}">${escapeHtml(avatarChar)}</div>`;
   const teamBadge = teamMeta ? `<span class="conversation-team-role-badge">${escapeHtml(teamMeta.groupName ? `${teamMeta.groupName} / ${teamMeta.roleName}` : teamMeta.roleName)}</span>` : '';
   const displayTitle = teamMeta?.roleName || item.title || '-';
   const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
@@ -203,7 +243,7 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     '</span>',
   ].join('') : '';
   const contentHtml = [
-    `<div class="conversation-avatar ${escapeHtml(avatarTone)}">${escapeHtml(avatarChar)}</div>`,
+    avatarHtml,
     '<div class="conversation-main">',
     '<div class="conversation-top-row">',
     '<div class="conversation-title-row">',
@@ -231,6 +271,7 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     title: String(item.title || ''),
     sessionId: String(item.sessionId || ''),
     commandText: String(item.commandText || ''),
+    avatarPath: String(item.avatarPath || ''),
     pinnedAt: Number(item.pinnedAt || 0),
     updatedAt: Number(item.updatedAt || 0),
     createdAt: Number(item.createdAt || 0),
@@ -261,6 +302,7 @@ function getConversationListItemCache(item: ConversationSummary): ConversationLi
     && cached.title === String(item.title || '')
     && cached.sessionId === String(item.sessionId || '')
     && cached.commandText === String(item.commandText || '')
+    && cached.avatarPath === String(item.avatarPath || '')
     && cached.pinnedAt === Number(item.pinnedAt || 0)
     && cached.updatedAt === Number(item.updatedAt || 0)
     && cached.createdAt === Number(item.createdAt || 0)

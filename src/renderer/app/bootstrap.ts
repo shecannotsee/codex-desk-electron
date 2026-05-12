@@ -82,6 +82,7 @@ import { bindGlobalEventHandlers } from './global_event_bindings.js';
 import {
   bindAgentTeamController,
   loadAgentTeamPrefs,
+  syncAllAgentTeamRoleRuntimeStatus,
   switchAgentTeamGroup,
   switchWorkspaceMode,
 } from './agent_team.js';
@@ -177,6 +178,7 @@ async function init() {
       state.appInfo = {
         name: String(appInfo.name || 'Conductor').trim() || 'Conductor',
         version: String(appInfo.version || '').trim(),
+        resourceBaseUrl: String(appInfo.resourceBaseUrl || '').trim(),
       };
     }
   }
@@ -646,6 +648,14 @@ async function init() {
   setInterval(() => {
     renderCurrentTimeDisplay();
   }, 1000);
+  setInterval(() => {
+    if (!syncAllAgentTeamRoleRuntimeStatus()) {
+      return;
+    }
+    if (state.workspaceMode === 'team') {
+      renderRuntime();
+    }
+  }, 2000);
 }
 
 init();

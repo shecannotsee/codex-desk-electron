@@ -37,7 +37,6 @@ function isDuplicateRuntimeEvent(runtime: RuntimeState | null | undefined, item:
 function isAgentTeamRoleConversation(conversationId: string): boolean {
   const id = String(conversationId || '').trim();
   return Boolean(id)
-    && state.workspaceMode === 'team'
     && state.agentTeamGroups.some((group) => (group.roles || []).some((role) => role.conversationId === id));
 }
 

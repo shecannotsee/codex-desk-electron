@@ -133,6 +133,7 @@ const el: UiElementRefs = {
   addTeamRoleProviderClaude: queryById<HTMLButtonElement>('add-team-role-provider-claude'),
   addTeamRoleUpstreamList: queryById<HTMLElement>('add-team-role-upstream-list'),
   addTeamRoleDownstreamList: queryById<HTMLElement>('add-team-role-downstream-list'),
+  addTeamRoleInfoSourceList: queryById<HTMLElement>('add-team-role-info-source-list'),
   addTeamRoleResponsibilityInput: queryById<HTMLTextAreaElement>('add-team-role-responsibility-input'),
   addTeamRoleCompletionInput: queryById<HTMLTextAreaElement>('add-team-role-completion-input'),
   addTeamRoleCancel: queryById<HTMLButtonElement>('add-team-role-cancel'),

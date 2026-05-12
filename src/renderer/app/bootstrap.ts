@@ -1,60 +1,28 @@
 
 import { codexdesk } from './codexdesk.js';
-import type {
-  AppSnapshot,
-  ConversationSwitchPayload,
-} from './types.js';
+import type { AppSnapshot, ConversationSwitchPayload } from './types.js';
 import {
   CHAT_FONT_SIZE_DEFAULT,
-  CHAT_FONT_SIZE_MAX,
-  CHAT_FONT_SIZE_MIN,
-  applyChatFontSize,
-  applyRuntimePanelWidth,
-  applySidebarWidth,
-  applyTheme,
   clampAppZoom,
-  currentLang,
   el,
   increaseChatVisibleCount,
-  loadDraftPrefs,
-  loadUiPrefs,
   localizeKnownText,
   saveUiPrefs,
   setChatFontSize,
+  setComposerAttachments,
   setRenderHooks,
   setTheme,
   state,
   syncMenuLanguage,
-  t,
 } from './state_i18n.js';
-import {
-  currentConversation,
-  ensureMeta,
-  hasActiveConversation,
-  isConversationRunning,
-  isMessageCollapsed,
-  isWorkflowStepCollapsed,
-  queuedMessages,
-  resolveMessageMarkdownEnabled,
-  setMessageCollapsed,
-  setMessageMarkdownEnabled,
-} from './conversation_runtime.js';
 import {
   renderAll,
   renderChat,
-  renderComposerDraft,
   renderCurrentTimeDisplay,
-  renderHeader,
-  renderConversationList,
-  renderRunButtons,
   renderRuntime,
   renderSettings,
-  renderTabs,
-  updateConversationListActiveState,
-  setRendererCallbacks,
 } from './renderers.js';
 import {
-  bindZoomControls,
   runZoomAction,
   setAppZoomFactor,
   shouldKeepQuickSettingsOpen,
@@ -73,47 +41,24 @@ import {
 } from './app_state_sync.js';
 import { showCloseGuardModal } from './app_dialogs.js';
 import { setAttachmentMenuOpen } from './composer_attachments.js';
-import { setComposerAttachments } from './state_i18n.js';
 import { applyEvent } from './app_event_handler.js';
-import { bindConversationActions } from './conversation_actions_controller.js';
-import { bindComposerController } from './composer_controller.js';
 import { bindIntegrationSettingsBindings } from './integration_settings_bindings.js';
 import { bindGlobalEventHandlers } from './global_event_bindings.js';
 import {
-  bindAgentTeamController,
-  loadAgentTeamPrefs,
-  syncAllAgentTeamRoleRuntimeStatus,
-  switchAgentTeamGroup,
-  switchWorkspaceMode,
-} from './agent_team.js';
+  currentConversation,
+  isMessageCollapsed,
+  resolveMessageMarkdownEnabled,
+  setMessageCollapsed,
+  setMessageMarkdownEnabled,
+} from './conversation_runtime.js';
+import { syncAllAgentTeamRoleRuntimeStatus } from './agent_team.js';
+import { bindUiInit } from './bootstrap_ui.js';
+import { bindConversationInit } from './bootstrap_conversation.js';
+import { bindComposerInit } from './bootstrap_composer.js';
+import { bindAgentTeamInit } from './bootstrap_agent_team.js';
 
 function getEventElementTarget(event: Event): Element | null {
   return event.target instanceof Element ? event.target : null;
-}
-
-async function copyTextToClipboard(text: string) {
-  const content = String(text || '');
-  if (!content) {
-    return;
-  }
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    await navigator.clipboard.writeText(content);
-    return;
-  }
-  const helper = document.createElement('textarea');
-  helper.value = content;
-  helper.setAttribute('readonly', 'readonly');
-  helper.style.position = 'fixed';
-  helper.style.opacity = '0';
-  helper.style.pointerEvents = 'none';
-  document.body.appendChild(helper);
-  helper.focus();
-  helper.select();
-  try {
-    document.execCommand('copy');
-  } finally {
-    document.body.removeChild(helper);
-  }
 }
 
 const integrationSettings = createIntegrationSettingsController({
@@ -139,37 +84,9 @@ function applyConversationSwitchPayload(payload: ConversationSwitchPayload | nul
 }
 
 async function init() {
-  setRenderHooks({
-    renderAll,
-    renderSettings,
-  });
-  const switchConversationAndRender = async (id: string) => {
-    switchWorkspaceMode('conversation');
-    const previousActiveId = state.activeConversationId;
-    const payload = await codexdesk.switchConversation(id);
-    applyConversationSwitchPayload(payload);
-    if (!updateConversationListActiveState(previousActiveId, state.activeConversationId)) {
-      renderConversationList();
-    }
-    renderSettings();
-    renderHeader();
-    renderChat(true);
-    renderRuntime(true);
-    renderRunButtons();
-    renderComposerDraft();
-    renderTabs();
-  };
-  setRendererCallbacks({
-    onConversationSelected: switchConversationAndRender,
-  });
+  setRenderHooks({ renderAll, renderSettings });
 
-  loadUiPrefs();
-  loadDraftPrefs();
-  loadAgentTeamPrefs();
-  applyTheme();
-  applySidebarWidth();
-  applyRuntimePanelWidth();
-  applyChatFontSize();
+  bindUiInit({ integrationSettings });
   await setAppZoomFactor(state.ui.zoomFactor, { persist: false, rerenderControls: false }).catch(() => {});
 
   if (typeof codexdesk.getAppInfo === 'function') {
@@ -188,45 +105,28 @@ async function init() {
   renderAll();
   syncMenuLanguage();
 
-  codexdesk.onEvent((event) => {
-    applyEvent(event);
-  });
+  codexdesk.onEvent((event) => { applyEvent(event); });
 
   if (typeof codexdesk.onCloseGuard === 'function') {
-    codexdesk.onCloseGuard((payload) => {
-      showCloseGuardModal(payload || {});
-    });
+    codexdesk.onCloseGuard((payload) => { showCloseGuardModal(payload || {}); });
   }
 
   const switchConversationIfNeeded = async (conversationId) => {
     const targetId = String(conversationId || '').trim();
-    if (!targetId || targetId === state.activeConversationId) {
-      return;
-    }
+    if (!targetId || targetId === state.activeConversationId) return;
     const payload = await codexdesk.switchConversation(targetId);
     applyConversationSwitchPayload(payload);
     renderAll({ stickChatToBottom: true });
   };
 
-  const contextMenus = createContextMenuController({
-    applySnapshot,
-    renderAll,
-    switchConversationIfNeeded,
-  });
-  const {
-    hideChatContextMenu,
-    hideConversationContextMenu,
-    showChatContextMenu,
-    showConversationContextMenu,
-  } = contextMenus;
+  const contextMenus = createContextMenuController({ applySnapshot, renderAll, switchConversationIfNeeded });
+  const { hideChatContextMenu, hideConversationContextMenu, showChatContextMenu, showConversationContextMenu } = contextMenus;
   contextMenus.bind();
 
   if (el.chatView) {
     el.chatView.addEventListener('click', (event) => {
       const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
+      if (!(target instanceof Element)) return;
 
       const loadEarlierBtn = target.closest('.chat-load-more-button');
       if (loadEarlierBtn) {
@@ -246,35 +146,23 @@ async function init() {
       if (toggleBtn) {
         event.preventDefault();
         const index = Number(toggleBtn.getAttribute('data-msg-index') || '-1');
-        if (!Number.isInteger(index) || index < 0) {
-          return;
-        }
+        if (!Number.isInteger(index) || index < 0) return;
         const nextCollapsed = !isMessageCollapsed(state.activeConversationId, index);
         setMessageCollapsed(state.activeConversationId, index, nextCollapsed);
-        if (nextCollapsed) {
-          setMessageMarkdownEnabled(state.activeConversationId, index, false);
-        }
+        if (nextCollapsed) setMessageMarkdownEnabled(state.activeConversationId, index, false);
         renderChat(false);
         return;
       }
 
       const renderBtn = target.closest('.msg-toggle-render');
-      if (!renderBtn) {
-        return;
-      }
+      if (!renderBtn) return;
       event.preventDefault();
       const index = Number(renderBtn.getAttribute('data-msg-index') || '-1');
-      if (!Number.isInteger(index) || index < 0) {
-        return;
-      }
+      if (!Number.isInteger(index) || index < 0) return;
       const conversation = currentConversation();
       const message = Array.isArray(conversation?.messages) ? conversation.messages[index] : null;
       const defaultMarkdownEnabled = message?.role === 'assistant';
-      const nextEnabled = !resolveMessageMarkdownEnabled(
-        state.activeConversationId,
-        index,
-        defaultMarkdownEnabled,
-      );
+      const nextEnabled = !resolveMessageMarkdownEnabled(state.activeConversationId, index, defaultMarkdownEnabled);
       setMessageMarkdownEnabled(state.activeConversationId, index, nextEnabled);
       renderChat(false);
     });
@@ -288,21 +176,15 @@ async function init() {
   const showQuickSettingsMenu = quickSettings.show;
 
   const hideAboutModal = () => {
-    if (!el.aboutModal) {
-      return;
-    }
+    if (!el.aboutModal) return;
     el.aboutModal.classList.add('hidden');
   };
 
   const showAboutModal = () => {
-    if (!el.aboutModal) {
-      return;
-    }
+    if (!el.aboutModal) return;
     hideQuickSettingsMenu();
     el.aboutModal.classList.remove('hidden');
-    if (el.aboutClose) {
-      el.aboutClose.focus();
-    }
+    if (el.aboutClose) el.aboutClose.focus();
   };
 
   const actionToButton = {
@@ -323,15 +205,11 @@ async function init() {
 
   const dispatchAction = async (rawAction) => {
     const action = String(rawAction || '').trim();
-    if (!action) {
-      return;
-    }
+    if (!action) return;
 
     if (action.startsWith('ui:language:')) {
       const nextLanguage = action.slice('ui:language:'.length).trim();
-      if (!nextLanguage) {
-        return;
-      }
+      if (!nextLanguage) return;
       if (state.ui.language !== nextLanguage && Array.from(el.languageSelect.options).some((option) => option.value === nextLanguage)) {
         el.languageSelect.value = nextLanguage;
         el.languageSelect.dispatchEvent(new Event('change'));
@@ -340,60 +218,25 @@ async function init() {
     }
     if (action.startsWith('ui:chat-font-size:')) {
       const nextAction = action.slice('ui:chat-font-size:'.length).trim();
-      if (nextAction === 'decrease') {
-        setChatFontSize(state.ui.chatFontSize - 1);
-        return;
-      }
-      if (nextAction === 'increase') {
-        setChatFontSize(state.ui.chatFontSize + 1);
-        return;
-      }
-      if (nextAction === 'default') {
-        setChatFontSize(CHAT_FONT_SIZE_DEFAULT);
-        return;
-      }
+      if (nextAction === 'decrease') { setChatFontSize(state.ui.chatFontSize - 1); return; }
+      if (nextAction === 'increase') { setChatFontSize(state.ui.chatFontSize + 1); return; }
+      if (nextAction === 'default') { setChatFontSize(CHAT_FONT_SIZE_DEFAULT); return; }
       const value = Number(nextAction);
-      if (Number.isFinite(value)) {
-        setChatFontSize(value);
-      }
+      if (Number.isFinite(value)) setChatFontSize(value);
       return;
     }
-    if (action === 'ui:theme:light') {
-      if (state.ui.theme !== 'light') {
-        setTheme('light');
-      }
-      return;
-    }
-    if (action === 'ui:theme:dark') {
-      if (state.ui.theme !== 'dark') {
-        setTheme('dark');
-      }
-      return;
-    }
-    if (action === 'ui:theme:toggle') {
-      setTheme(state.ui.theme === 'dark' ? 'light' : 'dark');
-      return;
-    }
-    if (action === 'help:about') {
-      showAboutModal();
-      return;
-    }
-    if (await runZoomAction(action)) {
-      return;
-    }
+    if (action === 'ui:theme:light') { if (state.ui.theme !== 'light') setTheme('light'); return; }
+    if (action === 'ui:theme:dark') { if (state.ui.theme !== 'dark') setTheme('dark'); return; }
+    if (action === 'ui:theme:toggle') { setTheme(state.ui.theme === 'dark' ? 'light' : 'dark'); return; }
+    if (action === 'help:about') { showAboutModal(); return; }
+    if (await runZoomAction(action)) return;
 
     const btn = actionToButton[action];
-    if (btn) {
-      btn.click();
-      return;
-    }
+    if (btn) { btn.click(); return; }
 
     if (typeof codexdesk.invokeUiAction === 'function') {
       const result = await codexdesk.invokeUiAction(action);
-      if (result?.error) {
-        window.alert(localizeKnownText(result.error));
-        return;
-      }
+      if (result?.error) { window.alert(localizeKnownText(result.error)); return; }
       if (typeof result?.zoomFactor === 'number') {
         state.ui.zoomFactor = clampAppZoom(result.zoomFactor, state.ui.zoomFactor);
         saveUiPrefs();
@@ -415,139 +258,10 @@ async function init() {
   });
 
   bindResizablePanels();
-
-  bindConversationActions({
-    applySnapshot,
-    renderAll,
-  });
-
-  bindIntegrationSettingsBindings(integrationSettings, {
-    setQuickSettingsPane,
-  });
-
-  if (el.btnSessionId) {
-    el.btnSessionId.addEventListener('click', async () => {
-      const fullValue = String(el.btnSessionId.dataset.fullValue || '').trim();
-      if (!fullValue || fullValue === '-') {
-        return;
-      }
-      const flashCopiedState = () => {
-        el.btnSessionId.classList.remove('is-copied');
-        window.requestAnimationFrame(() => {
-          el.btnSessionId.classList.add('is-copied');
-          window.setTimeout(() => {
-            el.btnSessionId.classList.remove('is-copied');
-          }, 900);
-        });
-        showAppNotice(t('copySuccess'), 'success');
-      };
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(fullValue);
-        } else {
-          throw new Error('clipboard unavailable');
-        }
-        flashCopiedState();
-      } catch {
-        const range = document.createRange();
-        range.selectNodeContents(el.sessionId);
-        const selection = window.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-        try {
-          document.execCommand('copy');
-          flashCopiedState();
-        } finally {
-          selection?.removeAllRanges();
-        }
-      }
-    });
-  }
-
-  if (el.composerWorkdirValue) {
-    el.composerWorkdirValue.addEventListener('contextmenu', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const workdir = String(el.composerWorkdirValue?.getAttribute('data-copy-text') || '').trim();
-      if (!workdir) {
-        return;
-      }
-      try {
-        await copyTextToClipboard(workdir);
-        showAppNotice(t('copySuccess'), 'success');
-      } catch {
-        showAppNotice(localizeKnownText('复制失败'), 'error');
-      }
-    });
-  }
-
-  bindComposerController({
-    applySnapshot,
-    renderAll,
-  });
-
-  el.sidebarSearchInput.addEventListener('input', () => {
-    renderConversationList();
-  });
-
-  el.conversationList.addEventListener('click', async (event) => {
-    const target = getEventElementTarget(event);
-    const teamItem = target?.closest<HTMLElement>('.conversation-item[data-team-group-id]');
-    if (teamItem) {
-      const groupId = String(teamItem.getAttribute('data-team-group-id') || '').trim();
-      if (!groupId || !switchAgentTeamGroup(groupId)) {
-        return;
-      }
-      renderAll({ stickChatToBottom: true });
-      return;
-    }
-    const item = target?.closest<HTMLElement>('.conversation-item[data-id]');
-    if (!item) {
-      return;
-    }
-    const id = String(item.getAttribute('data-id') || '').trim();
-    if (!id) {
-      return;
-    }
-    await switchConversationAndRender(id);
-  });
-
-  el.btnSidebarNewConv.addEventListener('click', () => {
-    el.btnNewConv.click();
-  });
-
-  bindAgentTeamController(renderAll);
-
-  el.tabButtons.forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (state.workspaceMode === 'team') {
-        const teamTab = String(btn.getAttribute('data-team-tab') || '').trim();
-        if (teamTab === 'roles' || teamTab === 'status') {
-          state.activeAgentTeamTab = teamTab;
-        } else {
-          state.activeAgentTeamTab = 'workflow';
-        }
-      } else {
-        const nextTab = btn.getAttribute('data-tab');
-        state.activeTab = nextTab === 'workflow' || nextTab === 'raw' || nextTab === 'structured'
-          ? nextTab
-          : 'workflow';
-      }
-      renderRuntime();
-      renderTabs();
-      window.requestAnimationFrame(() => {
-        let pane = el.tabStructured;
-        if (state.activeTab === 'workflow') {
-          pane = el.tabWorkflow;
-        } else if (state.activeTab === 'raw') {
-          pane = el.tabRaw;
-        }
-        if (pane) {
-          pane.scrollTop = pane.scrollHeight;
-        }
-      });
-    });
-  });
+  bindConversationInit({ applySnapshot, applyConversationSwitchPayload });
+  bindIntegrationSettingsBindings(integrationSettings, { setQuickSettingsPane });
+  bindComposerInit({ applySnapshot });
+  bindAgentTeamInit({ renderAll });
 
   document.addEventListener('click', (event) => {
     const target = getEventElementTarget(event);
@@ -557,73 +271,16 @@ async function init() {
       event.stopPropagation();
       const encodedPath = String(localPathTrigger.getAttribute('data-open-path') || '').trim();
       const targetPath = encodedPath ? decodeURIComponent(encodedPath) : '';
-      if (!targetPath) {
-        return;
-      }
+      if (!targetPath) return;
       codexdesk.openPath(targetPath).then((result) => {
-        if (result?.error) {
-          showAppNotice(localizeKnownText(result.error), 'error');
-          return;
-        }
-        if (result?.warning) {
-          showAppNotice(localizeKnownText(String(result.warning || '')), 'info');
-        }
+        if (result?.error) { showAppNotice(localizeKnownText(result.error), 'error'); return; }
+        if (result?.warning) showAppNotice(localizeKnownText(String(result.warning || '')), 'info');
       }).catch(() => {});
       return;
     }
-    if (!target) {
-      setAttachmentMenuOpen(false);
-      return;
-    }
-    if (target.closest('.attachment-picker')) {
-      return;
-    }
+    if (!target) { setAttachmentMenuOpen(false); return; }
+    if (target.closest('.attachment-picker')) return;
     setAttachmentMenuOpen(false);
-  });
-
-  el.languageSelect.addEventListener('change', () => {
-    state.ui.language = el.languageSelect.value === 'en-US' ? 'en-US' : 'zh-CN';
-    saveUiPrefs();
-    renderAll();
-    integrationSettings.renderLocalizedState();
-    syncMenuLanguage();
-  });
-
-  bindZoomControls();
-
-  el.fontSizeRange.addEventListener('input', () => {
-    setChatFontSize(el.fontSizeRange.value);
-  });
-
-  el.fontSizeValue.addEventListener('input', () => {
-    const raw = String(el.fontSizeValue.value || '').trim();
-    if (!raw) {
-      return;
-    }
-    const value = Number(raw);
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    if (value < CHAT_FONT_SIZE_MIN || value > CHAT_FONT_SIZE_MAX) {
-      return;
-    }
-    setChatFontSize(value, { rerenderControls: false });
-    el.fontSizeRange.value = String(state.ui.chatFontSize);
-  });
-
-  const commitFontSizeInput = () => {
-    setChatFontSize(el.fontSizeValue.value);
-  };
-  el.fontSizeValue.addEventListener('focus', () => {
-    el.fontSizeValue.select();
-  });
-  el.fontSizeValue.addEventListener('change', commitFontSizeInput);
-  el.fontSizeValue.addEventListener('blur', commitFontSizeInput);
-  el.fontSizeValue.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitFontSizeInput();
-    }
   });
 
   runDocsCaptureSequence({
@@ -645,16 +302,12 @@ async function init() {
   integrationSettings.renderTelegramLogsPane();
 
   renderCurrentTimeDisplay();
+  setInterval(() => { renderCurrentTimeDisplay(); }, 1000);
   setInterval(() => {
-    renderCurrentTimeDisplay();
-  }, 1000);
-  setInterval(() => {
-    if (!syncAllAgentTeamRoleRuntimeStatus()) {
-      return;
-    }
-    if (state.workspaceMode === 'team') {
-      renderRuntime();
-    }
+    const hasRunningRole = state.agentTeamGroups.some((group) => group.roles.some((role) => role.status === 'running'));
+    if (!hasRunningRole) return;
+    if (!syncAllAgentTeamRoleRuntimeStatus()) return;
+    if (state.workspaceMode === 'team') renderRuntime();
   }, 2000);
 }
 

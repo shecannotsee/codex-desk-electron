@@ -196,6 +196,7 @@ export interface AgentTeamRole {
   upstreamRoleId?: string;
   upstreamRoleIds?: string[];
   downstreamRoleIds?: string[];
+  infoSourceRoleIds?: string[];
   responsibility: string;
   responsibilityDoc?: string;
   completionContractDoc?: string;
@@ -359,6 +360,7 @@ export interface CreateAgentTeamRoleOptions {
   upstreamRoleId?: string;
   upstreamRoleIds?: string[];
   downstreamRoleIds?: string[];
+  infoSourceRoleIds?: string[];
   responsibility?: string;
   completionContractDoc?: string;
 }
@@ -637,6 +639,7 @@ export interface UiElementRefs {
   addTeamRoleProviderClaude: HTMLButtonElement;
   addTeamRoleUpstreamList: HTMLElement;
   addTeamRoleDownstreamList: HTMLElement;
+  addTeamRoleInfoSourceList: HTMLElement;
   addTeamRoleResponsibilityInput: HTMLTextAreaElement;
   addTeamRoleCompletionInput: HTMLTextAreaElement;
   addTeamRoleCancel: HTMLButtonElement;

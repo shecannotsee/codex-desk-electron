@@ -7,19 +7,6 @@ const {
 const { runtimeQueueMethods } = require('./methods_runtime_queue');
 const { runtimeWorkflowMethods } = require('./methods_runtime_workflow');
 
-const CHATGPT_AVATAR_PATHS = [
-  'resource/chatgpt-01.png',
-  'resource/chatgpt-02.png',
-  'resource/chatgpt-03.png',
-  'resource/chatgpt-04.png',
-  'resource/chatgpt-05.png',
-  'resource/chatgpt-06.png',
-];
-
-function randomChatGptAvatarPath() {
-  return CHATGPT_AVATAR_PATHS[Math.floor(Math.random() * CHATGPT_AVATAR_PATHS.length)] || CHATGPT_AVATAR_PATHS[0];
-}
-
 const runtimeMethods = {
   _inferStructuredEventKind(level = '', message = '', metaKey = '') {
     return inferStructuredEventKind(level, message, metaKey);
@@ -85,7 +72,6 @@ const runtimeMethods = {
     conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
     conv.provider = provider;
     conv.commandText = defaultCommandTextForProvider(provider);
-    conv.avatarPath = provider === 'claude' ? 'resource/claude.png' : randomChatGptAvatarPath();
     this.conversations.push(conv);
     this.runtimeStore.ensure(conv.id);
     this._ensureMeta(conv.id);
@@ -140,23 +126,6 @@ const runtimeMethods = {
     conv.updatedAt = nowTs();
     this._syncConversationUpdated(conv);
     this._appendStructuredEvent(conv.id, 'hint', `已重命名对话: ${nextTitle}`);
-    this._persist();
-    return this.snapshot();
-  },
-
-  changeConversationAvatar(conversationId, avatarPath) {
-    const conv = getConversation(this.conversations, conversationId || this.activeConversationId);
-    if (!conv) {
-      return { error: '会话不存在', snapshot: this.snapshot() };
-    }
-    const nextAvatarPath = String(avatarPath || '').trim().replace(/\\/g, '/');
-    if (!nextAvatarPath || nextAvatarPath.includes('..') || !nextAvatarPath.startsWith('resource/')) {
-      return { error: '头像路径无效', snapshot: this.snapshot() };
-    }
-    conv.avatarPath = nextAvatarPath;
-    conv.updatedAt = nowTs();
-    this._syncConversationUpdated(conv);
-    this._appendStructuredEvent(conv.id, 'hint', '已更换会话头像');
     this._persist();
     return this.snapshot();
   },

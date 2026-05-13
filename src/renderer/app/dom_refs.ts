@@ -247,7 +247,6 @@ const el: UiElementRefs = {
   ctxImportConv: queryById<HTMLButtonElement>('ctx-import-conv'),
   ctxExportConv: queryById<HTMLButtonElement>('ctx-export-conv'),
   ctxRenameConv: queryById<HTMLButtonElement>('ctx-rename-conv'),
-  ctxAvatarConv: queryById<HTMLButtonElement>('ctx-avatar-conv'),
   ctxPinConv: queryById<HTMLButtonElement>('ctx-pin-conv'),
   ctxCloseConv: queryById<HTMLButtonElement>('ctx-close-conv'),
   chatContextMenu: queryById<HTMLElement>('chat-context-menu'),

@@ -23,7 +23,6 @@ function newConversation(title = formatConversationTitle()) {
     workdir: '',
     provider: 'codex',
     commandText: '',
-    avatarPath: '',
     sessionId: '',
     sessionContinuationMode: '',
     messages: [],

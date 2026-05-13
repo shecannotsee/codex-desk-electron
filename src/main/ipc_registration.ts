@@ -26,10 +26,6 @@ function resolveResourceBaseUrl(preferPackagedResourceDir = false) {
   return resourceDir ? pathToFileURL(`${resourceDir}${path.sep}`).toString() : '';
 }
 
-function resolveWritableResourceDir(preferPackagedResourceDir = false) {
-  return resourceDirCandidates(preferPackagedResourceDir).find(Boolean);
-}
-
 function registerAppIpc({
   app,
   dialog,
@@ -224,53 +220,6 @@ function registerAppIpc({
     const title = String(payload?.title || '');
     const conversationId = String(payload?.conversationId || '');
     return getController().renameConversation(conversationId, title);
-  });
-
-  ipcMain.handle('conversation:change-avatar', async (_, payload) => {
-    const mainWindow = getMainWindow();
-    const controller = getController();
-    const conversationId = String(payload?.conversationId || '');
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return { ok: false, error: '窗口不可用' };
-    }
-
-    const resourceDir = resolveWritableResourceDir(Boolean(app?.isPackaged));
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: getMenuLanguage() === 'en-US' ? 'Choose Conversation Avatar' : '选择会话头像',
-      defaultPath: resourceDir,
-      properties: ['openFile'],
-      filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    });
-
-    if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
-      return { canceled: true, snapshot: controller.snapshot() };
-    }
-
-    try {
-      fs.mkdirSync(resourceDir, { recursive: true });
-      const sourcePath = path.resolve(result.filePaths[0]);
-      const ext = path.extname(sourcePath).toLowerCase();
-      if (!['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext)) {
-        return { error: '请选择图片文件', snapshot: controller.snapshot() };
-      }
-      const stem = path.basename(sourcePath, ext)
-        .replace(/[^a-zA-Z0-9._-]+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 48) || 'avatar';
-      const fileName = `avatar-${Date.now().toString(36)}-${stem}${ext}`;
-      const targetPath = path.join(resourceDir, fileName);
-      fs.copyFileSync(sourcePath, targetPath);
-      return controller.changeConversationAvatar(conversationId, `resource/${fileName}`);
-    } catch (error) {
-      return {
-        error: `更换头像失败: ${error?.message || String(error)}`,
-        snapshot: controller.snapshot(),
-      };
-    }
   });
 
   ipcMain.handle('conversation:toggle-pin', async (_, payload) => {

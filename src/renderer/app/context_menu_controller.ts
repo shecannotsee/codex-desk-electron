@@ -121,9 +121,6 @@ export function createContextMenuController(options: ContextMenuOptions) {
       el.ctxRenameConv.disabled = !hasTarget;
       el.ctxRenameConv.classList.remove('hidden');
     }
-    if (el.ctxAvatarConv) {
-      el.ctxAvatarConv.classList.add('hidden');
-    }
     if (el.ctxCloseConv) {
       el.ctxCloseConv.disabled = !hasTarget;
       el.ctxCloseConv.classList.remove('hidden');
@@ -157,11 +154,6 @@ export function createContextMenuController(options: ContextMenuOptions) {
     if (el.ctxRenameConv) {
       el.ctxRenameConv.classList.remove('hidden');
       el.ctxRenameConv.disabled = !hasTarget;
-    }
-    if (el.ctxAvatarConv) {
-      el.ctxAvatarConv.classList.remove('hidden');
-      el.ctxAvatarConv.disabled = !hasTarget;
-      el.ctxAvatarConv.textContent = t('contextMenuAvatar');
     }
     if (el.ctxPinConv) {
       el.ctxPinConv.classList.remove('hidden');
@@ -329,27 +321,6 @@ export function createContextMenuController(options: ContextMenuOptions) {
         const next = await codexdesk.toggleConversationPin(id);
         if (next?.error) {
           window.alert(localizeKnownText(next.error));
-          return;
-        }
-        options.applySnapshot(next?.snapshot || next);
-        options.renderAll();
-      });
-    }
-    if (el.ctxAvatarConv) {
-      el.ctxAvatarConv.addEventListener('click', async () => {
-        const id = contextMenuConversationId;
-        hideConversationContextMenu();
-        if (!id) {
-          return;
-        }
-        const next = await codexdesk.changeConversationAvatar(id);
-        if (next?.canceled) {
-          return;
-        }
-        if (next?.error) {
-          window.alert(localizeKnownText(next.error));
-          options.applySnapshot(next?.snapshot || {});
-          options.renderAll();
           return;
         }
         options.applySnapshot(next?.snapshot || next);

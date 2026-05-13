@@ -211,7 +211,6 @@ class StateStore {
       conv.commandText = rawConversationCommand
         ? normalizeCommandText(rawConversationCommand)
         : defaultCommandTextForProvider(conv.provider);
-      conv.avatarPath = String(item.avatarPath || item.avatar_path || '').trim().replace(/\\/g, '/');
       conv.sessionContinuationMode = String(
         item.sessionContinuationMode || item.session_continuation_mode || '',
       ).trim();
@@ -334,7 +333,6 @@ class StateStore {
         commandText: normalizeCommandText(item.commandText || defaultCommandTextForProvider(
           normalizeCliProvider(item.provider || item.cliProvider, item.commandText || state.commandText),
         )),
-        avatarPath: String(item.avatarPath || '').trim().replace(/\\/g, '/'),
         sessionId: item.sessionId || '',
         sessionContinuationMode: item.sessionContinuationMode || '',
         workdir: normalizeWorkdir(item.workdir || state.workdir),

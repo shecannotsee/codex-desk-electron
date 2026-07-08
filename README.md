@@ -77,6 +77,12 @@ cd E:\workspace\conductor
 .\start.ps1
 ```
 
+Detached Windows launch:
+
+```powershell
+.\start-detached.ps1
+```
+
 Manual development run:
 
 ```bash

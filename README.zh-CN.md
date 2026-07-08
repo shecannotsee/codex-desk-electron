@@ -59,6 +59,12 @@ cd E:\workspace\conductor
 .\start.ps1
 ```
 
+Windows detached launch:
+
+```powershell
+.\start-detached.ps1
+```
+
 手动开发启动：
 
 ```bash

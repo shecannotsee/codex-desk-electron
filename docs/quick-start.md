@@ -28,6 +28,12 @@ cd E:\workspace\conductor
 .\start.ps1
 ```
 
+如需关闭终端后继续运行：
+
+```powershell
+.\start-detached.ps1
+```
+
 开发方式：
 
 ```bash

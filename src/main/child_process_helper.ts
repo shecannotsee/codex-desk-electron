@@ -25,7 +25,7 @@ function candidateNames(command, env) {
   if (!raw || process.platform !== 'win32' || path.extname(raw)) {
     return [raw];
   }
-  return [raw, ...getPathExts(env).map((ext) => `${raw}${ext}`)];
+  return [...getPathExts(env).map((ext) => `${raw}${ext}`), raw];
 }
 
 function resolveCommand(command, env) {

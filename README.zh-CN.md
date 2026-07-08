@@ -52,10 +52,17 @@ cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+cd E:\workspace\conductor
+.\start.ps1
+```
+
 手动开发启动：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm install
 npm run check
 npm start
@@ -64,7 +71,7 @@ npm start
 ## 校验与截图
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run check
 npm run build
 npm run capture:docs
@@ -75,4 +82,5 @@ npm run capture:docs
 ## 平台状态
 
 - 已验证：Ubuntu 22.04
-- 未验证：Windows、macOS
+- 已验证：Windows development run
+- 未验证：macOS

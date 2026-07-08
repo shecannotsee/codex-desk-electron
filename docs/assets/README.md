@@ -3,7 +3,7 @@
 截图由独立文档截图窗口生成：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run capture:docs
 ```
 

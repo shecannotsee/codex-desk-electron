@@ -2,7 +2,7 @@
 
 ## 1. 前置条件
 
-- Ubuntu 22.04（当前已验证平台）。
+- Ubuntu 22.04 或 Windows 开发运行环境（当前已验证平台）。
 - Node.js 18+ 和 npm。
 - 已安装并登录 Codex CLI，终端中 `codex --version` 可用。
 
@@ -21,10 +21,17 @@ cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
+Windows PowerShell：
+
+```powershell
+cd E:\workspace\conductor
+.\start.ps1
+```
+
 开发方式：
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm install
 npm run check
 npm start

@@ -91,14 +91,14 @@ npm start
 Primary validation command:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run check
 ```
 
 Full build:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run build
 ```
 
@@ -107,7 +107,7 @@ npm run build
 Use the dedicated docs-capture mode. It opens a separate Electron window and exits automatically after writing screenshots.
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run capture:docs
 ```
 

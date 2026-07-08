@@ -8,12 +8,12 @@
 - TypeScript 6.x
 - 可执行并已登录的 `codex` CLI
 
-已验证平台：Ubuntu 22.04。
+已验证平台：Ubuntu 22.04、Windows 开发运行。
 
 ## 2. 常用命令
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm install
 npm run check
 npm run build
@@ -68,7 +68,7 @@ src/renderer/styles.css          样式与主题
 ## 6. 文档截图
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm run capture:docs
 ```
 

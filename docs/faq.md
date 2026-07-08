@@ -11,6 +11,8 @@ claude --version
 which claude
 ```
 
+Windows PowerShell 中可用 `where.exe codex` / `where.exe claude` 检查 PATH。
+
 Conductor 会尽量导入登录 shell 环境，但如果桌面环境没有正确 PATH，仍可能失败。
 
 ## 2. 为什么发送时报“目录不存在”？
@@ -82,4 +84,4 @@ Codex 会使用兼容 `codex exec --image` 的路径。app-server 当前不承�
 
 ## 15. Windows/macOS 支持吗？
 
-当前已验证 Ubuntu 22.04。Windows/macOS 未验证，路径打开、打包、系统托盘和 shell 环境导入可能需要单独测试。
+当前已验证 Ubuntu 22.04 和 Windows 开发运行。macOS 未验证；Windows 打包安装流程也尚未验证。

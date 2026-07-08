@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
 
+const { spawnCommand, spawnSyncCommand } = require('../child_process_helper');
 const {
   splitShellArgs,
   stripAnsi,
@@ -201,7 +201,7 @@ const metaMethods = {
       const probePrompt = '请只回复: ok';
       const cmd = [...base, '--json', probePrompt];
 
-      const child = spawn(cmd[0], cmd.slice(1), {
+      const child = spawnCommand(cmd[0], cmd.slice(1), {
         cwd: workdir || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getCodexChildEnv(),
@@ -278,7 +278,7 @@ const metaMethods = {
     }
 
     try {
-      const result = spawnSync(bin, ['--version'], {
+      const result = spawnSyncCommand(bin, ['--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         timeout: 6000,

@@ -5,12 +5,12 @@
   "description": "Electron implementation of Conductor",
   "main": "app/main/main.js",
   "scripts": {
-    "clean": "rm -rf app",
+    "clean": "node scripts/clean-app.js",
     "build": "npm run clean && tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node app/scripts/postbuild-copy.js",
     "sync:logo": "npm run build && node app/scripts/sync-logo.js",
     "start:app": "npm run build && electron .",
     "start": "npm run sync:logo && electron .",
-    "capture:docs": "npm run sync:logo && CONDUCTOR_DOC_CAPTURE=1 electron . --docs-capture",
+    "capture:docs": "npm run sync:logo && node scripts/run-doc-capture.js",
     "check": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "pack:dir": "npm run sync:logo && npx electron-builder@26.0.12 --dir --config electron-builder.yml",
     "dist:deb": "npm run sync:logo && npx electron-builder@26.0.12 --linux deb --config electron-builder.yml"

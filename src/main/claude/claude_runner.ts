@@ -1,7 +1,7 @@
 const { EventEmitter } = require('node:events');
-const { spawn, spawnSync } = require('node:child_process');
 const readline = require('node:readline');
 
+const { spawnCommand, spawnSyncCommand } = require('../child_process_helper');
 const { getCodexChildEnv } = require('../shell_env');
 const { stripAnsi, splitShellArgs } = require('../codex/codex_cli_gateway');
 const { emitUsageMeta } = require('../codex/codex_runner_usage');
@@ -113,7 +113,7 @@ class ClaudeRunner extends EventEmitter {
 
   _runSubprocess(cmd, rawLines, assistantChunks) {
     return new Promise((resolve) => {
-      this.proc = spawn(cmd[0], cmd.slice(1), {
+      this.proc = spawnCommand(cmd[0], cmd.slice(1), {
         cwd: this.workdir || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
         env: this.childEnv,
@@ -190,7 +190,7 @@ class ClaudeRunner extends EventEmitter {
       return;
     }
     try {
-      const result = spawnSync(cmd[0], ['--version'], {
+      const result = spawnSyncCommand(cmd[0], ['--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         timeout: 6000,

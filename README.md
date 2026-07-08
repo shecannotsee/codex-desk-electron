@@ -63,15 +63,24 @@ notes/                 Project-local notes only
 
 ## Quick Run
 
+Ubuntu/Linux:
+
 ```bash
 cd /home/shecannotsee/Desktop/projects/conductor
 ./start.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+cd E:\workspace\conductor
+.\start.ps1
+```
+
 Manual development run:
 
 ```bash
-cd /home/shecannotsee/Desktop/projects/conductor/src
+cd src
 npm install
 npm run check
 npm start
@@ -105,7 +114,8 @@ npm run capture:docs
 ## Platform Status
 
 - Verified: Ubuntu 22.04
-- Not yet verified: Windows, macOS
+- Verified: Windows development run
+- Not yet verified: macOS
 
 ## License
 

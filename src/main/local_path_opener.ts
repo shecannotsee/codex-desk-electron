@@ -1,8 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawn, spawnSync } = require('node:child_process');
+const { fileURLToPath } = require('node:url');
 
 const { shell } = require('electron');
+const { spawnCommand, spawnSyncCommand } = require('./child_process_helper');
 
 let checkedCodeBinary = false;
 let hasCodeBinary = false;
@@ -13,7 +14,7 @@ function canUseCodeBinary() {
   }
   checkedCodeBinary = true;
   try {
-    const result = spawnSync('code', ['--version'], {
+    const result = spawnSyncCommand('code', ['--version'], {
       stdio: 'ignore',
       timeout: 1200,
     });
@@ -25,7 +26,7 @@ function canUseCodeBinary() {
 }
 
 function launchDetached(command, args = []) {
-  const child = spawn(command, args, {
+  const child = spawnCommand(command, args, {
     detached: true,
     stdio: 'ignore',
   });
@@ -42,8 +43,8 @@ function parseLocalOpenTarget(input) {
   let hashPart = '';
   if (/^file:\/\//i.test(raw)) {
     try {
+      targetPath = fileURLToPath(raw);
       const url = new URL(raw);
-      targetPath = decodeURIComponent(url.pathname || '');
       hashPart = String(url.hash || '').replace(/^#/, '');
     } catch {
       return { path: '', line: 0, column: 0 };

@@ -1,6 +1,6 @@
 // Telegram HTTP API helpers. This module owns request transport, proxy fallback,
 // timeout handling, and user-friendly API error normalization.
-const { spawn } = require('node:child_process');
+const { spawnCommand } = require('../child_process_helper');
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
@@ -115,7 +115,7 @@ function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
       url,
     ];
 
-    const child = spawn('curl', args, {
+    const child = spawnCommand('curl', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });

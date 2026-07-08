@@ -1,7 +1,7 @@
 const { EventEmitter } = require('node:events');
-const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 
+const { spawnCommand } = require('../child_process_helper');
 const { getCodexChildEnv } = require('../shell_env');
 const {
   stripAnsi,
@@ -210,7 +210,7 @@ class CodexAppServerRunner extends EventEmitter {
   }
 
   _spawnServer(cmd) {
-    this.proc = spawn(cmd[0], cmd.slice(1), {
+    this.proc = spawnCommand(cmd[0], cmd.slice(1), {
       cwd: this.workdir || process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
       env: this.childEnv,

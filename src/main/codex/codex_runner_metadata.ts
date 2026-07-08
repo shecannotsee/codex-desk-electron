@@ -1,5 +1,4 @@
-const { spawnSync } = require('node:child_process');
-
+const { spawnSyncCommand } = require('../child_process_helper');
 const { stripAnsi } = require('./codex_cli_gateway');
 
 function emitCodexVersionMeta(runner, cmd) {
@@ -12,7 +11,7 @@ function emitCodexVersionMeta(runner, cmd) {
   }
 
   try {
-    const result = spawnSync(cmd[0], ['--version'], {
+    const result = spawnSyncCommand(cmd[0], ['--version'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       timeout: 6000,

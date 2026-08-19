@@ -92,7 +92,7 @@ function askCreateConversationWorkdir(): Promise<{ workdir: string; provider: 'c
     syncWorkdirInput();
     syncProviderButtons();
     modal.classList.remove('hidden');
-    codexBtn.focus();
+    (selectedProvider === 'claude' ? claudeBtn : codexBtn).focus();
 
     const cleanup = () => {
       modal.classList.add('hidden');
@@ -112,7 +112,10 @@ function askCreateConversationWorkdir(): Promise<{ workdir: string; provider: 'c
 
     const onConfirm = () => {
       cleanup();
-      resolve({ workdir: selectedWorkdir, provider: selectedProvider });
+      resolve({
+        workdir: selectedWorkdir,
+        provider: selectedProvider,
+      });
     };
 
     const onProviderCodex = () => {

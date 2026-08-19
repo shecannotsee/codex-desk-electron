@@ -1,6 +1,7 @@
 import type { AppSnapshot, ConversationSwitchPayload, NotificationSettingsState, RemoteControlSettingsState, RuntimeState } from './types.js';
 import {
   ensureChatVisibleCount,
+  pruneGoalModes,
   pruneChatVisibleCounts,
   pruneComposerAttachments,
   pruneConversationDrafts,
@@ -148,6 +149,7 @@ function applySnapshot(snapshot: AppSnapshot | null | undefined, onSecurityState
   pruneRuntimeVisibleCounts([...validIds]);
   pruneConversationDrafts([...validIds]);
   pruneComposerAttachments([...validIds]);
+  pruneGoalModes([...validIds]);
   pruneConversationRenderCaches([...validIds]);
 
   if (!state.activeConversationId && state.conversations.length) {
@@ -230,6 +232,7 @@ function removeConversationRuntimeState(conversationId: string) {
   delete state.collapsedByConversation[conversationId];
   delete state.workflowCollapsedByConversation[conversationId];
   delete state.chatVisibleCountByConversation[conversationId];
+  delete state.goalModeByConversation[conversationId];
   setConversationDraft(conversationId, '');
   state.runningConversationIds.delete(conversationId);
 }

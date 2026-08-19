@@ -33,6 +33,7 @@ const runtimeQueueMethods = {
         text: rawText,
         preview: normalizePreview(rawText, 200),
         attachments: Array.isArray(item?.attachments) ? item.attachments : [],
+        goalMode: Boolean(item?.goalMode),
         queuedAt,
         fromRetry: Boolean(item?.fromRetry),
       };
@@ -151,6 +152,7 @@ const runtimeQueueMethods = {
       appendUserMessage: Boolean(next.appendUserMessage),
       forceFreshSession: Boolean(next.forceFreshSession),
       fromRetry: Boolean(next.fromRetry),
+      goalMode: Boolean(next.goalMode),
     }).then((result) => {
       if (result?.error) {
         this._appendStructuredEvent(conversationId, 'error', `排队消息启动失败: ${result.error}`);

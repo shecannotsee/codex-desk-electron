@@ -34,6 +34,8 @@ interface ConversationListItemCacheEntry {
   createdAt: number;
   latestMessageRef: ConversationMessage | null;
   provider: string;
+  goalMode: boolean;
+  goalObjective: string;
   teamMetaKey: string;
   statusKey: string;
   statusLabel: string;
@@ -148,6 +150,10 @@ function providerLabel(provider: unknown): string {
   return String(provider || '').trim().toLowerCase() === 'claude' ? 'Claude' : 'Codex';
 }
 
+function isGoalConversation(item: ConversationSummary): boolean {
+  return Boolean(String(item.goalObjective || '').trim());
+}
+
 function conversationProvider(item: ConversationSummary, teamMeta: AgentTeamConversationMeta | null): 'codex' | 'claude' {
   const provider = String(teamMeta?.provider || item.provider || '').trim().toLowerCase();
   if (provider === 'claude') {
@@ -192,8 +198,13 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
   const timeText = formatMessageTime(item.updatedAt || item.createdAt);
   const previewText = conversationPreviewText(item);
   const provider = conversationProvider(item, teamMeta);
+  const goalObjective = String(item.goalObjective || '').trim();
+  const goalMode = Boolean(goalObjective);
   const avatarHtml = `<div class="conversation-avatar ${escapeHtml(avatarTone)}">${escapeHtml(avatarChar)}</div>`;
   const teamBadge = teamMeta ? `<span class="conversation-team-role-badge">${escapeHtml(teamMeta.groupName ? `${teamMeta.groupName} / ${teamMeta.roleName}` : teamMeta.roleName)}</span>` : '';
+  const goalBadge = goalMode
+    ? `<span class="goal-badge conversation-goal-badge" title="${escapeHtml(goalObjective || t('goalConversationTooltip'))}" aria-label="${escapeHtml(goalObjective ? `${t('goalConversationBadge')}: ${goalObjective}` : t('goalConversationBadge'))}">${escapeHtml(t('goalConversationBadge'))}</span>`
+    : '';
   const displayTitle = teamMeta?.roleName || item.title || '-';
   const queueBadge = queue > 0 ? `<span class="queue-badge">${escapeHtml(String(queue))}</span>` : '';
   const pinBadge = pinned ? [
@@ -209,6 +220,7 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     '<div class="conversation-top-row">',
     '<div class="conversation-title-row">',
     `<span class="conversation-title-text">${escapeHtml(displayTitle)}</span>`,
+    goalBadge,
     teamBadge,
     '</div>',
     '<div class="conversation-top-meta">',
@@ -237,11 +249,13 @@ function buildConversationListItemContent(item: ConversationSummary): Conversati
     createdAt: Number(item.createdAt || 0),
     latestMessageRef: Array.isArray(item.messages) && item.messages.length ? item.messages[item.messages.length - 1] : null,
     provider,
+    goalMode,
+    goalObjective,
     teamMetaKey: agentTeamMetaKey(teamMeta),
     statusKey: status.key,
     statusLabel: status.label,
     queue,
-    searchText: `${String(item.title || '')}\n${teamMeta?.groupName || ''}\n${teamMeta?.roleName || ''}\n${providerLabel(provider)}\n${previewText}\n${String(item.sessionId || '')}`.toLowerCase(),
+    searchText: `${String(item.title || '')}\n${teamMeta?.groupName || ''}\n${teamMeta?.roleName || ''}\n${providerLabel(provider)}\n${goalMode ? `${t('goalConversationBadge')}\n${goalObjective}` : ''}\n${previewText}\n${String(item.sessionId || '')}`.toLowerCase(),
     contentHtml,
     idAttr: escapeHtml(item.id),
   };
@@ -255,6 +269,8 @@ function getConversationListItemCache(item: ConversationSummary): ConversationLi
   const teamMeta = agentTeamConversationMeta(item.id);
   const provider = conversationProvider(item, teamMeta);
   const teamMetaKey = agentTeamMetaKey(teamMeta);
+  const goalMode = isGoalConversation(item);
+  const goalObjective = String(item.goalObjective || '').trim();
   if (
     cached
     && cached.conversationRef === item
@@ -267,6 +283,8 @@ function getConversationListItemCache(item: ConversationSummary): ConversationLi
     && cached.createdAt === Number(item.createdAt || 0)
     && cached.latestMessageRef === latestMessageRef
     && cached.provider === provider
+    && cached.goalMode === goalMode
+    && cached.goalObjective === goalObjective
     && cached.teamMetaKey === teamMetaKey
     && cached.statusKey === status.key
     && cached.statusLabel === status.label

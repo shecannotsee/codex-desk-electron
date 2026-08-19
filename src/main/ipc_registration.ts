@@ -262,6 +262,7 @@ function registerAppIpc({
       appendUserMessage: options.appendUserMessage !== false,
       forceFreshSession: Boolean(options.forceFreshSession),
       fromRetry: Boolean(options.fromRetry),
+      goalMode: Boolean(options.goalMode),
     });
   });
 

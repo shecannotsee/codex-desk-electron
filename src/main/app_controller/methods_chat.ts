@@ -175,6 +175,7 @@ const chatMethods = {
       appendUserMessage: false,
       forceFreshSession: conv.sessionContinuationMode === 'fork' ? false : true,
       fromRetry: true,
+      goalMode: Boolean(lastUser.goalMode),
     });
   },
 
@@ -229,7 +230,7 @@ const chatMethods = {
     return { ok: true, inserted: true, snapshot: this.snapshot() };
   },
 
-  async sendMessage({ conversationId, text, attachments = [], appendUserMessage = true, forceFreshSession = false, fromRetry = false }) {
+  async sendMessage({ conversationId, text, attachments = [], appendUserMessage = true, forceFreshSession = false, fromRetry = false, goalMode = false }) {
     const targetId = conversationId || this.activeConversationId;
     if (!targetId) {
       return { error: '请先新建对话。', snapshot: this.snapshot() };
@@ -244,10 +245,22 @@ const chatMethods = {
     if (!userText) {
       return { error: '消息不能为空', snapshot: this.snapshot() };
     }
+    const goalRequested = Boolean(goalMode) && this._resolveConversationProvider(targetId) === 'codex';
+    const existingGoalObjective = String(conv.goalObjective || '').trim();
+    const goalObjective = goalRequested ? userText : existingGoalObjective;
+    const goalEnabled = Boolean(goalObjective) && this._resolveConversationProvider(targetId) === 'codex';
 
     const workdir = this._resolveConversationWorkdir(targetId);
     if (!workdir || !fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) {
       return { error: `目录不存在:\n${workdir}`, snapshot: this.snapshot() };
+    }
+
+    if (goalEnabled && !supportsAppServer(this._resolveConversationCommandText(targetId))) {
+      return { error: 'Goal 对话需要支持 `codex app-server`。', snapshot: this.snapshot() };
+    }
+
+    if (goalEnabled && normalizedAttachments.length > 0) {
+      return { error: 'Goal 对话暂不支持附件。', snapshot: this.snapshot() };
     }
 
     if (this._isConversationRunning(targetId)) {
@@ -259,6 +272,7 @@ const chatMethods = {
         appendUserMessage: Boolean(appendUserMessage),
         forceFreshSession: Boolean(forceFreshSession),
         fromRetry: Boolean(fromRetry),
+        goalMode: goalEnabled,
         queuedAt: Date.now(),
       });
       this._emitQueueUpdated(targetId);
@@ -282,11 +296,16 @@ const chatMethods = {
         role: 'user',
         text: userText,
         attachments: normalizedAttachments,
+        ...(goalEnabled ? { goalMode: true, goalObjective } : {}),
         createdAt: nowTs(),
       });
       appendedUserMessage = conv.messages[conv.messages.length - 1] || null;
     } else if (fromRetry) {
       this._appendStructuredEvent(targetId, 'info', `用户手动重试上一条消息: ${appendAttachmentPreview(userText, normalizedAttachments)}`);
+    }
+    if (goalRequested) {
+      conv.goalMode = true;
+      conv.goalObjective = goalObjective;
     }
     conv.updatedAt = nowTs();
     this._syncConversationUpdated(conv);
@@ -318,12 +337,11 @@ const chatMethods = {
     ).trim().toLowerCase();
     const preferAppServer = Boolean(this.preferAppServerByConversation?.[targetId]);
     const appServerDisabled = useAppServerEnv === '0' || useAppServerEnv === 'false';
-    const allowAppServer = !appServerDisabled || preferAppServer;
+    const allowAppServer = goalEnabled || !appServerDisabled || preferAppServer;
     const useAppServer = !useClaudeRunner
-      && allowAppServer
-      && this.useNativeMemory
       && supportsAppServer(commandText)
-      && !hasAttachments;
+      && !hasAttachments
+      && (goalEnabled || (allowAppServer && this.useNativeMemory));
     const hasStoredSession = Boolean(String(conv.sessionId || '').trim());
     const continuationMode = String(conv.sessionContinuationMode || '').trim();
     const appServerMode = !useAppServer
@@ -363,6 +381,7 @@ const chatMethods = {
         workdir,
         sessionId: conv.sessionId || '',
         mode: appServerMode || 'start',
+        goalObjective,
       })
       : new CodexRunner({
         commandText,

@@ -57,6 +57,7 @@ const state: AppState = {
   },
   activeConversationId: '',
   conversations: [],
+  goalModeByConversation: {},
   runtimeByConversation: {},
   metaByConversation: {},
   runningConversationIds: new Set(),
@@ -308,6 +309,41 @@ function setComposerAttachments(conversationId, attachments) {
   } else {
     delete state.composerAttachmentsByConversation[key];
   }
+}
+
+function isGoalModeEnabled(conversationId) {
+  const key = String(conversationId || '').trim();
+  if (!key) {
+    return false;
+  }
+  return Boolean(state.goalModeByConversation[key]);
+}
+
+function setGoalModeEnabled(conversationId, enabled) {
+  const key = String(conversationId || '').trim();
+  if (!key) {
+    return;
+  }
+  if (enabled) {
+    state.goalModeByConversation[key] = true;
+  } else {
+    delete state.goalModeByConversation[key];
+  }
+}
+
+function toggleGoalModeEnabled(conversationId) {
+  const next = !isGoalModeEnabled(conversationId);
+  setGoalModeEnabled(conversationId, next);
+  return next;
+}
+
+function pruneGoalModes(validConversationIds) {
+  const validIds = new Set((validConversationIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+  Object.keys(state.goalModeByConversation || {}).forEach((id) => {
+    if (!validIds.has(id)) {
+      delete state.goalModeByConversation[id];
+    }
+  });
 }
 
 function pruneComposerAttachments(validConversationIds) {
@@ -673,6 +709,10 @@ export {
   getComposerAttachments,
   setComposerAttachments,
   pruneComposerAttachments,
+  isGoalModeEnabled,
+  setGoalModeEnabled,
+  toggleGoalModeEnabled,
+  pruneGoalModes,
   defaultChatVisibleCount,
   ensureChatVisibleCount,
   syncChatVisibleCount,

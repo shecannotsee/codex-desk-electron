@@ -22,13 +22,14 @@ const {
 const { emitUsageMeta } = require('./codex_runner_usage');
 
 class CodexAppServerRunner extends EventEmitter {
-  constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start' }) {
+  constructor({ commandText, prompt, workdir, sessionId = '', mode = 'start', goalObjective = '' }) {
     super();
     this.commandText = commandText;
     this.prompt = prompt;
     this.workdir = workdir;
     this.sessionId = sessionId;
     this.mode = mode === 'resume' || mode === 'fork' ? mode : 'start';
+    this.goalObjective = String(goalObjective || '').trim();
     this.childEnv = getCodexChildEnv();
 
     this.proc = null;
@@ -134,6 +135,9 @@ class CodexAppServerRunner extends EventEmitter {
       }
       this.threadId = threadId;
       this.emit('meta', '会话ID', threadId);
+      if (this.goalObjective) {
+        await this._syncThreadGoal(threadId);
+      }
       const resolvedModel = String(threadResponse?.model || settings.model || '').trim();
       if (resolvedModel) {
         this.lastModel = resolvedModel;
@@ -441,6 +445,46 @@ class CodexAppServerRunner extends EventEmitter {
       this.pendingRequests.set(String(id), { resolve, reject });
       this._writeJson({ method, id, params });
     });
+  }
+
+  async _syncThreadGoal(threadId) {
+    const objective = String(this.goalObjective || '').trim();
+    if (!objective || !threadId) {
+      return null;
+    }
+    const result = await this._sendRequest('thread/goal/set', {
+      threadId,
+      objective,
+      status: 'active',
+    }) as any;
+    const goal = result?.goal || result || {};
+    const updatedObjective = String(goal?.objective || objective).trim();
+    if (updatedObjective) {
+      this.emit('event', 'hint', `已设置 thread goal: ${updatedObjective}`);
+    }
+    return goal;
+  }
+
+  async _clearThreadGoal(threadId) {
+    if (!threadId) {
+      return null;
+    }
+    const result = await this._sendRequest('thread/goal/clear', {
+      threadId,
+    }) as any;
+    const goal = result?.goal || result || {};
+    this.emit('event', 'hint', '已清除 thread goal');
+    return goal;
+  }
+
+  async _readThreadGoal(threadId) {
+    if (!threadId) {
+      return null;
+    }
+    const result = await this._sendRequest('thread/goal/get', {
+      threadId,
+    }) as any;
+    return result?.goal ?? null;
   }
 
   _emitItemStep(eventType, rawItem) {

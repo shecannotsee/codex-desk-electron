@@ -443,6 +443,9 @@ function renderChatMessageBlock(
   const preview = messagePreview(item.text);
   const rowClass = item.role === 'user' ? 'msg-user-row' : 'msg-assistant-row';
   const timeText = resolveMessageTime(item, conversation, index);
+  const goalBadge = item.role === 'user' && Boolean(item.goalMode)
+    ? `<span class="goal-badge msg-goal-badge" title="${escapeHtml(t('goalMessageBadgeTooltip'))}" aria-label="${escapeHtml(t('goalMessageBadgeTooltip'))}">${escapeHtml(t('goalConversationBadge'))}</span>`
+    : '';
   const usageFooter = renderMessageUsageFooter(conversation, latestAssistantIndex, index, item);
   const attachmentsHtml = Array.isArray(item.attachments) && item.attachments.length
     ? `<div class="msg-attachments">${renderAttachmentChips(item.attachments)}</div>`
@@ -454,7 +457,7 @@ function renderChatMessageBlock(
   return [
     `<div class="msg-block ${rowClass}" data-msg-row-index="${escapeHtml(index)}">`,
     '<div class="msg-head">',
-    `<div class="msg-role">${escapeHtml(role)}</div>`,
+    `<div class="msg-role">${escapeHtml(role)}${goalBadge}</div>`,
     '<div class="msg-actions">',
     renderToggle,
     `<button type="button" class="msg-toggle-collapse" data-msg-index="${escapeHtml(index)}" aria-expanded="${collapsed ? 'false' : 'true'}">${escapeHtml(toggleText)}</button>`,

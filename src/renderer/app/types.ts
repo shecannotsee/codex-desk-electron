@@ -81,6 +81,8 @@ export interface ConversationMessage {
   sourceKind?: 'user' | 'role' | 'system';
   roleId?: string;
   targetRoleId?: string;
+  goalMode?: boolean;
+  goalObjective?: string;
   attachments?: MessageAttachment[];
   usage?: MessageUsage;
   createdAt?: number;
@@ -112,6 +114,8 @@ export interface ConversationSummary {
   title: string;
   workdir?: string;
   provider?: 'codex' | 'claude';
+  goalMode?: boolean;
+  goalObjective?: string;
   commandText?: string;
   sessionId: string;
   sessionContinuationMode?: string;
@@ -169,6 +173,7 @@ export interface QueuedMessageItem {
   text?: string;
   preview?: string;
   attachments?: MessageAttachment[];
+  goalMode?: boolean;
   queuedAt?: number;
   fromRetry?: boolean;
   [key: string]: unknown;
@@ -412,7 +417,7 @@ export interface CodexDeskApi {
     conversationId: string,
     text: string,
     attachments?: MessageAttachment[],
-    options?: { appendUserMessage?: boolean; forceFreshSession?: boolean; fromRetry?: boolean },
+    options?: { appendUserMessage?: boolean; forceFreshSession?: boolean; fromRetry?: boolean; goalMode?: boolean },
   ): Promise<GenericResult>;
   insertMessage(conversationId: string, text: string): Promise<GenericResult>;
   retryLastMessage(conversationId: string): Promise<GenericResult>;
@@ -439,6 +444,7 @@ export interface AppState {
   settings: SettingsState;
   activeConversationId: string;
   conversations: ConversationSummary[];
+  goalModeByConversation: Record<string, boolean>;
   runtimeByConversation: RuntimeStore;
   metaByConversation: MetaStore;
   runningConversationIds: Set<string>;
@@ -476,6 +482,8 @@ export interface UiElementRefs {
   btnRenameConv: HTMLButtonElement;
   btnCloseConv: HTMLButtonElement;
   chatTitle: HTMLElement;
+  chatTitleText: HTMLElement;
+  chatTitleGoalBadge: HTMLElement;
   labelSessionId: HTMLElement;
   labelPhase: HTMLElement;
   labelQueue: HTMLElement;
@@ -608,6 +616,7 @@ export interface UiElementRefs {
   btnAddImageAttachment: HTMLButtonElement;
   composerResizeHandle: HTMLElement;
   sendRow: HTMLElement;
+  btnSendGoal: HTMLButtonElement;
   btnSend: HTMLButtonElement;
   btnInsertMessage: HTMLButtonElement;
   btnRetryLast: HTMLButtonElement;

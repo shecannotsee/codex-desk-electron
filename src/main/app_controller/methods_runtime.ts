@@ -71,6 +71,8 @@ const runtimeMethods = {
     }
     conv.workdir = normalizeWorkdir(selectedWorkdir || this._defaultWorkdir());
     conv.provider = provider;
+    conv.goalMode = false;
+    conv.goalObjective = '';
     conv.commandText = defaultCommandTextForProvider(provider);
     this.conversations.push(conv);
     this.runtimeStore.ensure(conv.id);

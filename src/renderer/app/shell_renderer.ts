@@ -1,6 +1,7 @@
 import {
   currentLang,
   el,
+  isGoalModeEnabled,
   state,
   t,
 } from './state_i18n.js';
@@ -56,7 +57,14 @@ function renderHeader() {
     if (group) {
       syncAgentTeamRoleRuntimeStatus(group);
     }
-    el.chatTitle.textContent = group?.name || t('agentTeamLabel');
+    if (el.chatTitleText) {
+      el.chatTitleText.textContent = group?.name || t('agentTeamLabel');
+    } else {
+      el.chatTitle.textContent = group?.name || t('agentTeamLabel');
+    }
+    if (el.chatTitleGoalBadge) {
+      el.chatTitleGoalBadge.classList.add('hidden');
+    }
     el.sessionId.textContent = group ? `${group.id.slice(0, 8)}...${group.id.slice(-4)}` : '-';
     if (el.btnSessionId) {
       el.btnSessionId.disabled = !group;
@@ -80,6 +88,8 @@ function renderHeader() {
   }
   setHeaderMetaChipsVisible(true);
   const conv = currentConversation();
+  const goalObjective = String(conv?.goalObjective || '').trim();
+  const goalMode = Boolean(goalObjective);
   const meta = conv
     ? ensureMeta(state.activeConversationId)
     : {
@@ -94,7 +104,16 @@ function renderHeader() {
     return text;
   };
 
-  el.chatTitle.textContent = conv ? conv.title : '-';
+  if (el.chatTitleText) {
+    el.chatTitleText.textContent = conv ? conv.title : '-';
+  } else {
+    el.chatTitle.textContent = conv ? conv.title : '-';
+  }
+  if (el.chatTitleGoalBadge) {
+    el.chatTitleGoalBadge.textContent = t('goalConversationBadge');
+    el.chatTitleGoalBadge.title = goalObjective || t('goalConversationTooltip');
+    el.chatTitleGoalBadge.classList.toggle('hidden', !goalMode);
+  }
   const sid = normalizeMetaValue(meta['会话ID']) || normalizeMetaValue(conv?.sessionId) || '-';
   if (sid && sid !== '-' && sid.length > 16) {
     el.sessionId.textContent = `${sid.slice(0, 8)}...${sid.slice(-6)}`;
@@ -155,6 +174,11 @@ function renderHeader() {
 function renderRunButtons() {
   if (state.workspaceMode === 'team') {
     const hasGroup = Boolean(currentAgentTeamGroup());
+    if (el.btnSendGoal) {
+      el.btnSendGoal.classList.add('hidden');
+      el.btnSendGoal.disabled = true;
+      el.btnSendGoal.setAttribute('aria-pressed', 'false');
+    }
     el.btnSend.disabled = !hasGroup;
     el.btnSend.textContent = t('send');
     el.btnInsertMessage.classList.add('hidden');
@@ -195,6 +219,18 @@ function renderRunButtons() {
   const running = isConversationRunning(state.activeConversationId);
   const canInsert = running && hasConv && !isClaudeConversation;
   const canUseAttachments = hasConv && !isClaudeConversation;
+  const canUseGoal = hasConv && !isClaudeConversation;
+  const goalEnabled = Boolean(canUseGoal && isGoalModeEnabled(state.activeConversationId));
+  if (el.btnSendGoal) {
+    el.btnSendGoal.classList.toggle('hidden', !hasConv);
+    el.btnSendGoal.classList.toggle('active', goalEnabled);
+    el.btnSendGoal.disabled = !canUseGoal;
+    el.btnSendGoal.setAttribute('aria-pressed', goalEnabled ? 'true' : 'false');
+    el.btnSendGoal.setAttribute('aria-label', t('goalMode'));
+    el.btnSendGoal.title = canUseGoal
+      ? (goalEnabled ? t('goalModeDisableTooltip') : t('goalModeEnableTooltip'))
+      : t('goalModeUnavailableTooltip');
+  }
   el.btnSend.disabled = !hasConv;
   el.btnSend.textContent = running ? t('queueSend') : t('send');
   el.btnInsertMessage.disabled = !canInsert;

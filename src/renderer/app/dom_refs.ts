@@ -20,6 +20,8 @@ const el: UiElementRefs = {
   btnCloseConv: queryById<HTMLButtonElement>('btn-close-conv'),
 
   chatTitle: queryById<HTMLElement>('chat-title'),
+  chatTitleText: queryById<HTMLElement>('chat-title-text'),
+  chatTitleGoalBadge: queryById<HTMLElement>('chat-title-goal-badge'),
   labelSessionId: queryById<HTMLElement>('label-session-id'),
   labelPhase: queryById<HTMLElement>('label-phase'),
   labelQueue: queryById<HTMLElement>('label-queue'),
@@ -198,6 +200,7 @@ const el: UiElementRefs = {
   btnAddImageAttachment: queryById<HTMLButtonElement>('btn-add-image-attachment'),
   composerResizeHandle: queryById<HTMLElement>('composer-resize-handle'),
   sendRow: queryById<HTMLElement>('send-row'),
+  btnSendGoal: queryById<HTMLButtonElement>('btn-send-goal'),
   btnSend: queryById<HTMLButtonElement>('btn-send'),
   btnInsertMessage: queryById<HTMLButtonElement>('btn-insert-message'),
   btnRetryLast: queryById<HTMLButtonElement>('btn-retry-last'),

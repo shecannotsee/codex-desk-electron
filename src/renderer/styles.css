@@ -422,6 +422,7 @@ button:hover:not(:disabled) {
 }
 
 .conversation-title-text {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -447,6 +448,31 @@ button:hover:not(:disabled) {
   white-space: nowrap;
   color: #526273;
   background: rgba(148, 163, 184, 0.18);
+}
+
+.goal-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9a6715;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.conversation-item.active .goal-badge {
+  color: #ffffff;
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(255, 214, 153, 0.38);
 }
 
 .conversation-time {
@@ -511,6 +537,11 @@ button:hover:not(:disabled) {
 .conversation-item.active .conversation-pin-badge {
   background: transparent;
   color: rgba(255, 255, 255, 0.88);
+}
+
+.conversation-item.active .conversation-team-role-badge {
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .queue-badge {
@@ -639,12 +670,11 @@ button:hover:not(:disabled) {
 .chat-title {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
   min-height: 28px;
   max-width: min(42vw, 520px);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
@@ -655,6 +685,18 @@ button:hover:not(:disabled) {
   padding: 0;
   letter-spacing: -0.01em;
   margin-right: auto;
+}
+
+.chat-title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-title-goal-badge {
+  flex: 0 0 auto;
 }
 
 .meta-chip {
@@ -2226,6 +2268,51 @@ body.composer-resizing .composer-resize-handle::before {
 
 .send-row button:hover:not(:disabled) {
   transform: none;
+}
+
+.send-goal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: rgba(51, 144, 236, 0.08);
+  border: 1px solid rgba(51, 144, 236, 0.18);
+  color: #215b8d;
+  font-size: calc(12px * var(--chat-font-scale));
+  font-weight: 700;
+  line-height: 1;
+}
+
+.send-goal-toggle .send-goal-toggle-label {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.send-goal-toggle .quick-settings-switch {
+  flex: 0 0 auto;
+}
+
+.send-goal-toggle.active {
+  background: rgba(51, 144, 236, 0.18);
+  border-color: rgba(51, 144, 236, 0.34);
+  color: #134c79;
+}
+
+.send-goal-toggle.active .quick-settings-switch {
+  background: #3390ec;
+}
+
+.send-goal-toggle.active .quick-settings-switch-knob {
+  transform: translateX(14px);
+}
+
+.send-goal-toggle:hover:not(:disabled),
+.send-goal-toggle:focus-visible {
+  transform: none;
+  border-color: rgba(51, 144, 236, 0.34);
+  background: rgba(51, 144, 236, 0.12);
 }
 
 #btn-send {
@@ -3917,8 +4004,15 @@ html[data-theme='light'] .busy-indicator {
 }
 
 .msg-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #5f7386;
   font-weight: 600;
+}
+
+.msg-goal-badge {
+  flex-shrink: 0;
 }
 
 .msg-toggle-render,
@@ -5018,6 +5112,18 @@ html[data-theme='dark'] .conversation-team-role-badge {
   background: rgba(148, 163, 184, 0.16);
 }
 
+html[data-theme='dark'] .goal-badge {
+  color: #fde68a;
+  background: rgba(180, 83, 9, 0.2);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+html[data-theme='dark'] .conversation-item.active .goal-badge {
+  color: #ffffff;
+  background: rgba(245, 158, 11, 0.26);
+  border-color: rgba(253, 230, 138, 0.42);
+}
+
 html[data-theme='dark'] .conversation-time {
   color: #70879a;
 }
@@ -5172,6 +5278,30 @@ html[data-theme='dark'] .quick-settings-btn {
   color: #f8fcff;
 }
 
+html[data-theme='dark'] .send-goal-toggle {
+  background: rgba(51, 144, 236, 0.16);
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #d7e6f5;
+}
+
+html[data-theme='dark'] .send-goal-toggle.active {
+  background: rgba(51, 144, 236, 0.28);
+  border-color: rgba(96, 165, 250, 0.38);
+  color: #f8fcff;
+}
+
+html[data-theme='dark'] .send-goal-toggle.active .quick-settings-switch {
+  background: #3390ec;
+}
+
+html[data-theme='dark'] .send-goal-toggle .quick-settings-switch {
+  background: #425466;
+}
+
+html[data-theme='dark'] .send-goal-toggle .quick-settings-switch-knob {
+  background: #f8fbff;
+}
+
 html[data-theme='dark'] .btn-secondary {
   background: linear-gradient(180deg, #243241 0%, #1d2937 100%);
   border-color: #38506a;
@@ -5187,6 +5317,12 @@ html[data-theme='dark'] .meta-chip {
 html[data-theme='dark'] .chat-title {
   color: #e7f1fb;
   border-width: 0;
+}
+
+html[data-theme='dark'] .chat-title-goal-badge {
+  color: #fde68a;
+  background: rgba(180, 83, 9, 0.2);
+  border-color: rgba(245, 158, 11, 0.28);
 }
 
 html[data-theme='dark'] .meta-link-button,

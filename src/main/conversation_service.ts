@@ -22,6 +22,8 @@ function newConversation(title = formatConversationTitle()) {
     title,
     workdir: '',
     provider: 'codex',
+    goalMode: false,
+    goalObjective: '',
     commandText: '',
     sessionId: '',
     sessionContinuationMode: '',

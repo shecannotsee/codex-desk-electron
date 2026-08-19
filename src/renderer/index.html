@@ -406,7 +406,10 @@
 
     <main id="workspace" class="workspace">
       <section id="focus-row" class="focus-row">
-        <div id="chat-title" class="chat-title">-</div>
+        <div id="chat-title" class="chat-title">
+          <span id="chat-title-text" class="chat-title-text">-</span>
+          <span id="chat-title-goal-badge" class="goal-badge chat-title-goal-badge hidden" title="Goal mode">Goal</span>
+        </div>
         <div id="model-meta-chip" class="meta-chip model-meta-chip">
           <button id="btn-meta-model" class="meta-link-button" type="button">
             <span id="label-meta-model">模型</span>: <span id="meta-model-value">-</span>
@@ -512,6 +515,12 @@
               <button id="btn-add-image-attachment" class="attachment-kind-option" type="button">图片</button>
             </div>
           </div>
+          <button id="btn-send-goal" class="send-goal-toggle hidden" type="button" aria-pressed="false" aria-label="Goal">
+            <span class="send-goal-toggle-label" data-i18n-key="goalMode">Goal</span>
+            <span class="quick-settings-switch" aria-hidden="true">
+              <span class="quick-settings-switch-knob"></span>
+            </span>
+          </button>
           <button id="btn-send">发送</button>
           <button id="btn-insert-message" class="hidden">插入对话</button>
           <button id="btn-retry-last">重试上一条</button>

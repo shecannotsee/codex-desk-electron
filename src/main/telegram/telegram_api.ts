@@ -1,5 +1,6 @@
 // Telegram HTTP API helpers. This module owns request transport, proxy fallback,
 // timeout handling, and user-friendly API error normalization.
+const { session } = require('electron');
 const { spawnCommand } = require('../child_process_helper');
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
@@ -18,6 +19,55 @@ function resolveSystemProxyUrl() {
     if (value) {
       return value;
     }
+  }
+  return '';
+}
+
+function normalizeProxyUrl(proxyRule = '') {
+  const text = String(proxyRule || '').trim();
+  if (!text || text.toUpperCase() === 'DIRECT') {
+    return '';
+  }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
+    return text;
+  }
+  const parts = text.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) {
+    return '';
+  }
+  const scheme = String(parts[0] || '').trim().toUpperCase();
+  const hostPort = String(parts[1] || '').trim();
+  if (!hostPort) {
+    return '';
+  }
+  if (scheme === 'PROXY' || scheme === 'HTTP' || scheme === 'HTTPS') {
+    return `http://${hostPort}`;
+  }
+  if (scheme === 'SOCKS' || scheme === 'SOCKS4' || scheme === 'SOCKS5') {
+    return `socks5://${hostPort}`;
+  }
+  return '';
+}
+
+async function resolveElectronProxyUrl(url = '') {
+  const requestUrl = String(url || '').trim();
+  if (!requestUrl || !session?.defaultSession || typeof session.defaultSession.resolveProxy !== 'function') {
+    return '';
+  }
+  try {
+    const proxyResult = await session.defaultSession.resolveProxy(requestUrl);
+    const rules = String(proxyResult || '')
+      .split(';')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    for (const rule of rules) {
+      const proxyUrl = normalizeProxyUrl(rule);
+      if (proxyUrl) {
+        return proxyUrl;
+      }
+    }
+  } catch {
+    // Ignore proxy lookup failures and fall back to direct transport.
   }
   return '';
 }
@@ -57,7 +107,11 @@ async function postTelegram(settings, method, payload, timeoutMs = 15000) {
   const resolvedTimeoutMs = Math.max(1000, Number(timeoutMs) || 15000);
   const systemProxyUrl = resolveSystemProxyUrl();
   if (systemProxyUrl) {
-    return postTelegramViaCurl(url, payload, resolvedTimeoutMs);
+    return postTelegramViaCurl(url, payload, resolvedTimeoutMs, null, systemProxyUrl);
+  }
+  const electronProxyUrl = await resolveElectronProxyUrl(url);
+  if (electronProxyUrl) {
+    return postTelegramViaCurl(url, payload, resolvedTimeoutMs, null, electronProxyUrl);
   }
   try {
     return await postTelegramViaFetch(url, payload, resolvedTimeoutMs);
@@ -97,7 +151,7 @@ async function postTelegramViaFetch(url, payload, timeoutMs) {
   }
 }
 
-function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
+function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null, proxyUrl = '') {
   return new Promise((resolve, reject) => {
     const maxTimeSeconds = Math.max(1, Math.ceil(Math.max(1000, Number(timeoutMs) || 15000) / 1000));
     const args = [
@@ -114,6 +168,10 @@ function postTelegramViaCurl(url, payload, timeoutMs, fetchError = null) {
       JSON.stringify(payload || {}),
       url,
     ];
+    const resolvedProxyUrl = String(proxyUrl || '').trim();
+    if (resolvedProxyUrl) {
+      args.splice(args.length - 1, 0, '--proxy', resolvedProxyUrl);
+    }
 
     const child = spawnCommand('curl', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -173,5 +231,6 @@ module.exports = {
   buildTelegramApiUrl,
   normalizeTelegramApiError,
   postTelegram,
+  resolveElectronProxyUrl,
   resolveSystemProxyUrl,
 };

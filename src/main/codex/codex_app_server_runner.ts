@@ -113,17 +113,25 @@ class CodexAppServerRunner extends EventEmitter {
       });
       this._sendNotification('initialized', {});
 
+      const threadPolicy = {
+        cwd: this.workdir,
+        approvalPolicy: settings.approvalPolicy,
+        sandbox: settings.sandboxMode,
+      };
       let threadResponse = null;
       if (this.mode === 'fork') {
         threadResponse = await this._sendRequest('thread/fork', {
           threadId: this.sessionId,
+          ...threadPolicy,
         }) as any;
       } else if (this.mode === 'resume') {
         threadResponse = await this._sendRequest('thread/resume', {
           threadId: this.sessionId,
+          ...threadPolicy,
         }) as any;
       } else {
         threadResponse = await this._sendRequest('thread/start', {
+          ...threadPolicy,
           ...(settings.model ? { model: settings.model } : {}),
         }) as any;
       }
@@ -135,8 +143,25 @@ class CodexAppServerRunner extends EventEmitter {
       }
       this.threadId = threadId;
       this.emit('meta', '会话ID', threadId);
+      const appliedSandboxType = String(threadResponse?.sandbox?.type || '').trim();
+      if (
+        this.goalObjective
+        && settings.sandboxMode === 'danger-full-access'
+        && appliedSandboxType !== 'dangerFullAccess'
+      ) {
+        throw new Error(
+          `Goal 权限未生效：app-server 返回 sandbox=${appliedSandboxType || 'unknown'}，期望 dangerFullAccess`,
+        );
+      }
       if (this.goalObjective) {
         await this._syncThreadGoal(threadId);
+      }
+      if (this.goalObjective && (settings.skipGitRepoCheck || settings.dangerousBypass)) {
+        this.emit(
+          'event',
+          'hint',
+          '已应用 Goal 执行策略：跳过 exec 的 Git 仓库前置检查，审批关闭，完整访问工作区',
+        );
       }
       const resolvedModel = String(threadResponse?.model || settings.model || '').trim();
       if (resolvedModel) {

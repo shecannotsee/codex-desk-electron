@@ -214,7 +214,16 @@ class StateStore {
       conv.sessionContinuationMode = String(
         item.sessionContinuationMode || item.session_continuation_mode || '',
       ).trim();
+      conv.goalObjective = String(item.goalObjective || item.goal_objective || '').trim();
+      conv.goalMode = Boolean(item.goalMode ?? item.goal_mode) || Boolean(conv.goalObjective);
       conv.messages = parseMessages(item.messages);
+      if (!conv.goalObjective) {
+        const latestGoalMessage = [...conv.messages]
+          .reverse()
+          .find((message) => message?.role === 'user' && String(message.goalObjective || '').trim());
+        conv.goalObjective = String(latestGoalMessage?.goalObjective || '').trim();
+        conv.goalMode = conv.goalMode || Boolean(conv.goalObjective);
+      }
       conv.pinnedAt = toNumber(item.pinnedAt ?? item.pinned_at, 0);
       conv.createdAt = toNumber(item.createdAt ?? item.created_at, conv.createdAt);
       conv.updatedAt = toNumber(item.updatedAt ?? item.updated_at, conv.updatedAt);
@@ -335,6 +344,8 @@ class StateStore {
         )),
         sessionId: item.sessionId || '',
         sessionContinuationMode: item.sessionContinuationMode || '',
+        goalMode: Boolean(item.goalMode) || Boolean(String(item.goalObjective || '').trim()),
+        goalObjective: String(item.goalObjective || '').trim(),
         workdir: normalizeWorkdir(item.workdir || state.workdir),
         pinnedAt: Number(item.pinnedAt || 0),
         createdAt: Number(item.createdAt || 0),

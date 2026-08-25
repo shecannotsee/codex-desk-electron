@@ -116,6 +116,13 @@ function parseMessages(rawMessages) {
       if (createdAt > 0) {
         message.createdAt = createdAt;
       }
+      const goalObjective = String(item.goalObjective || item.goal_objective || '').trim();
+      if (Boolean(item.goalMode ?? item.goal_mode) || goalObjective) {
+        message.goalMode = true;
+        if (goalObjective) {
+          message.goalObjective = goalObjective;
+        }
+      }
       if (item.interrupted) {
         message.interrupted = true;
       }

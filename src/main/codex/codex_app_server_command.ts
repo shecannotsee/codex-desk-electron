@@ -48,6 +48,7 @@ function parseAppServerCommandSettings(commandText, workdir) {
   let sandboxMode = '';
   let dangerousBypass = false;
   let fullAuto = false;
+  let skipGitRepoCheck = false;
 
   const keepWithValue = new Set(['--config', '-c', '--enable', '--disable']);
   for (let index = 0; index < args.length; index += 1) {
@@ -102,6 +103,10 @@ function parseAppServerCommandSettings(commandText, workdir) {
       dangerousBypass = true;
       continue;
     }
+    if (token === '--skip-git-repo-check') {
+      skipGitRepoCheck = true;
+      continue;
+    }
     if (token === '--full-auto') {
       fullAuto = true;
     }
@@ -131,7 +136,10 @@ function parseAppServerCommandSettings(commandText, workdir) {
     rootArgs,
     model,
     approvalPolicy: normalizeApprovalPolicy(resolvedApproval),
+    sandboxMode: resolvedSandbox,
     sandboxPolicy: resolveSandboxPolicy(resolvedSandbox, writableRoots),
+    skipGitRepoCheck,
+    dangerousBypass,
   };
 }
 
